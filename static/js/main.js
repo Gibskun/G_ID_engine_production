@@ -1,7 +1,7 @@
 // Global JavaScript utilities for G_ID Management System
 
 class GIDSystemAPI {
-    constructor(baseURL = '/api/v1') {
+    constructor(baseURL = '/gid/api/v1') {
         this.baseURL = baseURL;
     }
 
