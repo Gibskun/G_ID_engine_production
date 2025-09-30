@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Sync Management - Global ID Management System{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Synchronization Management</h2>
+    <p>Manage data synchronization between the employee (pegawai) database and the Global ID system.</p>
+</div>
+
+<!-- Sync Status Overview -->
+<div class="card">
+    <h3>Current Sync Status</h3>
+    <div id="sync-status-overview">
+        <p class="text-center">Loading sync status...</p>
+    </div>
+</div>
+
+<!-- Sync Actions -->
+<div class="card">
+    <h3>Sync Operations</h3>
+    <div class="text-center">
+        <button class="btn btn-primary" onclick="performInitialSync()">
+            Initial Sync
+        </button>
+        <button class="btn btn-success" onclick="performIncrementalSync()">
+            Incremental Sync
+        </button>
+        <button class="btn btn-warning" onclick="refreshSyncStatus()">
+            Refresh Status
+        </button>
+        <button class="btn btn-info" onclick="previewNextGID()">
+            Preview Next G_ID
+        </button>
+    </div>
+    
+    <div class="mt-3">
+        <h4>Sync Operation Descriptions:</h4>
+        <ul>
+            <li><strong>Initial Sync:</strong> Syncs all records from pegawai database. Use when setting up the system for the first time.</li>
+            <li><strong>Incremental Sync:</strong> Syncs only new records and handles soft deletes. Use for regular updates.</li>
+            <li><strong>Refresh Status:</strong> Updates the current synchronization status display.</li>
+            <li><strong>Preview Next G_ID:</strong> Shows what the next generated G_ID will be.</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Sync Progress -->
+<div class="card" id="sync-progress-card" style="display: none;">
+    <h3>Sync Progress</h3>
+    <div class="progress">
+        <div class="progress-bar" style="width: 0%">0%</div>
+    </div>
+    <div id="sync-progress-details">
+        <p>Starting sync operation...</p>
+    </div>
+</div>
+
+<!-- Sync Results -->
+<div class="card" id="sync-results-card" style="display: none;">
+    <h3>Sync Results</h3>
+    <div id="sync-results-content">
+        <!-- Results will be displayed here -->
+    </div>
+</div>
+
+<!-- Detailed Statistics -->
+<div class="card">
+    <h3>Detailed Statistics</h3>
+    <div id="detailed-statistics">
+        <p class="text-center">Loading detailed statistics...</p>
+    </div>
+</div>
+
+<!-- G_ID Preview Modal will be created dynamically -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+let syncInProgress = false;
+
+async function loadSyncStatus() {
+    try {
+        const status = await api.getSyncStatus();
+        updateSyncStatusOverview(status);
+        updateDetailedStatistics(status);
+    } catch (error) {
+        UIUtils.showAlert('Error loading sync status: ' + error.message, 'danger');
+        console.error('Sync status load error:', error);
+    }
+}
+
+function updateSyncStatusOverview(status) {
+    const container = document.getElementById('sync-status-overview');
+    
+    const globalIdStats = status.global_id_table;
+    const pegawaiStats = status.pegawai_table;
+    const syncStatus = status.sync_status;
+    
+    const syncNeeded = syncStatus.sync_needed;
+    const statusBadge = syncNeeded ? 
+        '<span class="status-badge status-inactive">Sync Needed</span>' : 
+        '<span class="status-badge status-active">Up to Date</span>';
+    
+    container.innerHTML = `
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h4>Overall Status</h4>
+                <p><strong>Status:</strong> ${statusBadge}</p>
+                <p><strong>Last Check:</strong> ${UIUtils.formatDate(syncStatus.last_check)}</p>
+                ${syncNeeded ? '<p class="text-danger"><strong>Action needed:</strong> Run incremental sync</p>' : '<p class="text-success">All records are synchronized</p>'}
+            </div>
+            <div class="stat-card">
+                <h4>Global ID Table</h4>
+                <p><strong>Total Records:</strong> ${UIUtils.formatNumber(globalIdStats.total_records)}</p>
+                <p><strong>Active:</strong> ${UIUtils.formatNumber(globalIdStats.active_records)}</p>
+                <p><strong>Inactive:</strong> ${UIUtils.formatNumber(globalIdStats.inactive_records)}</p>
+            </div>
+            <div class="stat-card">
+                <h4>Source Database</h4>
+                <p><strong>Total Records:</strong> ${UIUtils.formatNumber(pegawaiStats.total_records)}</p>
+                <p><strong>With G_ID:</strong> ${UIUtils.formatNumber(pegawaiStats.with_gid)}</p>
+                <p><strong>Without G_ID:</strong> ${UIUtils.formatNumber(pegawaiStats.without_gid)}</p>
+            </div>
+        </div>
+    `;
+}
+
+function updateDetailedStatistics(status) {
+    const container = document.getElementById('detailed-statistics');
+    
+    const globalIdStats = status.global_id_table;
+    
+    container.innerHTML = `
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h4>By Source</h4>
+                <p><strong>Database Source:</strong> ${UIUtils.formatNumber(globalIdStats.database_source)}</p>
+                <p><strong>Excel Source:</strong> ${UIUtils.formatNumber(globalIdStats.excel_source)}</p>
+            </div>
+            <div class="stat-card">
+                <h4>By Status</h4>
+                <p><strong>Active Records:</strong> ${UIUtils.formatNumber(globalIdStats.active_records)}</p>
+                <p><strong>Inactive Records:</strong> ${UIUtils.formatNumber(globalIdStats.inactive_records)}</p>
+            </div>
+            <div class="stat-card">
+                <h4>System Health</h4>
+                <p><strong>Total Capacity:</strong> Unlimited</p>
+                <p><strong>G_ID Generation:</strong> Active</p>
+                <p><strong>Database Status:</strong> Connected</p>
+            </div>
+        </div>
+    `;
+}
+
+async function performInitialSync() {
+    if (syncInProgress) {
+        UIUtils.showAlert('Sync operation already in progress. Please wait.', 'warning');
+        return;
+    }
+    
+    const confirmed = confirm('Initial sync will process ALL records from the source database. This may take some time. Continue?');
+    if (!confirmed) return;
+    
+    syncInProgress = true;
+    
+    try {
+        showSyncProgress('Starting initial sync...');
+        
+        updateSyncProgress(20, 'Connecting to source database...');
+        
+        const result = await api.initialSync();
+        
+        updateSyncProgress(80, 'Processing results...');
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        updateSyncProgress(100, 'Sync completed!');
+        
+        showSyncResults('Initial Sync', result);
+        
+        // Refresh status
+        setTimeout(loadSyncStatus, 1000);
+        
+    } catch (error) {
+        updateSyncProgress(0, 'Sync failed!');
+        UIUtils.showAlert('Initial sync failed: ' + error.message, 'danger');
+    } finally {
+        syncInProgress = false;
+        setTimeout(hideSyncProgress, 3000);
+    }
+}
+
+async function performIncrementalSync() {
+    if (syncInProgress) {
+        UIUtils.showAlert('Sync operation already in progress. Please wait.', 'warning');
+        return;
+    }
+    
+    syncInProgress = true;
+    
+    try {
+        showSyncProgress('Starting incremental sync...');
+        
+        updateSyncProgress(30, 'Checking for new records...');
+        
+        const result = await api.incrementalSync();
+        
+        updateSyncProgress(70, 'Handling deletions...');
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        updateSyncProgress(100, 'Sync completed!');
+        
+        showSyncResults('Incremental Sync', result);
+        
+        // Refresh status
+        setTimeout(loadSyncStatus, 1000);
+        
+    } catch (error) {
+        updateSyncProgress(0, 'Sync failed!');
+        UIUtils.showAlert('Incremental sync failed: ' + error.message, 'danger');
+    } finally {
+        syncInProgress = false;
+        setTimeout(hideSyncProgress, 3000);
+    }
+}
+
+function showSyncProgress(message) {
+    document.getElementById('sync-progress-card').style.display = 'block';
+    document.getElementById('sync-results-card').style.display = 'none';
+    updateSyncProgress(10, message);
+}
+
+function updateSyncProgress(percentage, message) {
+    UIUtils.updateProgressBar(percentage, `${percentage}%`);
+    document.getElementById('sync-progress-details').innerHTML = `<p>${message}</p>`;
+}
+
+function hideSyncProgress() {
+    document.getElementById('sync-progress-card').style.display = 'none';
+}
+
+function showSyncResults(operationType, result) {
+    const resultsCard = document.getElementById('sync-results-card');
+    const resultsContainer = document.getElementById('sync-results-content');
+    
+    resultsCard.style.display = 'block';
+    
+    let html = '';
+    
+    if (result.success) {
+        html += `
+            <div class="alert alert-success">
+                <h4>${operationType} Completed Successfully!</h4>
+                <p>${result.message}</p>
+            </div>
+        `;
+        
+        // Show summary statistics
+        const summary = result.summary;
+        
+        if (operationType === 'Initial Sync') {
+            html += `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number primary">${summary.total_source_records || 0}</div>
+                        <div class="stat-label">Source Records</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number success">${summary.successful || 0}</div>
+                        <div class="stat-label">Successfully Synced</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number warning">${summary.skipped || 0}</div>
+                        <div class="stat-label">Skipped (Duplicates)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number danger">${summary.errors ? summary.errors.length : 0}</div>
+                        <div class="stat-label">Errors</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Incremental sync results
+            html += `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number success">${summary.new_records ? summary.new_records.successful : 0}</div>
+                        <div class="stat-label">New Records</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number warning">${summary.deletion_handling ? summary.deletion_handling.marked_inactive : 0}</div>
+                        <div class="stat-label">Marked Inactive</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number primary">${summary.total_operations || 0}</div>
+                        <div class="stat-label">Total Operations</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Show errors if any
+        if (summary.errors && summary.errors.length > 0) {
+            html += '<h4>Warnings and Errors:</h4>';
+            html += '<div class="alert alert-warning">';
+            html += '<ul>';
+            summary.errors.forEach(error => {
+                html += `<li>${error}</li>`;
+            });
+            html += '</ul></div>';
+        }
+        
+    } else {
+        html += `
+            <div class="alert alert-danger">
+                <h4>${operationType} Failed</h4>
+                <p>${result.message}</p>
+            </div>
+        `;
+    }
+    
+    html += `
+        <div class="text-center">
+            <button class="btn btn-primary" onclick="refreshSyncStatus()">Refresh Status</button>
+
+        </div>
+    `;
+    
+    resultsContainer.innerHTML = html;
+    
+    // Scroll to results
+    resultsCard.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function refreshSyncStatus() {
+    const button = event.target;
+    UIUtils.showLoading(button, 'Refreshing...');
+    
+    try {
+        await loadSyncStatus();
+        UIUtils.showAlert('Sync status refreshed successfully!', 'success');
+    } catch (error) {
+        UIUtils.showAlert('Error refreshing sync status: ' + error.message, 'danger');
+    } finally {
+        UIUtils.hideLoading(button);
+    }
+}
+
+async function previewNextGID() {
+    try {
+        const result = await api.previewNextGID();
+        
+        const modalContent = `
+            <div class="text-center">
+                <h4>Next G_ID Preview</h4>
+                <div class="stat-card">
+                    <div class="stat-number primary" style="font-size: 3rem;">${result.next_gid}</div>
+                    <div class="stat-label">Next Generated G_ID</div>
+                </div>
+                
+                <h5>Sequence Information:</h5>
+                <table class="table">
+                    <tr><td><strong>Current Digit:</strong></td><td>${result.sequence_info.current_digit}</td></tr>
+                    <tr><td><strong>Current Year:</strong></td><td>${result.sequence_info.current_year}</td></tr>
+                    <tr><td><strong>Current Alpha:</strong></td><td>${result.sequence_info.current_alpha_1}${result.sequence_info.current_alpha_2}</td></tr>
+                    <tr><td><strong>Current Number:</strong></td><td>${String(result.sequence_info.current_number).padStart(2, '0')}</td></tr>
+                    <tr><td><strong>Last Updated:</strong></td><td>${UIUtils.formatDate(result.sequence_info.updated_at)}</td></tr>
+                </table>
+                
+                <p class="text-muted">This is the G_ID that will be assigned to the next new record.</p>
+            </div>
+        `;
+        
+        const modalButtons = `
+            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Close</button>
+            <button class="btn btn-primary" onclick="copyGID('${result.next_gid}')">Copy G_ID</button>
+        `;
+        
+        UIUtils.createModal('G_ID Preview', modalContent, { buttons: modalButtons });
+        
+    } catch (error) {
+        UIUtils.showAlert('Error previewing next G_ID: ' + error.message, 'danger');
+    }
+}
+
+function copyGID(gid) {
+    UIUtils.copyToClipboard(gid);
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    loadSyncStatus();
+});
+</script>
+{% endblock %}

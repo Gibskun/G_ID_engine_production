@@ -1,0 +1,500 @@
+{% extends "base.html" %}
+
+{% block title %}Excel Upload - Global ID Management System{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Excel/CSV File Upload & Synchronization</h2>
+    <p>Upload Excel (.xlsx, .xls) or CSV files to synchronize employee data with the Global ID system. The uploaded file will be treated as the source of truth - existing records will be updated/reactivated, new records will be created, and database records not found in the file will be automatically deactivated.</p>
+    <div class="alert alert-info">
+        <strong>New Synchronization Logic:</strong> No more "duplicate data" errors! The system now intelligently handles existing records and maintains data consistency.
+    </div>
+</div>
+
+<!-- Excel/CSV Template Information -->
+<div class="card">
+    <h3>File Template Requirements</h3>
+    <div id="template-info">
+        <p class="text-center">Loading template information...</p>
+    </div>
+    <div class="text-center">
+        <button class="btn btn-secondary" onclick="downloadTemplate('csv')">Download CSV Template</button>
+        <button class="btn btn-secondary" onclick="downloadTemplate('excel')">Download Excel Template</button>
+    </div>
+</div>
+
+<!-- File Upload Area -->
+<div class="card">
+    <h3>Upload Excel or CSV File</h3>
+    
+    <!-- Upload Mode Selection -->
+    <div class="mb-3">
+        <h4>Upload Method:</h4>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="uploadMode" id="standardMode" value="standard" checked>
+            <label class="form-check-label" for="standardMode">
+                <strong>Full Synchronization</strong> - Comprehensive data sync with automatic activation/deactivation
+            </label>
+            <div class="text-muted ml-4">
+                <small>• Updates existing records and creates new ones</small><br>
+                <small>• Automatically deactivates records missing from the uploaded file</small><br>
+                <small>• Treats uploaded file as source of truth for active data</small>
+            </div>
+        </div>
+        <div class="form-check mt-3">
+            <input class="form-check-input" type="radio" name="uploadMode" id="advancedMode" value="advanced">
+            <label class="form-check-label" for="advancedMode">
+                <strong>Legacy Advanced Workflow</strong> - Original advanced processing (deprecated)
+            </label>
+            <div class="text-muted ml-4">
+                <small>• Legacy mode - use Full Synchronization instead</small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Advanced Options (shown only when advanced mode is selected) -->
+    <div id="advanced-options" style="display: none;" class="mb-3">
+        <div class="alert alert-warning">
+            <h5>Legacy Advanced Workflow (Deprecated):</h5>
+            <p><strong>Note:</strong> This mode is deprecated. Please use "Full Synchronization" for better results.</p>
+            <ul>
+                <li><strong>File Comparison:</strong> Records not found in the new file will be automatically deactivated</li>
+                <li><strong>Comprehensive Validation:</strong> Enhanced data structure validation and error reporting</li>
+                <li><strong>Audit Trail:</strong> Detailed logging of all changes and operations</li>
+                <li><strong>Deactivation Control:</strong> Option to enable/disable automatic deactivation</li>
+            </ul>
+        </div>
+        
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="enableDeactivation" checked>
+            <label class="form-check-label" for="enableDeactivation">
+                Enable automatic deactivation of records not found in uploaded file
+            </label>
+        </div>
+    </div>
+    
+    <div id="file-upload-container">
+        <!-- File uploader will be initialized here -->
+    </div>
+</div>
+
+<!-- Upload Progress -->
+<div class="card" id="progress-card" style="display: none;">
+    <h3>Upload Progress</h3>
+    <div class="progress">
+        <div class="progress-bar" style="width: 0%">0%</div>
+    </div>
+    <div id="progress-details">
+        <p>Preparing upload...</p>
+    </div>
+</div>
+
+<!-- Upload Results -->
+<div class="card" id="results-card" style="display: none;">
+    <h3>Upload Results</h3>
+    <div id="upload-results">
+        <!-- Results will be displayed here -->
+    </div>
+</div>
+
+<!-- Recent Uploads -->
+<div class="card">
+    <h3>Recent Uploads</h3>
+    <div id="recent-uploads">
+        <p class="text-muted text-center">No recent uploads found. Upload history will appear here.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let fileUploader;
+let uploadInProgress = false;
+
+async function loadTemplateInfo() {
+    try {
+        const template = await api.getExcelTemplate();
+        updateTemplateInfo(template);
+    } catch (error) {
+        document.getElementById('template-info').innerHTML = 
+            '<div class="alert alert-danger">Error loading template information</div>';
+    }
+}
+
+function updateTemplateInfo(template) {
+    const container = document.getElementById('template-info');
+    
+    let html = '<div class="table-container"><table><thead><tr>';
+    html += '<th>Column Name</th><th>Description</th><th>Type</th><th>Required</th><th>Notes</th>';
+    html += '</tr></thead><tbody>';
+    
+    template.required_columns.forEach(col => {
+        html += `
+            <tr>
+                <td><strong>${col.name}</strong></td>
+                <td>${col.description}</td>
+                <td>${col.type}</td>
+                <td>${col.required ? '<span class="status-badge status-active">Yes</span>' : '<span class="status-badge status-inactive">No</span>'}</td>
+                <td>${col.format ? `Format: ${col.format}` : ''} ${col.example ? `<br>Example: ${col.example}` : ''}</td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    
+    if (template.notes && template.notes.length > 0) {
+        html += '<h4>Important Notes:</h4><ul>';
+        template.notes.forEach(note => {
+            html += `<li>${note}</li>`;
+        });
+        html += '</ul>';
+    }
+    
+    container.innerHTML = html;
+}
+
+function initializeFileUploader() {
+    fileUploader = new FileUploader('#file-upload-container', {
+        accept: '.xlsx,.xls,.csv',
+        maxSize: 10 * 1024 * 1024, // 10MB
+        onUpload: handleFileUpload,
+        onError: (error) => UIUtils.showAlert(error, 'danger')
+    });
+}
+
+async function handleFileUpload(file) {
+    if (uploadInProgress) {
+        UIUtils.showAlert('Upload already in progress. Please wait for it to complete.', 'warning');
+        return;
+    }
+    
+    uploadInProgress = true;
+    
+    try {
+        // Show progress card
+        document.getElementById('progress-card').style.display = 'block';
+        document.getElementById('results-card').style.display = 'none';
+        
+        // Determine upload mode
+        const uploadMode = document.querySelector('input[name="uploadMode"]:checked').value;
+        const isAdvancedMode = uploadMode === 'advanced';
+        
+        // Update progress
+        updateProgress(10, 'Validating file...');
+        
+        // Upload file using appropriate method
+        updateProgress(30, isAdvancedMode ? 'Uploading file with advanced workflow...' : 'Uploading file...');
+        
+        let result;
+        if (isAdvancedMode) {
+            const enableDeactivation = document.getElementById('enableDeactivation').checked;
+            result = await api.uploadFileAdvanced(file, enableDeactivation);
+        } else {
+            result = await api.uploadExcel(file);
+        }
+        
+        updateProgress(60, isAdvancedMode ? 'Processing with advanced workflow...' : 'Processing Excel data...');
+        
+        // Simulate processing time
+        await new Promise(resolve => setTimeout(resolve, isAdvancedMode ? 2000 : 1000));
+        
+        updateProgress(100, 'Upload completed!');
+        
+        // Show results
+        showUploadResults(result, isAdvancedMode);
+        
+        // Hide progress after a delay
+        setTimeout(() => {
+            document.getElementById('progress-card').style.display = 'none';
+        }, 2000);
+        
+    } catch (error) {
+        updateProgress(0, 'Upload failed!');
+        UIUtils.showAlert('Upload failed: ' + error.message, 'danger');
+        
+        setTimeout(() => {
+            document.getElementById('progress-card').style.display = 'none';
+        }, 3000);
+    } finally {
+        uploadInProgress = false;
+        
+        // Reset file input
+        fileUploader.init();
+    }
+}
+
+function updateProgress(percentage, message) {
+    UIUtils.updateProgressBar(percentage, `${percentage}%`);
+    document.getElementById('progress-details').innerHTML = `<p>${message}</p>`;
+}
+
+function showUploadResults(result, isAdvancedMode = false) {
+    const resultsCard = document.getElementById('results-card');
+    const resultsContainer = document.getElementById('upload-results');
+    
+    resultsCard.style.display = 'block';
+    
+    let html = '';
+    
+    if (result.success) {
+        const summary = result.processing_summary;
+        
+        html += `
+            <div class="alert alert-success">
+                <h4>Synchronization Successful!</h4>
+                <p><strong>File:</strong> ${result.filename}</p>
+                <p>${result.message}</p>
+                <p><em>Full data synchronization includes automatic activation/deactivation based on uploaded file content.</em></p>
+            </div>
+        `;
+        
+        // Check if this is the new synchronization format
+        if (summary && summary.sync_stats) {
+            const stats = summary.sync_stats;
+            html += `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number primary">${stats.total_processed || 0}</div>
+                        <div class="stat-label">Total Processed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number success">${stats.existing_updated || 0}</div>
+                        <div class="stat-label">Updated/Reactivated</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number info">${stats.new_created || 0}</div>
+                        <div class="stat-label">New Records Created</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number warning">${stats.obsolete_deactivated || 0}</div>
+                        <div class="stat-label">Deactivated</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number danger">${stats.errors || 0}</div>
+                        <div class="stat-label">Errors</div>
+                    </div>
+                </div>
+            `;
+            
+            // Show detailed breakdown if there are deactivated records
+            if (stats.obsolete_deactivated > 0) {
+                html += `
+                    <div class="alert alert-info">
+                        <h5>Deactivation Details:</h5>
+                        <p><strong>${stats.obsolete_deactivated}</strong> records were automatically deactivated because they were not present in the uploaded file.</p>
+                        <p>These records still exist in the database but have been marked as 'Non Active' status.</p>
+                        <p>To view deactivated records, check the monitoring dashboard or database viewer.</p>
+                    </div>
+                `;
+            }
+            
+            // Show processing details
+            if (summary.operation_type === 'full_synchronization') {
+                html += `
+                    <div class="alert alert-info">
+                        <h5>Synchronization Process:</h5>
+                        <ul>
+                            <li><strong>File Validation:</strong> All records in the file were validated and processed</li>
+                            <li><strong>Existing Records:</strong> Records found in both file and database were updated/reactivated</li>
+                            <li><strong>New Records:</strong> Records only in the file were created with new G_IDs</li>
+                            <li><strong>Obsolete Records:</strong> Database records not in the file were deactivated</li>
+                            <li><strong>Audit Trail:</strong> All changes have been logged for tracking</li>
+                        </ul>
+                    </div>
+                `;
+            }
+        } else if (isAdvancedMode && summary.summary) {
+            // Legacy advanced workflow results
+            const advSummary = summary.summary;
+            html += `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number primary">${advSummary.total_processed || 0}</div>
+                        <div class="stat-label">Total Processed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number success">${advSummary.total_successful || 0}</div>
+                        <div class="stat-label">Successfully Created</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number warning">${advSummary.total_skipped || 0}</div>
+                        <div class="stat-label">Skipped</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number info">${advSummary.total_deactivated || 0}</div>
+                        <div class="stat-label">Deactivated</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number danger">${advSummary.total_errors || 0}</div>
+                        <div class="stat-label">Errors</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Legacy standard workflow results
+            html += `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number primary">${summary.total_rows || 0}</div>
+                        <div class="stat-label">Total Rows</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number success">${summary.successful || 0}</div>
+                        <div class="stat-label">Successfully Created</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number warning">${summary.skipped || 0}</div>
+                        <div class="stat-label">Skipped</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number danger">${summary.errors ? summary.errors.length : 0}</div>
+                        <div class="stat-label">Errors</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Show created G_IDs
+        if (summary.created_gids && summary.created_gids.length > 0) {
+            html += '<h4>Created G_IDs:</h4>';
+            html += '<div class="table-container"><table><thead><tr>';
+            html += '<th>G_ID</th><th>Name</th><th>No_KTP</th><th>Actions</th>';
+            html += '</tr></thead><tbody>';
+            
+            summary.created_gids.forEach(item => {
+                html += `
+                    <tr>
+                        <td><strong>${item.gid}</strong></td>
+                        <td>${item.name}</td>
+                        <td>${item.no_ktp}</td>
+                        <td><button class="btn btn-sm btn-secondary" onclick="copyGID('${item.gid}')">Copy G_ID</button></td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+        }
+        
+        // Show errors if any
+        if (summary.errors && summary.errors.length > 0) {
+            html += '<h4>Errors and Warnings:</h4>';
+            html += '<div class="alert alert-warning">';
+            html += '<ul>';
+            summary.errors.forEach(error => {
+                html += `<li>${error}</li>`;
+            });
+            html += '</ul></div>';
+        }
+        
+    } else {
+        html += `
+            <div class="alert alert-danger">
+                <h4>Upload Failed</h4>
+                <p><strong>File:</strong> ${result.filename}</p>
+                <p>${result.message}</p>
+            </div>
+        `;
+        
+        if (result.processing_summary && result.processing_summary.errors) {
+            html += '<h4>Error Details:</h4>';
+            html += '<div class="alert alert-danger">';
+            html += '<ul>';
+            result.processing_summary.errors.forEach(error => {
+                html += `<li>${error}</li>`;
+            });
+            html += '</ul></div>';
+        }
+    }
+    
+    html += `
+        <div class="text-center">
+            <button class="btn btn-primary" onclick="uploadAnother()">Upload Another File</button>
+            <a href="/data" class="btn btn-secondary">View All Records</a>
+        </div>
+    `;
+    
+    resultsContainer.innerHTML = html;
+    
+    // Scroll to results
+    resultsCard.scrollIntoView({ behavior: 'smooth' });
+}
+
+function copyGID(gid) {
+    UIUtils.copyToClipboard(gid);
+}
+
+function uploadAnother() {
+    document.getElementById('results-card').style.display = 'none';
+    document.getElementById('progress-card').style.display = 'none';
+    fileUploader.init();
+    
+    // Scroll back to upload area
+    document.getElementById('file-upload-container').scrollIntoView({ behavior: 'smooth' });
+}
+
+function downloadTemplate(format = 'csv') {
+    // Create a sample template based on the requirements
+    const csvContent = `name,personal_number,no_ktp,bod
+John Doe,081234567890,3201234567890001,1985-03-15
+Jane Smith,081234567891,3201234567890002,1990-07-22
+Ahmad Suharto,081234567892,3201234567890003,1988-12-10`;
+
+    if (format === 'csv') {
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'global_id_template.csv');
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        UIUtils.showAlert('CSV template downloaded successfully!', 'success');
+    } else if (format === 'excel') {
+        // For Excel template, we'll provide a CSV with instructions for Excel conversion
+        const excelInstructions = `# Global ID Excel Template Instructions
+# 1. Copy the data below to Excel
+# 2. Save as .xlsx format
+# 3. Upload the Excel file
+
+${csvContent}`;
+
+        const blob = new Blob([excelInstructions], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'global_id_excel_template_instructions.txt');
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        UIUtils.showAlert('Excel template instructions downloaded! Copy the data to Excel and save as .xlsx', 'info');
+    }
+}
+
+// Handle upload mode selection
+function handleUploadModeChange() {
+    const uploadModeRadios = document.querySelectorAll('input[name="uploadMode"]');
+    const advancedOptions = document.getElementById('advanced-options');
+    
+    uploadModeRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'advanced') {
+                advancedOptions.style.display = 'block';
+            } else {
+                advancedOptions.style.display = 'none';
+            }
+        });
+    });
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    loadTemplateInfo();
+    initializeFileUploader();
+    handleUploadModeChange();
+});
+</script>
+{% endblock %}

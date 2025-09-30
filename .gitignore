@@ -1,0 +1,381 @@
+# ================================
+# PYTHON SPECIFIC
+# ================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+test_results/
+
+# Translations
+*.mo
+*.pot
+
+# ================================
+# PYTHON ENVIRONMENTS & TOOLS
+# ================================
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+venv*/
+.conda/
+conda-meta/
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# pdm
+pdm.lock
+.pdm.toml
+
+# PEP 582
+__pypackages__/
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Profiling
+*.prof
+
+# ================================
+# WEB FRAMEWORKS
+# ================================
+
+# Django
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask
+instance/
+.webassets-cache
+
+# FastAPI specific
+.pytest_cache/
+
+# ================================
+# JUPYTER & IPYTHON
+# ================================
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# IPython
+profile_default/
+ipython_config.py
+
+# ================================
+# IDES & EDITORS
+# ================================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+.history/
+*.vsix
+
+# PyCharm / JetBrains
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# Eclipse
+.metadata
+.settings/
+.loadpath
+.recommenders
+local.properties
+
+# NetBeans
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# ================================
+# OPERATING SYSTEMS
+# ================================
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+
+# Linux
+*~
+
+# ================================
+# PROJECT SPECIFIC
+# ================================
+
+# Environment configuration files
+.env*
+!.env.example
+config.local.py
+settings.local.py
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+*.log
+logs/
+gid_system.log
+
+# CSV and Excel files (contain sensitive data)
+*.csv
+*.xlsx
+*.xls
+!sample_data_small.csv
+!sample_data_medium.csv
+!sample_data_large.csv
+
+# Generated test and dummy data
+generated_data_*
+dummy_*.csv
+dummy_*.xlsx
+test_data_*
+*_test_results.json
+
+# Upload directories
+uploads/
+uploaded_files/
+temp_uploads/
+
+# Backup files
+*.bak
+*.backup
+backup_*
+
+# Performance test results
+performance_results/
+benchmark_*.json
+
+# SSL certificates and keys
+*.pem
+*.key
+*.crt
+*.cert
+
+# ================================
+# TEMPORARY FILES
+# ================================
+
+# General temp files
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Office temp files
+~$*
+
+# Runtime files
+*.pid
+*.lock
+
+# Cache directories
+cache/
+temp/
+tmp/
+data/
+
+# ================================
+# DOCUMENTATION & BUILD
+# ================================
+
+# Documentation builds
+docs/_build/
+site/
+*.pdf
+*.docx
+docs/generated/
+
+# Sphinx
+.buildinfo
+
+# MkDocs
+/site
+
+# ================================
+# CONTAINERIZATION & DEPLOYMENT
+# ================================
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+.docker/
+
+# Kubernetes
+k8s/
+*.yaml
+*.yml
+# Keep example files
+!docker-compose.example.yml
+!k8s-example.yaml
+
+# ================================
+# MONITORING & METRICS
+# ================================
+
+# Monitoring data
+metrics/
+monitoring/
+
+# ================================
+# ARCHIVE & COMPRESSION
+# ================================
+
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# ================================
+# PACKAGE MANAGERS
+# ================================
+
+# Node.js (if any frontend components)
+node_modules/
+package-lock.json
+yarn.lock
+
+# ================================
+# PERSONAL FILES
+# ================================
+
+# Personal notes
+TODO.md
+NOTES.md
+notes.txt
+todo.txt
+
+# Development files
+test_*.py
+debug_*.py
+dev_*.py
+experiment_*.py
+
+# ================================
+# CELERY (if used)
+# ================================
+
+celerybeat-schedule
+celerybeat.pid
+
+# ================================
+# SCRAPY (if used)
+# ================================
+
+.scrapy
+
+# ================================
+# SAGE MATH
+# ================================
+
+*.sage.py
+
+# ================================
+# CYTHON
+# ================================
+
+cython_debug/

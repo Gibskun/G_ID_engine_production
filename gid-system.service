@@ -1,0 +1,31 @@
+[Unit]
+Description=Global ID Management System
+After=network.target
+
+[Service]
+Type=simple
+User=gibral
+Group=gibral
+WorkingDirectory=/var/www/gid-system
+Environment=PATH=/var/www/gid-system/venv/bin
+ExecStart=/var/www/gid-system/venv/bin/python main.py
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=10
+KillMode=mixed
+TimeoutStopSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gid-system
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/www/gid-system/uploads /var/www/gid-system/gid_system.log
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

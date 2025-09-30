@@ -1,0 +1,1090 @@
+{% extends "base.html" %}
+
+{% block title %}Database Explorer - Global ID Management System{% endblock %}
+
+{% block styles %}
+<style>
+.database-explorer-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 10px;
+}
+
+.database-explorer-header h1 {
+    margin: 0;
+    font-size: 2.5rem;
+    font-weight: bold;
+}
+
+.database-explorer-header .header-subtitle {
+    margin: 0.5rem 0 0 0;
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.database-section {
+    margin-bottom: 3rem;
+    border: 2px solid #e9ecef;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.database-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    padding: 1.5rem;
+    margin: 0;
+}
+
+.database-header.pegawai {
+    background: linear-gradient(135deg, #fd7e14 0%, #e83e8c 100%);
+}
+
+.database-header h2 {
+    margin: 0;
+    font-size: 1.8rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.database-info {
+    background: #f8f9fa;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.database-info p {
+    margin: 0.25rem 0;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.table-section {
+    margin: 2rem 0;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.table-header {
+    background: #495057;
+    color: white;
+    padding: 1rem;
+    margin: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.table-header h3 {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.table-meta {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.table-content {
+    padding: 1rem;
+    background: white;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+}
+
+.data-table th {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.data-table td {
+    border: 1px solid #dee2e6;
+    padding: 0.75rem;
+    vertical-align: top;
+    max-width: 200px;
+    word-wrap: break-word;
+}
+
+.data-table tbody tr:nth-child(even) {
+    background: #f8f9fa;
+}
+
+.data-table tbody tr:hover {
+    background: #e9ecef;
+}
+
+.loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.error-message {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 1rem;
+    border-radius: 5px;
+    border: 1px solid #f5c6cb;
+    margin: 1rem 0;
+}
+
+.no-data-message {
+    background: #fff3cd;
+    color: #856404;
+    padding: 1.5rem;
+    border-radius: 5px;
+    border: 1px solid #ffeaa7;
+    text-align: center;
+    margin: 1rem 0;
+}
+
+.refresh-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background 0.3s;
+}
+
+.refresh-btn:hover {
+    background: #0056b3;
+}
+
+.table-wrapper {
+    max-height: 600px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+}
+
+.stats-row {
+    display: flex;
+    gap: 1rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+}
+
+.stat-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    flex: 1;
+    min-width: 150px;
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #007bff;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.column-type {
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* CRUD Controls Styling */
+.crud-controls {
+    background: #f8f9fa;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.crud-controls .btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+}
+
+.crud-controls .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #17a2b8, #6f42c1);
+    color: white;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc3545, #e83e8c);
+    color: white;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* Actions Column Styling */
+.actions-cell {
+    text-align: center;
+    vertical-align: middle;
+    width: 100px;
+    white-space: nowrap;
+}
+
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+/* Modal Styling */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 3% auto;
+    padding: 0;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    animation: slideIn 0.3s ease-out;
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #007bff, #6610f2);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 2rem;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.3s;
+    line-height: 1;
+}
+
+.close:hover {
+    opacity: 1;
+}
+
+.modal-body {
+    padding: 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+    box-sizing: border-box;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.modal-footer {
+    padding: 1.5rem;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+/* Loading States */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.loading-spinner-inline {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ffffff;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 0.5rem;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { 
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Notification Styling */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1001;
+    min-width: 300px;
+    max-width: 500px;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transform: translateX(400px);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.notification.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.notification-success {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.notification-error {
+    background: linear-gradient(135deg, #dc3545, #e83e8c);
+    color: white;
+}
+
+.notification-info {
+    background: linear-gradient(135deg, #17a2b8, #6f42c1);
+    color: white;
+}
+
+.notification-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.notification-content i {
+    font-size: 1.2rem;
+}
+
+@media (max-width: 768px) {
+    .database-explorer-header h1 {
+        font-size: 2rem;
+    }
+    
+    .data-table {
+        font-size: 0.75rem;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 0.5rem;
+        max-width: 120px;
+    }
+    
+    .stats-row {
+        flex-direction: column;
+    }
+    
+    .crud-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 2% auto;
+    }
+    
+    .actions-cell {
+        width: 80px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="database-explorer-header text-center">
+    <div class="container">
+        <h1><i class="fas fa-database"></i> Database Explorer</h1>
+        <p class="header-subtitle">Complete view of the consolidated SQL Server database (migrated from PostgreSQL)</p>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="text-center mb-4">
+        <div class="alert alert-info mb-3">
+            <i class="fas fa-info-circle"></i> 
+            <strong>Notice:</strong> This page will load ALL data from each table. Large tables may take time to load and display.
+        </div>
+        <button class="refresh-btn" onclick="loadAllDatabaseData()">
+            <i class="fas fa-sync-alt"></i> Load All Database Data
+        </button>
+    </div>
+    
+    <div id="loading" class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Loading complete database contents...</p>
+        <small>This may take a moment for large tables</small>
+    </div>
+    
+    <div id="database-content" style="display: none;">
+        <!-- Consolidated SQL Server Database Section -->
+        <div class="database-section">
+            <div class="database-header">
+                <h2><i class="fas fa-database"></i> Consolidated SQL Server Database (dbvendor)</h2>
+            </div>
+            <div class="database-info">
+                <p><strong>Connection:</strong> <code id="global-db-url">Loading...</code></p>
+                <p><strong>Tables:</strong> <span id="global-db-table-count">0</span> | <strong>Total Records:</strong> <span id="global-db-record-count">0</span></p>
+                <p><strong>Description:</strong> Migrated from PostgreSQL dual-database to consolidated SQL Server database</p>
+            </div>
+            <div id="global-db-tables">
+                <!-- Tables will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function loadAllDatabaseData() {
+    const loading = document.getElementById('loading');
+    const content = document.getElementById('database-content');
+    
+    loading.style.display = 'flex';
+    content.style.display = 'none';
+    
+    try {
+        console.log('Fetching database information...');
+        const response = await fetch('/api/v1/database/explorer');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Database data received:', data);
+        
+        // Update consolidated database (dbvendor contains all tables now)
+        updateDatabaseSection('dbvendor', data.dbvendor, 'global');
+        
+        loading.style.display = 'none';
+        content.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading database data:', error);
+        loading.innerHTML = `
+            <div class="error-message">
+                <h4><i class="fas fa-exclamation-triangle"></i> Error Loading Database</h4>
+                <p>Failed to load database information: ${error.message}</p>
+                <button class="refresh-btn" onclick="loadAllDatabaseData()">
+                    <i class="fas fa-retry"></i> Try Again
+                </button>
+            </div>
+        `;
+    }
+}
+
+function updateDatabaseSection(dbKey, dbData, prefix) {
+    // Update connection info
+    document.getElementById(`${prefix}-db-url`).textContent = dbData.connection_url || 'Not available';
+    
+    const tables = dbData.tables || {};
+    const tableCount = Object.keys(tables).length;
+    let totalRecords = 0;
+    
+    // Calculate total records
+    Object.values(tables).forEach(table => {
+        totalRecords += table.row_count || 0;
+    });
+    
+    document.getElementById(`${prefix}-db-table-count`).textContent = tableCount;
+    document.getElementById(`${prefix}-db-record-count`).textContent = totalRecords;
+    
+    // Generate tables HTML
+    const tablesContainer = document.getElementById(`${prefix}-db-tables`);
+    
+    if (dbData.error) {
+        tablesContainer.innerHTML = `
+            <div class="error-message">
+                <h4><i class="fas fa-exclamation-triangle"></i> Database Connection Error</h4>
+                <p>${dbData.error}</p>
+            </div>
+        `;
+        return;
+    }
+    
+    if (tableCount === 0) {
+        tablesContainer.innerHTML = `
+            <div class="no-data-message">
+                <h4><i class="fas fa-info-circle"></i> No Tables Found</h4>
+                <p>No tables were found in this database.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let tablesHtml = '';
+    
+    Object.entries(tables).forEach(([tableName, tableData]) => {
+        tablesHtml += generateTableHtml(tableName, tableData);
+    });
+    
+    tablesContainer.innerHTML = tablesHtml;
+}
+
+function generateTableHtml(tableName, tableData) {
+    if (tableData.error) {
+        return `
+            <div class="table-section">
+                <div class="table-header">
+                    <h3><i class="fas fa-table"></i> ${tableName}</h3>
+                    <div class="table-meta">Error</div>
+                </div>
+                <div class="table-content">
+                    <div class="error-message">
+                        <p><strong>Error:</strong> ${tableData.error}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    const columns = tableData.columns || [];
+    const data = tableData.data || [];
+    const rowCount = tableData.row_count || 0;
+    
+    let tableHtml = `
+        <div class="table-section">
+            <div class="table-header">
+                <h3><i class="fas fa-table"></i> ${tableName}</h3>
+                <div class="table-meta">
+                    ${columns.length} columns • ${rowCount} rows (ALL DATA)
+                </div>
+            </div>
+    `;
+    
+    // Add CRUD controls for pegawai table
+    if (tableName === 'pegawai') {
+        tableHtml += `
+            <div class="crud-controls">
+                <button class="btn btn-success" onclick="showCreatePegawaiModal()">
+                    <i class="fas fa-plus"></i> Create New Data
+                </button>
+                <button class="btn btn-info" onclick="refreshPegawaiData()">
+                    <i class="fas fa-refresh"></i> Refresh Data
+                </button>
+                <div style="margin-left: auto; color: #6c757d; font-size: 0.9rem;">
+                    <i class="fas fa-info-circle"></i> CRUD operations available for this table
+                </div>
+            </div>
+        `;
+    }
+    
+    tableHtml += `<div class="table-content">`;
+    
+    if (rowCount === 0) {
+        tableHtml += `
+            <div class="no-data-message">
+                <h5><i class="fas fa-inbox"></i> No Data</h5>
+                <p>This table contains no records.</p>
+            </div>
+        `;
+    } else {
+        // Column information
+        tableHtml += `
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-number">${columns.length}</div>
+                    <div class="stat-label">Columns</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${rowCount}</div>
+                    <div class="stat-label">Records</div>
+                </div>
+            </div>
+        `;
+        
+        // Data table
+        tableHtml += `
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+        `;
+        
+        columns.forEach(column => {
+            tableHtml += `
+                <th>
+                    ${column.name}
+                    <br><span class="column-type">${column.type}</span>
+                </th>
+            `;
+        });
+        
+        // Add action column for pegawai table
+        if (tableName === 'pegawai') {
+            tableHtml += `
+                <th>
+                    Actions
+                    <br><span class="column-type">Operations</span>
+                </th>
+            `;
+        }
+        
+        tableHtml += `
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        data.forEach(row => {
+            tableHtml += '<tr>';
+            columns.forEach(column => {
+                const value = row[column.name];
+                const displayValue = value === null || value === undefined ? 
+                    '<span style="color: #999;">NULL</span>' : 
+                    String(value).length > 100 ? 
+                        String(value).substring(0, 100) + '...' : 
+                        String(value);
+                tableHtml += `<td>${displayValue}</td>`;
+            });
+            
+            // Add action buttons for pegawai table
+            if (tableName === 'pegawai') {
+                const isDeleted = row.deleted_at !== null && row.deleted_at !== undefined;
+                const pegawaiId = row.id;
+                const gId = row.g_id || 'N/A';
+                
+                tableHtml += `
+                    <td class="actions-cell">
+                        ${!isDeleted ? `
+                            <button class="btn btn-sm btn-danger" 
+                                    onclick="deletePegawai(${pegawaiId}, '${gId}')" 
+                                    title="Soft Delete Record"
+                                    data-pegawai-id="${pegawaiId}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : `
+                            <span class="badge badge-secondary" title="Soft Deleted">
+                                <i class="fas fa-trash"></i> Deleted
+                            </span>
+                        `}
+                    </td>
+                `;
+            }
+            
+            tableHtml += '</tr>';
+        });
+        
+        tableHtml += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+    
+    tableHtml += `
+            </div>
+        </div>
+    `;
+    
+    return tableHtml;
+}
+
+// CRUD Functions for Pegawai Table
+
+function showCreatePegawaiModal() {
+    document.getElementById('createPegawaiModal').style.display = 'block';
+    // Clear form
+    document.getElementById('createPegawaiForm').reset();
+}
+
+function closeCreateModal() {
+    document.getElementById('createPegawaiModal').style.display = 'none';
+}
+
+async function createPegawai() {
+    const form = document.getElementById('createPegawaiForm');
+    const submitBtn = document.getElementById('submitCreateBtn');
+    const formData = new FormData(form);
+    
+    // Validate required fields
+    const name = formData.get('name').trim();
+    const noKtp = formData.get('no_ktp').trim();
+    
+    if (!name || !noKtp) {
+        showNotification('Please fill in all required fields (Name and No KTP).', 'error');
+        return;
+    }
+    
+    if (noKtp.length !== 16 || !/^\d{16}$/.test(noKtp)) {
+        showNotification('No KTP must be exactly 16 digits.', 'error');
+        return;
+    }
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="loading-spinner-inline"></span>Creating...';
+    
+    try {
+        const payload = {
+            name: name,
+            personal_number: formData.get('personal_number')?.trim() || null,
+            no_ktp: noKtp,
+            bod: formData.get('bod') || null
+        };
+        
+        console.log('Creating pegawai with payload:', payload);
+        
+        const response = await fetch('/api/v1/data/pegawai', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        console.log('Create response:', result);
+        
+        if (response.ok && result.success) {
+            // Success notification with performance info
+            const performanceInfo = result.execution_time ? 
+                ` (${result.execution_time}s - ${result.performance_status})` : '';
+            
+            const message = result.reactivated ? 
+                `Record reactivated successfully! G_ID: ${result.g_id}. Previous record with matching data was found and reactivated.${performanceInfo}` : 
+                `New record created successfully! G_ID: ${result.g_id}. A new Global ID has been generated.${performanceInfo}`;
+            
+            showNotification(message, 'success');
+            
+            // Close modal and refresh data
+            closeCreateModal();
+            await refreshPegawaiData();
+        } else {
+            throw new Error(result.detail || result.error || 'Failed to create record');
+        }
+    } catch (error) {
+        console.error('Create error:', error);
+        showNotification(`Error creating record: ${error.message}`, 'error');
+    } finally {
+        // Reset button state
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-save"></i> Create Record';
+    }
+}
+
+async function deletePegawai(pegawaiId, gId) {
+    const confirmMessage = `Are you sure you want to delete this record?\n\n` +
+        `Pegawai ID: ${pegawaiId}\n` +
+        `G_ID: ${gId}\n\n` +
+        `This action will:\n` +
+        `• Soft delete the pegawai record\n` +
+        `• Mark the G_ID status as "Non Active" in global_id table\n` +
+        `• Preserve all data for potential reactivation`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    try {
+        // Find and disable the delete button
+        const deleteBtn = document.querySelector(`[data-pegawai-id="${pegawaiId}"]`);
+        if (deleteBtn) {
+            deleteBtn.disabled = true;
+            deleteBtn.innerHTML = '<span class="loading-spinner-inline"></span>';
+        }
+        
+        console.log(`Deleting pegawai ID: ${pegawaiId}, G_ID: ${gId}`);
+        
+        const response = await fetch(`/api/v1/data/pegawai/${pegawaiId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        console.log('Delete response:', result);
+        
+        if (response.ok && result.success) {
+            const performanceInfo = result.execution_time ? 
+                ` (${result.execution_time}s - ${result.performance_status})` : '';
+            
+            showNotification(
+                `Record deleted successfully! G_ID ${result.g_id} has been marked as "Non Active". ` +
+                `The record can be reactivated by creating a new entry with identical data.${performanceInfo}`, 
+                'success'
+            );
+            await refreshPegawaiData();
+        } else {
+            throw new Error(result.detail || result.error || 'Failed to delete record');
+        }
+    } catch (error) {
+        console.error('Delete error:', error);
+        showNotification(`Error deleting record: ${error.message}`, 'error');
+        
+        // Re-enable button on error
+        const deleteBtn = document.querySelector(`[data-pegawai-id="${pegawaiId}"]`);
+        if (deleteBtn) {
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+        }
+    }
+}
+
+async function refreshPegawaiData() {
+    // Show loading notification
+    showNotification('Refreshing pegawai data...', 'info');
+    
+    try {
+        // Reload all database data to get fresh pegawai data
+        await loadAllDatabaseData();
+        showNotification('Data refreshed successfully!', 'success');
+    } catch (error) {
+        console.error('Refresh error:', error);
+        showNotification('Error refreshing data. Please try again.', 'error');
+    }
+}
+
+function showNotification(message, type = 'info') {
+    // Remove any existing notifications
+    const existingNotifications = document.querySelectorAll('.notification');
+    existingNotifications.forEach(notif => {
+        if (notif.parentNode) {
+            notif.parentNode.removeChild(notif);
+        }
+    });
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    // Add to page
+    document.body.appendChild(notification);
+    
+    // Show notification
+    setTimeout(() => notification.classList.add('show'), 100);
+    
+    // Auto remove after appropriate time based on message length
+    const displayTime = Math.max(4000, Math.min(8000, message.length * 50));
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, displayTime);
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('createPegawaiModal');
+    if (event.target == modal) {
+        closeCreateModal();
+    }
+}
+
+// Load data when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadAllDatabaseData();
+});
+</script>
+
+<!-- Create Pegawai Modal -->
+<div id="createPegawaiModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-plus"></i> Create New Pegawai Record</h3>
+            <button class="close" onclick="closeCreateModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="alert alert-info" style="background: #e7f3ff; border: 1px solid #b3d9ff; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+                <i class="fas fa-info-circle"></i> 
+                <strong>Smart Logic Enabled:</strong>
+                <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
+                    <li>If matching data exists with "Non Active" status → <strong>Reactivates existing G_ID</strong></li>
+                    <li>If no match found → <strong>Generates new G_ID</strong></li>
+                    <li>Process completes within 1-5 seconds for optimal performance</li>
+                </ul>
+            </div>
+            
+            <form id="createPegawaiForm">
+                <div class="form-group">
+                    <label for="name">
+                        <i class="fas fa-user"></i> Full Name <span style="color: red;">*</span>
+                    </label>
+                    <input type="text" id="name" name="name" required 
+                           placeholder="Enter full name" maxlength="255">
+                </div>
+                
+                <div class="form-group">
+                    <label for="personal_number">
+                        <i class="fas fa-id-badge"></i> Personal Number
+                    </label>
+                    <input type="text" id="personal_number" name="personal_number" 
+                           placeholder="e.g., EMP-2025-0001 (optional)" maxlength="15">
+                </div>
+                
+                <div class="form-group">
+                    <label for="no_ktp">
+                        <i class="fas fa-id-card"></i> No KTP <span style="color: red;">*</span>
+                    </label>
+                    <input type="text" id="no_ktp" name="no_ktp" required 
+                           placeholder="Enter 16-digit KTP number" maxlength="16" 
+                           pattern="[0-9]{16}" title="Must be exactly 16 digits">
+                </div>
+                
+                <div class="form-group">
+                    <label for="bod">
+                        <i class="fas fa-calendar"></i> Birth Date
+                    </label>
+                    <input type="date" id="bod" name="bod">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+            <button type="button" class="btn btn-primary" id="submitCreateBtn" onclick="createPegawai()">
+                <i class="fas fa-save"></i> Create Record
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

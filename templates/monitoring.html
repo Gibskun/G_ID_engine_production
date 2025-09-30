@@ -1,0 +1,636 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring - Global ID Management System{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Real-time Monitoring</h2>
+    <p>Monitor system health, real-time synchronization status, and audit trails.</p>
+</div>
+
+<!-- Monitoring Control Panel -->
+<div class="card">
+    <h3>Monitoring Control Panel</h3>
+    <div id="monitoring-controls">
+        <p class="text-center">Loading monitoring status...</p>
+    </div>
+</div>
+
+<!-- System Health Status -->
+<div class="card">
+    <h3>System Health</h3>
+    <div id="system-health">
+        <div class="text-center">
+            <button class="btn btn-primary" onclick="checkSystemHealth()">Check System Health</button>
+        </div>
+    </div>
+</div>
+
+<!-- Advanced Workflow Status -->
+<div class="card">
+    <h3>Advanced Workflow System Status</h3>
+    <div id="workflow-status">
+        <div class="text-center">
+            <button class="btn btn-primary" onclick="checkWorkflowStatus()">Check Workflow Status</button>
+        </div>
+    </div>
+</div>
+
+<!-- Pegawai Database Synchronization -->
+<div class="card">
+    <h3>Pegawai Database Synchronization</h3>
+    <div id="pegawai-sync">
+        <div class="text-center">
+            <button class="btn btn-success" onclick="runPegawaiSync()">Run Pegawai Sync</button>
+            <button class="btn btn-info" onclick="getSyncStatus()">Check Sync Status</button>
+        </div>
+        <div id="pegawai-sync-results" style="display: none;">
+            <!-- Sync results will appear here -->
+        </div>
+    </div>
+</div>
+
+<!-- Real-time Sync Monitoring -->
+<div class="card">
+    <h3>Real-time Sync Monitoring</h3>
+    <div id="sync-monitoring">
+        <p class="text-center">Real-time monitoring status will appear here</p>
+    </div>
+</div>
+
+<!-- Audit Trail -->
+<div class="card">
+    <h3>Recent Audit Trail</h3>
+    <div class="search-filters">
+        <div class="form-group">
+            <label for="table-filter">Table</label>
+            <select id="table-filter" class="form-control" onchange="loadAuditLogs()">
+                <option value="">All Tables</option>
+                <option value="global_id">global_id</option>
+                <option value="global_id_non_database">global_id_non_database</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="action-filter">Action</label>
+            <select id="action-filter" class="form-control" onchange="loadAuditLogs()">
+                <option value="">All Actions</option>
+                <option value="INSERT">INSERT</option>
+                <option value="UPDATE">UPDATE</option>
+                <option value="DELETE">DELETE</option>
+                <option value="SYNC">SYNC</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>&nbsp;</label>
+            <div>
+                <button class="btn btn-primary" onclick="loadAuditLogs()">Refresh</button>
+                <button class="btn btn-secondary" onclick="clearAuditFilters()">Clear Filters</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="audit-trail">
+        <p class="text-center">Loading audit logs...</p>
+    </div>
+    
+    <div id="audit-pagination"></div>
+</div>
+
+<!-- Performance Metrics (Mock) -->
+<div class="card">
+    <h3>Performance Metrics</h3>
+    <div id="performance-metrics">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number success" id="response-time">--</div>
+                <div class="stat-label">Avg Response Time (ms)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number primary" id="requests-per-min">--</div>
+                <div class="stat-label">Requests/Min</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number info" id="active-connections">--</div>
+                <div class="stat-label">Active Connections</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number warning" id="memory-usage">--</div>
+                <div class="stat-label">Memory Usage (%)</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let auditPagination;
+let auditCurrentPage = 1;
+let performanceInterval;
+let monitoringInterval;
+
+async function loadMonitoringStatus() {
+    try {
+        const status = await api.getMonitoringStatus();
+        updateMonitoringControls(status);
+        updateSyncMonitoring(status);
+    } catch (error) {
+        UIUtils.showAlert('Error loading monitoring status: ' + error.message, 'danger');
+        console.error('Monitoring status error:', error);
+    }
+}
+
+function updateMonitoringControls(status) {
+    const container = document.getElementById('monitoring-controls');
+    
+    const pollingStatus = status.polling_monitor;
+    const triggerStatus = status.trigger_monitor;
+    
+    let html = '<div class="stats-grid">';
+    
+    // Polling Monitor Status
+    html += `
+        <div class="stat-card">
+            <h4>Polling Monitor</h4>
+            <p><strong>Status:</strong> ${pollingStatus.running ? 
+                '<span class="status-badge status-active">Running</span>' : 
+                '<span class="status-badge status-inactive">Stopped</span>'}</p>
+            ${pollingStatus.service_status ? `
+                <p><strong>Interval:</strong> ${pollingStatus.service_status.poll_interval}s</p>
+                <p><strong>Last Check:</strong> ${pollingStatus.service_status.last_check ? 
+                    UIUtils.formatDate(pollingStatus.service_status.last_check) : 'Never'}</p>
+            ` : ''}
+        </div>
+    `;
+    
+    // Trigger Monitor Status
+    html += `
+        <div class="stat-card">
+            <h4>Trigger Monitor</h4>
+            <p><strong>Status:</strong> ${triggerStatus.running ? 
+                '<span class="status-badge status-active">Running</span>' : 
+                '<span class="status-badge status-inactive">Stopped</span>'}</p>
+            <p><strong>Type:</strong> Database Triggers</p>
+        </div>
+    `;
+    
+    html += '</div>';
+    
+    // Control buttons
+    html += '<div class="text-center mt-3">';
+    
+    if (!pollingStatus.running && !triggerStatus.running) {
+        html += `
+            <button class="btn btn-success" onclick="startMonitoring('polling')">Start Polling Monitor</button>
+            <button class="btn btn-info" onclick="startMonitoring('trigger')">Start Trigger Monitor</button>
+        `;
+    } else {
+        html += `
+            <button class="btn btn-danger" onclick="stopMonitoring()">Stop All Monitoring</button>
+        `;
+        
+        if (!pollingStatus.running) {
+            html += `<button class="btn btn-success" onclick="startMonitoring('polling')">Start Polling</button>`;
+        }
+        
+        if (!triggerStatus.running) {
+            html += `<button class="btn btn-info" onclick="startMonitoring('trigger')">Start Triggers</button>`;
+        }
+    }
+    
+    html += `
+        <button class="btn btn-secondary" onclick="loadMonitoringStatus()">Refresh Status</button>
+    `;
+    
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+function updateSyncMonitoring(status) {
+    const container = document.getElementById('sync-monitoring');
+    
+    let html = '<div class="alert alert-info">';
+    
+    if (status.polling_monitor.running || status.trigger_monitor.running) {
+        html += '<h4>Real-time Monitoring Active</h4>';
+        html += '<p>The system is actively monitoring for changes in the source database.</p>';
+        
+        if (status.polling_monitor.running) {
+            html += `<p><strong>Polling:</strong> Checking every ${status.polling_monitor.service_status?.poll_interval || 30} seconds</p>`;
+        }
+        
+        if (status.trigger_monitor.running) {
+            html += '<p><strong>Triggers:</strong> Database triggers are active for immediate notifications</p>';
+        }
+        
+        html += '<p><strong>Actions:</strong> New records will be automatically synced and deletions will be handled</p>';
+    } else {
+        html += '<h4>Real-time Monitoring Inactive</h4>';
+        html += '<p>No real-time monitoring is currently active. Start monitoring to automatically sync changes.</p>';
+    }
+    
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+async function startMonitoring(type) {
+    const button = event.target;
+    UIUtils.showLoading(button, 'Starting...');
+    
+    try {
+        const result = await api.startMonitoring(type);
+        UIUtils.showAlert(result.message, 'success');
+        
+        // Refresh monitoring status
+        setTimeout(loadMonitoringStatus, 1000);
+        
+    } catch (error) {
+        UIUtils.showAlert('Error starting monitoring: ' + error.message, 'danger');
+    } finally {
+        UIUtils.hideLoading(button);
+    }
+}
+
+async function stopMonitoring() {
+    const button = event.target;
+    UIUtils.showLoading(button, 'Stopping...');
+    
+    try {
+        const result = await api.stopMonitoring();
+        UIUtils.showAlert(result.message, 'success');
+        
+        // Refresh monitoring status
+        setTimeout(loadMonitoringStatus, 1000);
+        
+    } catch (error) {
+        UIUtils.showAlert('Error stopping monitoring: ' + error.message, 'danger');
+    } finally {
+        UIUtils.hideLoading(button);
+    }
+}
+
+async function checkSystemHealth() {
+    const button = event.target;
+    const healthContainer = document.getElementById('system-health');
+    
+    UIUtils.showLoading(button, 'Checking...');
+    
+    try {
+        const health = await api.healthCheck();
+        
+        let html = `
+            <div class="alert alert-success">
+                <h4>System Health: Healthy</h4>
+                <p><strong>Database:</strong> ${health.database}</p>
+                <p><strong>Status:</strong> ${health.status}</p>
+                <p><strong>Timestamp:</strong> ${UIUtils.formatDate(health.timestamp)}</p>
+            </div>
+            <div class="text-center">
+                <button class="btn btn-primary" onclick="checkSystemHealth()">Recheck Health</button>
+            </div>
+        `;
+        
+        healthContainer.innerHTML = html;
+        
+    } catch (error) {
+        let html = `
+            <div class="alert alert-danger">
+                <h4>System Health: Issues Detected</h4>
+                <p><strong>Error:</strong> ${error.message}</p>
+                <p><strong>Status:</strong> Unhealthy</p>
+            </div>
+            <div class="text-center">
+                <button class="btn btn-danger" onclick="checkSystemHealth()">Recheck Health</button>
+            </div>
+        `;
+        
+        healthContainer.innerHTML = html;
+    } finally {
+        UIUtils.hideLoading(button);
+    }
+}
+
+async function loadAuditLogs() {
+    try {
+        const tableFilter = document.getElementById('table-filter').value;
+        const actionFilter = document.getElementById('action-filter').value;
+        
+        const params = {
+            page: auditCurrentPage,
+            size: 20
+        };
+        
+        if (tableFilter) params.table_name = tableFilter;
+        if (actionFilter) params.action = actionFilter;
+        
+        const logs = await api.getAuditLogs(params);
+        updateAuditTrail(logs);
+        
+    } catch (error) {
+        UIUtils.showAlert('Error loading audit logs: ' + error.message, 'danger');
+        document.getElementById('audit-trail').innerHTML = 
+            '<div class="alert alert-danger">Error loading audit logs</div>';
+    }
+}
+
+function updateAuditTrail(logs) {
+    const container = document.getElementById('audit-trail');
+    
+    if (logs.length === 0) {
+        container.innerHTML = '<div class="alert alert-info">No audit logs found</div>';
+        return;
+    }
+    
+    let html = '<div class="table-container"><table><thead><tr>';
+    html += '<th>ID</th><th>Table</th><th>Record ID</th><th>Action</th><th>Changed By</th><th>Reason</th><th>Timestamp</th><th>Details</th>';
+    html += '</tr></thead><tbody>';
+    
+    logs.forEach(log => {
+        html += `
+            <tr>
+                <td>${log.id}</td>
+                <td><code>${log.table_name}</code></td>
+                <td>${log.record_id || 'N/A'}</td>
+                <td><span class="status-badge source-${log.action.toLowerCase()}">${log.action}</span></td>
+                <td>${log.changed_by || 'System'}</td>
+                <td>${log.change_reason || 'N/A'}</td>
+                <td>${UIUtils.formatDate(log.created_at)}</td>
+                <td><button class="btn btn-sm btn-secondary" onclick="viewAuditDetails(${log.id})">Details</button></td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+async function viewAuditDetails(logId) {
+    try {
+        // For now, we'll show a basic modal since we don't have a specific endpoint for single log
+        const modalContent = `
+            <p>Audit log details for ID: ${logId}</p>
+            <p>This feature would show detailed old/new values comparison.</p>
+            <p class="text-muted">In a full implementation, this would fetch and display the complete audit trail with before/after values.</p>
+        `;
+        
+        UIUtils.createModal('Audit Log Details', modalContent);
+        
+    } catch (error) {
+        UIUtils.showAlert('Error loading audit details: ' + error.message, 'danger');
+    }
+}
+
+function clearAuditFilters() {
+    document.getElementById('table-filter').value = '';
+    document.getElementById('action-filter').value = '';
+    auditCurrentPage = 1;
+    loadAuditLogs();
+}
+
+function startPerformanceMonitoring() {
+    performanceInterval = setInterval(() => {
+        // Mock performance data - in real implementation, this would come from actual metrics
+        document.getElementById('response-time').textContent = Math.floor(Math.random() * 50) + 10;
+        document.getElementById('requests-per-min').textContent = Math.floor(Math.random() * 100) + 50;
+        document.getElementById('active-connections').textContent = Math.floor(Math.random() * 10) + 5;
+        document.getElementById('memory-usage').textContent = Math.floor(Math.random() * 30) + 40;
+    }, 5000);
+}
+
+function stopPerformanceMonitoring() {
+    if (performanceInterval) {
+        clearInterval(performanceInterval);
+        performanceInterval = null;
+    }
+}
+
+function startMonitoringRefresh() {
+    monitoringInterval = setInterval(loadMonitoringStatus, 30000); // Refresh every 30 seconds
+}
+
+function stopMonitoringRefresh() {
+    if (monitoringInterval) {
+        clearInterval(monitoringInterval);
+        monitoringInterval = null;
+    }
+}
+
+// Advanced Workflow Functions
+async function checkWorkflowStatus() {
+    try {
+        UIUtils.showLoading('workflow-status', 'Checking workflow status...');
+        
+        const status = await api.getWorkflowStatus();
+        
+        let html = '';
+        
+        if (status.status === 'operational') {
+            html += `
+                <div class="alert alert-success">
+                    <h4>System Status: Operational</h4>
+                    <p><strong>Last Check:</strong> ${UIUtils.formatDate(status.timestamp)}</p>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number primary">${status.statistics.total_global_records}</div>
+                        <div class="stat-label">Total G_ID Records</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number success">${status.statistics.active_records}</div>
+                        <div class="stat-label">Active Records</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number warning">${status.statistics.inactive_records}</div>
+                        <div class="stat-label">Inactive Records</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number info">${status.statistics.excel_source_records}</div>
+                        <div class="stat-label">Excel Source</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number info">${status.statistics.database_source_records}</div>
+                        <div class="stat-label">Database Source</div>
+                    </div>
+                </div>
+            `;
+            
+            if (status.recent_activities && status.recent_activities.length > 0) {
+                html += '<h4>Recent Activities:</h4>';
+                html += '<div class="table-container"><table><thead><tr>';
+                html += '<th>Action</th><th>Table</th><th>Record ID</th><th>Timestamp</th><th>Reason</th>';
+                html += '</tr></thead><tbody>';
+                
+                status.recent_activities.forEach(activity => {
+                    html += `
+                        <tr>
+                            <td><span class="action-badge action-${activity.action.toLowerCase()}">${activity.action}</span></td>
+                            <td>${activity.table}</td>
+                            <td><strong>${activity.record_id}</strong></td>
+                            <td>${UIUtils.formatDate(activity.timestamp)}</td>
+                            <td><em>${activity.reason || 'N/A'}</em></td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+            }
+        } else {
+            html += `
+                <div class="alert alert-danger">
+                    <h4>System Status: Error</h4>
+                    <p><strong>Error:</strong> ${status.error}</p>
+                    <p><strong>Timestamp:</strong> ${UIUtils.formatDate(status.timestamp)}</p>
+                </div>
+            `;
+        }
+        
+        document.getElementById('workflow-status').innerHTML = html;
+        
+    } catch (error) {
+        document.getElementById('workflow-status').innerHTML = `
+            <div class="alert alert-danger">
+                <h4>Error Checking Workflow Status</h4>
+                <p>${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+async function runPegawaiSync() {
+    try {
+        UIUtils.showLoading('pegawai-sync-results', 'Running pegawai synchronization...');
+        document.getElementById('pegawai-sync-results').style.display = 'block';
+        
+        const result = await api.syncPegawaiAdvanced();
+        
+        let html = '';
+        
+        if (result.success) {
+            html += `
+                <div class="alert alert-success">
+                    <h4>Pegawai Synchronization Completed</h4>
+                    <p>${result.message}</p>
+                    <p><strong>Completed at:</strong> ${UIUtils.formatDate(result.timestamp)}</p>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number primary">${result.synchronization_result.status_updates}</div>
+                        <div class="stat-label">Status Updates</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number danger">${result.synchronization_result.deletions}</div>
+                        <div class="stat-label">Deletions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number warning">${result.synchronization_result.errors.length}</div>
+                        <div class="stat-label">Errors</div>
+                    </div>
+                </div>
+            `;
+            
+            // Show updated records
+            if (result.synchronization_result.updated_records && result.synchronization_result.updated_records.length > 0) {
+                html += '<h4>Updated Records:</h4>';
+                html += '<div class="table-container"><table><thead><tr>';
+                html += '<th>G_ID</th><th>Name</th><th>No_KTP</th><th>Old Status</th><th>New Status</th><th>Reason</th>';
+                html += '</tr></thead><tbody>';
+                
+                result.synchronization_result.updated_records.forEach(record => {
+                    html += `
+                        <tr>
+                            <td><strong>${record.g_id}</strong></td>
+                            <td>${record.name}</td>
+                            <td>${record.no_ktp}</td>
+                            <td><span class="status-badge ${record.old_status === 'Active' ? 'status-active' : 'status-inactive'}">${record.old_status}</span></td>
+                            <td><span class="status-badge ${record.new_status === 'Active' ? 'status-active' : 'status-inactive'}">${record.new_status}</span></td>
+                            <td><em>${record.reason}</em></td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+            }
+            
+            // Show deleted records
+            if (result.synchronization_result.deleted_records && result.synchronization_result.deleted_records.length > 0) {
+                html += '<h4>Deleted Records:</h4>';
+                html += '<div class="table-container"><table><thead><tr>';
+                html += '<th>G_ID</th><th>Name</th><th>No_KTP</th><th>Reason</th>';
+                html += '</tr></thead><tbody>';
+                
+                result.synchronization_result.deleted_records.forEach(record => {
+                    html += `
+                        <tr>
+                            <td><strong>${record.g_id}</strong></td>
+                            <td>${record.name}</td>
+                            <td>${record.no_ktp}</td>
+                            <td><em>${record.reason}</em></td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+            }
+            
+            // Show errors if any
+            if (result.synchronization_result.errors && result.synchronization_result.errors.length > 0) {
+                html += '<h4>Errors:</h4>';
+                html += '<div class="alert alert-warning"><ul>';
+                result.synchronization_result.errors.forEach(error => {
+                    html += `<li>${error}</li>`;
+                });
+                html += '</ul></div>';
+            }
+        } else {
+            html += `
+                <div class="alert alert-danger">
+                    <h4>Synchronization Failed</h4>
+                    <p>${result.message || 'Unknown error occurred'}</p>
+                </div>
+            `;
+        }
+        
+        document.getElementById('pegawai-sync-results').innerHTML = html;
+        
+    } catch (error) {
+        document.getElementById('pegawai-sync-results').innerHTML = `
+            <div class="alert alert-danger">
+                <h4>Error Running Pegawai Synchronization</h4>
+                <p>${error.message}</p>
+            </div>
+        `;
+        document.getElementById('pegawai-sync-results').style.display = 'block';
+    }
+}
+
+// Initialize monitoring page
+document.addEventListener('DOMContentLoaded', function() {
+    loadMonitoringStatus();
+    loadAuditLogs();
+    startPerformanceMonitoring();
+    startMonitoringRefresh();
+});
+
+// Clean up intervals when page is unloaded
+window.addEventListener('beforeunload', function() {
+    stopPerformanceMonitoring();
+    stopMonitoringRefresh();
+});
+
+// Handle page visibility changes
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        stopPerformanceMonitoring();
+        stopMonitoringRefresh();
+    } else {
+        startPerformanceMonitoring();
+        startMonitoringRefresh();
+        loadMonitoringStatus();
+    }
+});
+</script>
+{% endblock %}

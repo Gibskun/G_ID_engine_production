@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Global ID Management System{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Dashboard</h2>
+    <p>Welcome to the Global ID Management System dashboard. Here you can view system statistics, recent activities, and overall health status.</p>
+</div>
+
+<!-- Statistics Grid -->
+<div class="stats-grid" id="stats-grid">
+    <!-- Stats will be loaded dynamically -->
+</div>
+
+<!-- System Status -->
+<div class="card">
+    <h3>System Status</h3>
+    <div id="system-status">
+        <p class="text-center">Loading system status...</p>
+    </div>
+</div>
+
+<!-- Recent Activities -->
+<div class="card">
+    <h3>Recent Activities</h3>
+    <div id="recent-activities">
+        <p class="text-center">Loading recent activities...</p>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card">
+    <h3>Quick Actions</h3>
+    <div class="text-center">
+        <a href="/sync" class="btn btn-primary">Manage Sync</a>
+        <a href="/upload" class="btn btn-success">Upload Excel</a>
+        <a href="/data" class="btn btn-secondary">View Data</a>
+        <button class="btn btn-warning" onclick="runHealthCheck()">Health Check</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let refreshInterval;
+
+async function loadDashboard() {
+    try {
+        UIUtils.showLoading(document.getElementById('stats-grid'), 'Loading statistics...');
+        
+        const data = await api.getDashboard();
+        
+        // Update statistics
+        updateStatistics(data);
+        
+        // Update system status
+        updateSystemStatus(data.sync_status);
+        
+        // Update recent activities
+        updateRecentActivities(data.recent_activities);
+        
+    } catch (error) {
+        UIUtils.showAlert('Error loading dashboard: ' + error.message, 'danger');
+        console.error('Dashboard load error:', error);
+    }
+}
+
+function updateStatistics(data) {
+    const statsGrid = document.getElementById('stats-grid');
+    statsGrid.innerHTML = `
+        <div class="stat-card">
+            <div class="stat-number primary">${UIUtils.formatNumber(data.total_records)}</div>
+            <div class="stat-label">Total Records</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number success">${UIUtils.formatNumber(data.active_records)}</div>
+            <div class="stat-label">Active Records</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number warning">${UIUtils.formatNumber(data.inactive_records)}</div>
+            <div class="stat-label">Inactive Records</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number info">${UIUtils.formatNumber(data.database_source_records)}</div>
+            <div class="stat-label">Database Source</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number danger">${UIUtils.formatNumber(data.excel_source_records)}</div>
+            <div class="stat-label">Excel Source</div>
+        </div>
+    `;
+}
+
+function updateSystemStatus(syncStatus) {
+    const statusContainer = document.getElementById('system-status');
+    
+    const globalIdStats = syncStatus.global_id_table;
+    const pegawaiStats = syncStatus.pegawai_table;
+    const syncNeeded = syncStatus.sync_status.sync_needed;
+    
+    statusContainer.innerHTML = `
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h4>Global ID Table</h4>
+                <p><strong>Total:</strong> ${UIUtils.formatNumber(globalIdStats.total_records)}</p>
+                <p><strong>Active:</strong> ${UIUtils.formatNumber(globalIdStats.active_records)}</p>
+                <p><strong>Inactive:</strong> ${UIUtils.formatNumber(globalIdStats.inactive_records)}</p>
+            </div>
+            <div class="stat-card">
+                <h4>Pegawai Table</h4>
+                <p><strong>Total:</strong> ${UIUtils.formatNumber(pegawaiStats.total_records)}</p>
+                <p><strong>With G_ID:</strong> ${UIUtils.formatNumber(pegawaiStats.with_gid)}</p>
+                <p><strong>Without G_ID:</strong> ${UIUtils.formatNumber(pegawaiStats.without_gid)}</p>
+            </div>
+            <div class="stat-card">
+                <h4>Sync Status</h4>
+                <p><strong>Status:</strong> ${syncNeeded ? '<span class="status-badge status-inactive">Sync Needed</span>' : '<span class="status-badge status-active">Up to Date</span>'}</p>
+                <p><strong>Last Check:</strong> ${UIUtils.formatDate(syncStatus.sync_status.last_check)}</p>
+                ${syncNeeded ? '<button class="btn btn-warning btn-sm" onclick="runIncrementalSync()">Run Sync Now</button>' : ''}
+            </div>
+        </div>
+    `;
+}
+
+function updateRecentActivities(activities) {
+    const activitiesContainer = document.getElementById('recent-activities');
+    
+    if (activities.length === 0) {
+        activitiesContainer.innerHTML = '<p class="text-center text-muted">No recent activities</p>';
+        return;
+    }
+    
+    let html = '<div class="table-container"><table><thead><tr>';
+    html += '<th>G_ID</th><th>Name</th><th>Action</th><th>Source</th><th>Status</th><th>Timestamp</th>';
+    html += '</tr></thead><tbody>';
+    
+    activities.forEach(activity => {
+        html += `
+            <tr>
+                <td><strong>${activity.G_ID}</strong></td>
+                <td>${activity.name}</td>
+                <td>${activity.action}</td>
+                <td>${UIUtils.createSourceBadge(activity.source)}</td>
+                <td>${UIUtils.createStatusBadge(activity.status)}</td>
+                <td>${UIUtils.formatDate(activity.timestamp)}</td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    activitiesContainer.innerHTML = html;
+}
+
+async function runHealthCheck() {
+    const button = event.target;
+    UIUtils.showLoading(button, 'Checking...');
+    
+    try {
+        const result = await api.healthCheck();
+        UIUtils.showAlert('System is healthy! Database connection: ' + result.database, 'success');
+    } catch (error) {
+        UIUtils.showAlert('Health check failed: ' + error.message, 'danger');
+    } finally {
+        UIUtils.hideLoading(button);
+    }
+}
+
+async function runIncrementalSync() {
+    const button = event.target;
+    UIUtils.showLoading(button, 'Syncing...');
+    
+    try {
+        const result = await api.incrementalSync();
+        UIUtils.showAlert(result.message, result.success ? 'success' : 'warning');
+        
+        // Reload dashboard data
+        setTimeout(loadDashboard, 1000);
+        
+    } catch (error) {
+        UIUtils.showAlert('Sync failed: ' + error.message, 'danger');
+    } finally {
+        UIUtils.hideLoading(button);
+    }
+}
+
+function startAutoRefresh() {
+    refreshInterval = setInterval(loadDashboard, 30000); // Refresh every 30 seconds
+}
+
+function stopAutoRefresh() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+    }
+}
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboard();
+    startAutoRefresh();
+});
+
+// Stop refresh when page is hidden
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        stopAutoRefresh();
+    } else {
+        loadDashboard();
+        startAutoRefresh();
+    }
+});
+</script>
+{% endblock %}
