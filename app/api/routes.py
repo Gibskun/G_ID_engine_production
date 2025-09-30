@@ -128,8 +128,20 @@ async def get_dashboard(db: Session = Depends(get_db)):
         database_source = result.database_source or 0
         excel_source = result.excel_source or 0
         
-        # TEMPORARY FIX: Mock sync status to avoid 41-second delay
-        # TODO: Optimize sync service later
+        # OPTIMIZED: Fast sync status with real database counts
+        # Get actual pegawai table statistics quickly
+        pegawai_stats = db.execute(text("""
+            SELECT 
+                COUNT(*) as total_records,
+                COUNT(CASE WHEN g_id IS NOT NULL AND g_id != '' THEN 1 END) as with_gid
+            FROM dbo.pegawai
+            WHERE deleted_at IS NULL
+        """)).fetchone()
+        
+        pegawai_with_gid = pegawai_stats.with_gid or 0
+        pegawai_total = pegawai_stats.total_records or 0
+        pegawai_without_gid = pegawai_total - pegawai_with_gid
+        
         sync_status = {
             "global_id_table": {
                 "total_records": total_records,
@@ -139,15 +151,15 @@ async def get_dashboard(db: Session = Depends(get_db)):
                 "excel_source": excel_source
             },
             "pegawai_table": {
-                "total_records": 1633154,  # Mock large source table
-                "with_gid": total_records,
-                "without_gid": 1633154 - total_records
+                "total_records": pegawai_total,
+                "with_gid": pegawai_with_gid,
+                "without_gid": pegawai_without_gid
             },
             "sync_status": {
-                "sync_needed": False,
+                "sync_needed": pegawai_without_gid > 0,
                 "last_check": "2025-09-30T15:00:00",
-                "status": "healthy",
-                "message": "Sync service temporarily optimized for performance"
+                "status": "healthy" if pegawai_without_gid == 0 else "sync_recommended",
+                "message": f"Real-time data: {pegawai_with_gid} employees have G_ID, {pegawai_without_gid} need sync"
             }
         }
         
