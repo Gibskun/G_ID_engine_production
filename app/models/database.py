@@ -16,23 +16,38 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL", "mssql+pyodbc://sqlvendor1:password@localhost:1435/dbvendor?driver=ODBC+Driver+17+for+SQL+Server")
 SOURCE_DATABASE_URL = os.getenv("SOURCE_DATABASE_URL", "mssql+pyodbc://sqlvendor1:password@localhost:1435/dbvendor?driver=ODBC+Driver+17+for+SQL+Server")
 
-# Create engines with SQL Server specific settings
+# Get performance configuration from environment
+POOL_SIZE = int(os.getenv("DATABASE_POOL_SIZE", "10"))
+MAX_OVERFLOW = int(os.getenv("DATABASE_MAX_OVERFLOW", "20"))
+POOL_TIMEOUT = int(os.getenv("DATABASE_POOL_TIMEOUT", "30"))
+POOL_RECYCLE = int(os.getenv("DATABASE_POOL_RECYCLE", "3600"))
+QUERY_TIMEOUT = int(os.getenv("QUERY_TIMEOUT", "60"))
+
+# Create engines with optimized performance settings
 engine = create_engine(
     DATABASE_URL, 
-    echo=True,
+    echo=False,  # Disable SQL logging in production for performance
     pool_pre_ping=True,
+    pool_size=POOL_SIZE,
+    max_overflow=MAX_OVERFLOW,
+    pool_timeout=POOL_TIMEOUT,
+    pool_recycle=POOL_RECYCLE,
     connect_args={
         "autocommit": False,
-        "timeout": 30
+        "timeout": QUERY_TIMEOUT
     }
 )
 source_engine = create_engine(
     SOURCE_DATABASE_URL, 
-    echo=True,
+    echo=False,  # Disable SQL logging in production for performance
     pool_pre_ping=True,
+    pool_size=POOL_SIZE,
+    max_overflow=MAX_OVERFLOW,
+    pool_timeout=POOL_TIMEOUT,
+    pool_recycle=POOL_RECYCLE,
     connect_args={
         "autocommit": False,
-        "timeout": 30
+        "timeout": QUERY_TIMEOUT
     }
 )
 
