@@ -1,0 +1,501 @@
+{
+  "info": {
+    "name": "Pegawai REST API - Complete Collection",
+    "description": "Complete Employee Management API for Global ID System with all CRUD operations",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "patch": 0
+    }
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://wecare.techconnect.co.id:8001/api/v1/pegawai",
+      "type": "string",
+      "description": "Production server (use http://localhost:8000/api/v1/pegawai for local testing)"
+    },
+    {
+      "key": "employeeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "testKtpNumber",
+      "value": "1111222233334444",
+      "type": "string"
+    },
+    {
+      "key": "serverUrl",
+      "value": "https://wecare.techconnect.co.id:8001",
+      "type": "string",
+      "description": "Base server URL for documentation and health checks"
+    }
+  ],
+  "item": [
+    {
+      "name": "📋 Employee Management",
+      "item": [
+        {
+          "name": "GET All Employees",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has required fields\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('total_count');",
+                  "    pm.expect(jsonData).to.have.property('page');",
+                  "    pm.expect(jsonData).to.have.property('size');",
+                  "    pm.expect(jsonData).to.have.property('employees');",
+                  "});",
+                  "",
+                  "pm.test(\"Response time is acceptable\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/?page=1&size=20",
+              "host": ["{{baseUrl}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (1-based)"
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "description": "Number of employees per page"
+                }
+              ]
+            },
+            "description": "Retrieve a paginated list of all employees"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Create Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save employee ID for other requests",
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.employee) {",
+                  "        pm.collectionVariables.set(\"employeeId\", response.employee.id);",
+                  "        console.log(\"Employee ID saved:\", response.employee.id);",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has success property\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('success');",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test(\"Response has employee data\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('employee');",
+                  "    pm.expect(jsonData.employee).to.have.property('id');",
+                  "    pm.expect(jsonData.employee).to.have.property('name');",
+                  "    pm.expect(jsonData.employee).to.have.property('no_ktp');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Employee Postman\",\n  \"personal_number\": \"POST001\",\n  \"no_ktp\": \"{{testKtpNumber}}\",\n  \"bod\": \"1995-05-15\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"]
+            },
+            "description": "Create a new employee record"
+          },
+          "response": []
+        },
+        {
+          "name": "GET Employee by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Employee ID matches\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const expectedId = parseInt(pm.collectionVariables.get(\"employeeId\"));",
+                  "    if (expectedId) {",
+                  "        pm.expect(jsonData.id).to.equal(expectedId);",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test(\"Employee has required fields\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "    pm.expect(jsonData).to.have.property('no_ktp');",
+                  "    pm.expect(jsonData).to.have.property('created_at');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{employeeId}}"]
+            },
+            "description": "Get a specific employee by their ID"
+          },
+          "response": []
+        },
+        {
+          "name": "PUT Update Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Employee updated successfully\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.employee.name).to.equal(\"Test Employee Updated\");",
+                  "});",
+                  "",
+                  "pm.test(\"Updated timestamp changed\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.employee.updated_at).to.not.equal(jsonData.employee.created_at);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Employee Updated\",\n  \"personal_number\": \"POST001-UPD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{employeeId}}"]
+            },
+            "description": "Update an existing employee's information"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Employee deleted successfully\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.message).to.include(\"deleted successfully\");",
+                  "});",
+                  "",
+                  "// Clear the employeeId variable after deletion",
+                  "pm.collectionVariables.set(\"employeeId\", \"\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{employeeId}}"]
+            },
+            "description": "Soft delete an employee (marks as deleted)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Main CRUD operations for employee management"
+    },
+    {
+      "name": "📊 Statistics & Search",
+      "item": [
+        {
+          "name": "GET Employee Statistics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Statistics response format\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData).to.have.property('statistics');",
+                  "    pm.expect(jsonData.statistics).to.have.property('total_employees');",
+                  "    pm.expect(jsonData.statistics).to.have.property('employees_with_gid');",
+                  "    pm.expect(jsonData.statistics).to.have.property('gid_assignment_rate');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stats/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats", "summary"]
+            },
+            "description": "Get employee statistics and metrics"
+          },
+          "response": []
+        },
+        {
+          "name": "GET Search Employees",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Search results format\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('employees');",
+                  "    pm.expect(jsonData).to.have.property('total_count');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/?search=test&page=1&size=10",
+              "host": ["{{baseUrl}}"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "test",
+                  "description": "Search term for employee name, personal number, or KTP"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Search for employees by name, personal number, or KTP"
+          },
+          "response": []
+        }
+      ],
+      "description": "Statistics and search functionality"
+    },
+    {
+      "name": "🚨 Error Testing",
+      "item": [
+        {
+          "name": "POST Invalid KTP Number",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 422 (Validation Error)\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test(\"Error response format\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('detail');",
+                  "    pm.expect(jsonData.detail).to.have.property('success');",
+                  "    pm.expect(jsonData.detail.success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Invalid Employee\",\n  \"no_ktp\": \"12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"]
+            },
+            "description": "Test validation with invalid KTP number (should fail)"
+          },
+          "response": []
+        },
+        {
+          "name": "GET Non-existent Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 404 (Not Found)\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Error response format\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('detail');",
+                  "    pm.expect(jsonData.detail).to.have.property('success');",
+                  "    pm.expect(jsonData.detail.success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["999999"]
+            },
+            "description": "Test fetching non-existent employee (should return 404)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Error scenarios and validation testing"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Generate unique KTP number for testing",
+          "const timestamp = Date.now().toString().slice(-10);",
+          "const uniqueKtp = '1111' + timestamp.padStart(12, '0');",
+          "pm.collectionVariables.set('testKtpNumber', uniqueKtp);",
+          "",
+          "console.log('Generated unique KTP:', uniqueKtp);"
+        ]
+      }
+    }
+  ]
+}

@@ -22,6 +22,9 @@ from app.services.advanced_workflow_service import AdvancedWorkflowService
 # Import data endpoints router
 from app.api.data_endpoints import data_router
 
+# Import pegawai endpoints router
+from app.api.pegawai_endpoints import pegawai_router
+
 # Pydantic models for API requests/responses
 class GlobalIDResponse(BaseModel):
     g_id: str
@@ -1048,3 +1051,4 @@ async def repair_gid_sequence(
 api_router = APIRouter(prefix="/api/v1", tags=["Global ID System"])
 api_router.include_router(router)
 api_router.include_router(data_router)  # Include data endpoints with automated functionality
+api_router.include_router(pegawai_router)  # Include pegawai REST API endpoints

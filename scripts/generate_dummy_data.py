@@ -114,7 +114,7 @@ def generate_birth_date():
     """Generate realistic birth date"""
     return fake.date_of_birth(minimum_age=18, maximum_age=65)
 
-def create_dummy_data(count=7500):
+def create_dummy_data(count=10000):
     """Create dummy data records"""
     records = []
     used_ktps = set()
