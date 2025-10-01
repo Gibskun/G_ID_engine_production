@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 # Create router for Global ID data endpoints
 globalid_router = APIRouter(
-    prefix="/api",
     tags=["Global ID Data"],
     responses={
         404: {"description": "Data not found"},

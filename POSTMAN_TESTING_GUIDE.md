@@ -1,24 +1,32 @@
-# Postman Testing Guide for Pegawai REST API
+# 📮 Complete Postman Testing Guide for Global ID REST API
 
 ## 🚀 **Server Information**
 
 ### Local Development:
-- **Base URL**: `http://localhost:8000/api/v1/pegawai/` ⚠️ **Note the trailing slash!**
-- **API Documentation**: `http://localhost:8000/docs` (Swagger UI)
-- **Alternative Docs**: `http://localhost:8000/redoc`
+- **Base URL**: `http://localhost:8001/api/v1`
+- **API Documentation**: `http://localhost:8001/docs` (Swagger UI)
+- **Alternative Docs**: `http://localhost:8001/redoc`
 
-### Production Server (Port 8001):
-- **Base URL**: `https://wecare.techconnect.co.id:8001/api/v1/pegawai`
-- **API Documentation**: `https://wecare.techconnect.co.id:8001/docs` (Swagger UI)
-- **Alternative Docs**: `https://wecare.techconnect.co.id:8001/redoc`
+### Production Server (Nginx Reverse Proxy):
+- **Base URL**: `https://wecare.techconnect.co.id/gid/api/v1`
+- **API Documentation**: `https://wecare.techconnect.co.id/gid/docs` (Swagger UI)
+- **Alternative Docs**: `https://wecare.techconnect.co.id/gid/redoc`
+
+> ⚠️ **If Swagger UI shows errors**: The OpenAPI schema generation works locally but may need server restart. See [troubleshooting section](#troubleshooting) below.
+
+## 🎯 **API Categories Available**
+
+1. **Employee Management APIs** (`/pegawai/*`) - CRUD operations for employees
+2. **Global ID Data View APIs** (`/api/global_id*`) - Read-only access to Global ID tables
+3. **System APIs** (`/health`, `/dashboard`, etc.) - System monitoring
 
 ## 📋 **Postman Collection Setup**
 
 ### 1. Create New Collection
 1. Open Postman
 2. Click "New" → "Collection"
-3. Name it "Pegawai REST API"
-4. Add description: "Employee management API for Global ID System"
+3. Name it "Global ID Management API"
+4. Add description: "Complete REST API testing for Global ID Management System"
 
 ### 2. Set Collection Variables
 1. Click on your collection
@@ -27,10 +35,16 @@
 
 | Variable | Initial Value | Current Value |
 |----------|---------------|---------------|
-| `baseUrl` | `https://wecare.techconnect.co.id:8001/api/v1/pegawai` | `https://wecare.techconnect.co.id:8001/api/v1/pegawai` |
-| `employeeId` | `` | `` |
+| `base_url` | `https://wecare.techconnect.co.id/gid/api/v1` | `https://wecare.techconnect.co.id/gid/api/v1` |
+| `local_url` | `http://localhost:8001/api/v1` | `http://localhost:8001/api/v1` |
+| `employee_id` | `` | `` |
+| `g_id` | `` | `` |
 
-**Note**: For local testing, use `http://localhost:8000/api/v1/pegawai/` ⚠️ **Don't forget the trailing slash!**
+### 3. Create Folders in Collection
+Organize your requests into folders:
+- 📁 **Employee Management** (`/pegawai/*`)
+- 📁 **Global ID Data Views** (`/api/global_id*`)
+- 📁 **System Endpoints** (`/health`, `/dashboard`)
 
 ## 🧪 **Test Requests**
 
@@ -446,29 +460,249 @@ Save this as a file and import into Postman:
 }
 ```
 
+---
+
+## � **NEW: Global ID Data View APIs**
+
+### **Request 7: GET All Global ID Records**
+
+**Method**: `GET`
+**URL**: `{{base_url}}/api/global_id`
+**Description**: View all records from the global_id table
+
+#### Query Parameters (Optional):
+- `page`: `1` (Page number)
+- `size`: `50` (Page size, max 1000)
+- `status`: `Active` (Filter by status: Active, Non Active)
+- `source`: `database_pegawai` (Filter by source)
+- `search`: `G024` (Search by name, KTP, or G_ID)
+
+#### Expected Response (200 OK):
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "g_id": "G024AA01",
+      "name": "John Doe",
+      "personal_number": "EMP001",
+      "no_ktp": "1234567890123456",
+      "bod": "1990-01-15",
+      "status": "Active",
+      "source": "database_pegawai",
+      "created_at": "2025-10-01T10:30:00Z",
+      "updated_at": "2025-10-01T10:30:00Z"
+    }
+  ],
+  "total_count": 150,
+  "page": 1,
+  "page_size": 50,
+  "total_pages": 3
+}
+```
+
+### **Request 8: GET All Global ID Non-Database Records**
+
+**Method**: `GET`
+**URL**: `{{base_url}}/api/global_id_non_database`
+**Description**: View all records from the global_id_non_database table (Excel imports)
+
+#### Query Parameters (Optional):
+- `page`: `1` (Page number)
+- `size`: `50` (Page size, max 1000)
+- `status`: `Active` (Filter by status)
+- `source`: `excel` (Filter by source)
+- `search`: `Jane` (Search term)
+
+#### Expected Response (200 OK):
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "g_id": "G024AA02",
+      "name": "Jane Smith",
+      "personal_number": null,
+      "no_ktp": "9876543210123456",
+      "bod": "1985-05-20",
+      "status": "Active",
+      "source": "excel",
+      "created_at": "2025-09-15T08:00:00Z",
+      "updated_at": "2025-09-15T08:00:00Z"
+    }
+  ],
+  "total_count": 25,
+  "page": 1,
+  "page_size": 50,
+  "total_pages": 1
+}
+```
+
+### **Request 9: GET Specific Global ID Record**
+
+**Method**: `GET`
+**URL**: `{{base_url}}/api/global_id/{{g_id}}`
+**Description**: Get a specific Global ID record by G_ID
+
+#### Path Variables:
+- `g_id`: `G024AA01` (Set this in collection variables after creating an employee)
+
+#### Expected Response (200 OK):
+```json
+{
+  "g_id": "G024AA01",
+  "name": "John Doe",
+  "personal_number": "EMP001",
+  "no_ktp": "1234567890123456",
+  "bod": "1990-01-15",
+  "status": "Active",
+  "source": "database_pegawai",
+  "created_at": "2025-10-01T10:30:00Z",
+  "updated_at": "2025-10-01T10:30:00Z"
+}
+```
+
+### **Request 10: GET Specific Global ID Non-Database Record**
+
+**Method**: `GET`
+**URL**: `{{base_url}}/api/global_id_non_database/{{g_id}}`
+**Description**: Get a specific Global ID Non-Database record by G_ID
+
+#### Expected Response (200 OK):
+```json
+{
+  "g_id": "G024AA02",
+  "name": "Jane Smith",
+  "personal_number": null,
+  "no_ktp": "9876543210123456",
+  "bod": "1985-05-20",
+  "status": "Active",
+  "source": "excel",
+  "created_at": "2025-09-15T08:00:00Z",
+  "updated_at": "2025-09-15T08:00:00Z"
+}
+```
+
+---
+
+## 🧪 **Complete Testing Workflow**
+
+### **Scenario 1: Employee Lifecycle with G_ID Verification**
+1. **POST** Create new employee → Save `employee_id` and `g_id` from response
+2. **GET** List all employees → Verify new employee appears
+3. **GET** Employee by ID → Confirm details match
+4. **GET** Global ID record → Verify G_ID was created in global_id table
+5. **PUT** Update employee → Verify changes
+6. **DELETE** Employee → Test soft deletion
+7. **GET** Global ID record again → Verify status changes
+
+### **Scenario 2: Data Validation Testing**
+1. Try creating employee with duplicate KTP → Should return 422
+2. Try creating employee with invalid data → Should return 422
+3. Try accessing non-existent employee → Should return 404
+4. Try accessing non-existent G_ID → Should return 404
+
+### **Scenario 3: Pagination & Search Testing**
+1. Create multiple employees (5-10)
+2. Test pagination with different page sizes
+3. Test search functionality across different endpoints
+4. Test filtering by status and source
+
 ## 🎯 **Success Criteria**
 
 Your API is working correctly if:
-- ✅ GET requests return 200 status codes
-- ✅ POST requests return 201 status codes  
-- ✅ PUT requests return 200 status codes
-- ✅ DELETE requests return 200 status codes
-- ✅ Error cases return appropriate 4xx status codes
-- ✅ Response structure matches expected format
-- ✅ Employee ID is properly set and retrieved
-- ✅ Validation errors are clearly communicated
+- ✅ **Employee Creation**: Returns 201 with G_ID generated automatically
+- ✅ **G_ID Integration**: Created employees appear in Global ID table
+- ✅ **CRUD Operations**: All employee operations work correctly
+- ✅ **Data Views**: Global ID endpoints return paginated data
+- ✅ **Error Handling**: Proper HTTP status codes and error messages
+- ✅ **Validation**: Input validation works correctly
+- ✅ **Search & Filter**: Pagination and filtering work across endpoints
 
 ## 🆘 **Troubleshooting**
 
-### Common Issues:
+### **OpenAPI/Swagger Documentation Issues:**
+If you see "end of the stream or document separator is expected" or "Unable to render this definition":
 
-1. **Connection Refused (ECONNREFUSED)**: Make sure FastAPI server is running
-2. **307 Temporary Redirect**: Add trailing slash `/` to your URL 
-   - Wrong: `http://localhost:8000/api/v1/pegawai`
-   - Correct: `http://localhost:8000/api/v1/pegawai/`
-3. **404 Not Found**: Check the URL path is correct
-4. **422 Validation Error**: Verify request body format
-5. **500 Internal Server Error**: Check server logs for database issues
+1. **Server Restart Required**: 
+   ```bash
+   sudo systemctl restart gid-system.service
+   sudo systemctl status gid-system.service
+   ```
 
-### Server Status Check:
-Visit: `http://localhost:8000/docs` to see the interactive API documentation.
+2. **Check Service Logs**:
+   ```bash
+   sudo journalctl -u gid-system.service -f
+   tail -f /var/www/G_ID_engine_production/gid_system.log
+   ```
+
+3. **Test OpenAPI Schema Generation**:
+   ```bash
+   cd /var/www/G_ID_engine_production
+   python3 fix_openapi_docs.py
+   ```
+
+4. **Direct Server Access**: Test without nginx proxy:
+   ```bash
+   curl http://localhost:8001/docs
+   curl http://localhost:8001/openapi.json
+   ```
+
+5. **Clear Browser Cache**: Hard refresh (Ctrl+F5) or incognito mode
+
+### **Connection Issues:**
+1. **Connection Refused**: Ensure FastAPI server is running on port 8001
+2. **502 Bad Gateway**: Check if systemd service is running:
+   ```bash
+   sudo systemctl status gid-system.service
+   sudo systemctl restart gid-system.service
+   ```
+3. **SSL/HTTPS Issues**: For production, ensure SSL certificates are valid
+
+### **API Response Issues:**
+1. **404 Not Found**: Verify URL paths are correct
+2. **422 Validation Error**: Check JSON format and required fields
+3. **500 Internal Server Error**: Check server logs:
+   ```bash
+   tail -f /var/www/G_ID_engine_production/gid_system.log
+   ```
+
+### **Authentication Issues:**
+- Current system uses open endpoints (no authentication required)
+- If you get 401/403 errors, check server configuration
+
+### **Data Issues:**
+1. **No G_ID Generated**: Check if GID generator service is working
+2. **Database Connection**: Verify environment variables in .env
+3. **Missing Data**: Ensure database tables exist and are populated
+
+## 📊 **HTTP Status Code Reference**
+
+- **200 OK**: Successful GET, PUT, DELETE operations
+- **201 Created**: Successful POST operations (employee creation)
+- **400 Bad Request**: Malformed request
+- **404 Not Found**: Resource not found (employee, G_ID, etc.)
+- **422 Unprocessable Entity**: Validation errors (duplicate data, invalid format)
+- **500 Internal Server Error**: Server-side errors (database, application)
+
+## 🔗 **Interactive Testing**
+
+### **Swagger UI**: 
+- Production: `https://wecare.techconnect.co.id/gid/docs`
+- Local: `http://localhost:8001/docs`
+
+The Swagger UI provides:
+- ✅ Interactive API testing interface
+- ✅ Complete request/response documentation
+- ✅ Schema validation
+- ✅ Example requests and responses
+- ✅ Authentication testing (if implemented)
+
+## 📱 **Alternative Testing Tools**
+
+If you prefer other tools besides Postman:
+- **curl** (command line)
+- **HTTPie** (command line, user-friendly)
+- **Insomnia** (GUI alternative to Postman)
+- **Thunder Client** (VS Code extension)
+- **REST Client** (VS Code extension)

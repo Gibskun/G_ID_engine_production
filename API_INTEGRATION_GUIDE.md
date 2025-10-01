@@ -46,7 +46,18 @@ Based on your server configuration with Nginx reverse proxy:
 - `GET https://wecare.techconnect.co.id/gid/api/v1/api/global_id_non_database`
 - `GET https://wecare.techconnect.co.id/gid/api/v1/api/global_id/{g_id}`
 
-## 📝 **API Testing Examples**
+## � **Postman Testing**
+
+**📋 For complete Postman testing guide, see: [`POSTMAN_TESTING_GUIDE.md`](./POSTMAN_TESTING_GUIDE.md)**
+
+The Postman guide includes:
+- ✅ Complete collection setup with variables
+- ✅ All 10+ API endpoints with examples
+- ✅ Testing scenarios and workflows
+- ✅ Error handling and troubleshooting
+- ✅ Success criteria and validation steps
+
+## �📝 **Quick API Testing Examples**
 
 ### **1. Create New Employee with G_ID Generation**
 
