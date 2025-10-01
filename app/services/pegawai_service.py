@@ -10,13 +10,14 @@ from typing import Optional, List, Tuple
 from datetime import datetime
 import logging
 
-from app.models.models import Pegawai
+from app.models.models import Pegawai, GlobalID
 from app.api.pegawai_models import (
     PegawaiCreateRequest, 
     PegawaiUpdateRequest,
     PegawaiResponse,
     PegawaiListResponse
 )
+from app.services.gid_generator import GIDGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -168,18 +169,37 @@ class PegawaiService:
                 if existing_personal_number:
                     raise ValueError(f"Employee with personal number {employee_data.personal_number} already exists")
             
-            # Create new employee
+            # Generate G_ID for the new employee
+            gid_generator = GIDGenerator(db)
+            g_id = gid_generator.generate_next_gid()
+            
+            # Create new employee with G_ID
             now = datetime.utcnow()
             new_employee = Pegawai(
                 name=employee_data.name,
                 personal_number=employee_data.personal_number,
                 no_ktp=employee_data.no_ktp,
                 bod=employee_data.bod,
+                g_id=g_id,
+                created_at=now,
+                updated_at=now
+            )
+            
+            # Create corresponding Global_ID record
+            global_id_record = GlobalID(
+                g_id=g_id,
+                name=employee_data.name,
+                personal_number=employee_data.personal_number,
+                no_ktp=employee_data.no_ktp,
+                bod=employee_data.bod,
+                status="Active",
+                source="database_pegawai",
                 created_at=now,
                 updated_at=now
             )
             
             db.add(new_employee)
+            db.add(global_id_record)
             db.commit()
             db.refresh(new_employee)
             
