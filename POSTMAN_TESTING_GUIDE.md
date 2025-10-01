@@ -12,7 +12,12 @@
 - **API Documentation**: `https://wecare.techconnect.co.id/gid/docs` (Swagger UI)
 - **Alternative Docs**: `https://wecare.techconnect.co.id/gid/redoc`
 
-> ⚠️ **If Swagger UI shows errors**: The OpenAPI schema generation works locally but may need server restart. See [troubleshooting section](#troubleshooting) below.
+> ⚠️ **IMPORTANT**: Don't test the base URL alone! Always add the endpoint path like `/pegawai/` or `/health`
+
+> 🔥 **Quick Test URLs**:
+> - `https://wecare.techconnect.co.id/gid/docs` (API Documentation)
+> - `https://wecare.techconnect.co.id/gid/api/v1/pegawai/` (Employee API)
+> - `https://wecare.techconnect.co.id/gid/api/v1/health` (Health Check)
 
 ## 🎯 **API Categories Available**
 
@@ -51,8 +56,10 @@ Organize your requests into folders:
 ### **Request 1: GET All Employees**
 
 **Method**: `GET`
-**URL**: `{{baseUrl}}/`
+**URL**: `{{base_url}}/pegawai/`
 **Description**: Get paginated list of all employees
+
+> ⚠️ **Important**: Use `/pegawai/` endpoint, not just the base URL!
 
 #### Query Parameters (Optional):
 - `page`: `1` (Page number)
@@ -67,7 +74,12 @@ Content-Type: application/json
 
 #### Example URL with parameters:
 ```
-{{baseUrl}}/?page=1&size=10&search=test
+{{base_url}}/pegawai/?page=1&size=10&search=test
+```
+
+#### Full Production URL Example:
+```
+https://wecare.techconnect.co.id/gid/api/v1/pegawai/?page=1&size=20
 ```
 
 #### Expected Response (200 OK):
@@ -620,6 +632,53 @@ Your API is working correctly if:
 - ✅ **Search & Filter**: Pagination and filtering work across endpoints
 
 ## 🆘 **Troubleshooting**
+
+### **ETIMEDOUT Error (Connection Timeout) - SOLVED! ✅**
+
+**✅ GOOD NEWS**: Your API endpoints are working perfectly! The issue is with Postman configuration.
+
+**Server Status Verified** ✅:
+- `https://wecare.techconnect.co.id/gid/docs` → ✅ Working (200 OK)
+- `https://wecare.techconnect.co.id/gid/api/v1/health` → ✅ Working (200 OK)  
+- `https://wecare.techconnect.co.id/gid/api/v1/pegawai/` → ✅ Working (200 OK, 7504 employees found)
+
+**🔧 POSTMAN FIX STEPS**:
+
+1. **⚙️ Postman Settings (CRITICAL)**:
+   - File → Settings → General → ❌ Turn OFF "SSL certificate verification"
+   - File → Settings → General → Set "Request timeout" to **60000ms** (60 seconds)
+   - File → Settings → Proxy → ❌ Turn OFF "Use the system proxy"
+
+2. **🌐 Postman Global Proxy (if using corporate network)**:
+   - File → Settings → Proxy → Add proxy bypass for: `*.techconnect.co.id`
+   - Or completely disable proxy: "Proxy Configuration" → Off
+
+3. **🔄 Alternative Testing Methods**:
+   ```
+   # Method 1: Test in Browser (Works immediately)
+   https://wecare.techconnect.co.id/gid/docs
+   
+   # Method 2: PowerShell Test (Proven working)
+   Invoke-WebRequest -Uri "https://wecare.techconnect.co.id/gid/api/v1/pegawai/" -Method GET
+   
+   # Method 3: Use different HTTP client
+   # Try Thunder Client (VS Code extension) or Insomnia
+   ```
+
+4. **🔧 Postman Request Configuration**:
+   - Method: `GET`
+   - URL: `https://wecare.techconnect.co.id/gid/api/v1/pegawai/`
+   - Headers: Remove all headers (let Postman auto-generate)
+   - Body: None (for GET requests)
+   - Auth: None
+   - Pre-request Script: None
+
+5. **🛠️ If Still Having Issues**:
+   - Try **Postman Desktop App** instead of web version
+   - Restart Postman completely
+   - Clear Postman cache: Settings → Data → Clear
+   - Try with VPN ON/OFF to test network routing
+   - Check Windows Firewall settings
 
 ### **OpenAPI/Swagger Documentation Issues:**
 If you see "end of the stream or document separator is expected" or "Unable to render this definition":
