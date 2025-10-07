@@ -10,7 +10,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
 from dotenv import load_dotenv
 
 from app.api.routes import api_router
@@ -80,9 +79,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Honor X-Forwarded-* headers from nginx so FastAPI builds correct HTTPS absolute URLs
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
-
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -113,9 +109,9 @@ gid_app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-gid_app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # Mount static also on the sub-app so url_for('static', ...) resolves to /gid/static/...
+# Static mount retained (safe even if nginx rewrite strips /gid)
 gid_app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Include same routes in sub-application
