@@ -715,6 +715,477 @@
         width: 80px;
     }
 }
+
+/* Search Section Styles */
+.search-section {
+    transition: all 0.3s ease;
+}
+
+.search-section:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.search-form .input-group {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.search-form .form-control {
+    border: none;
+    padding: 12px 16px;
+    font-size: 0.9rem;
+    background: white;
+}
+
+.search-form .form-control:focus {
+    box-shadow: none;
+    border-color: transparent;
+    background: white;
+}
+
+.search-form .btn {
+    border: none;
+    padding: 12px 20px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.search-form .btn:hover {
+    transform: translateY(-1px);
+}
+
+.search-form .btn-outline-secondary {
+    border: 1px solid #dee2e6;
+    transition: all 0.2s ease;
+}
+
+.search-header h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.search-header i {
+    color: #667eea;
+}
+
+#search-status .alert {
+    margin-bottom: 0;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    border: none;
+}
+
+/* Real-time Search Styling */
+.input-group.focused {
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    border-radius: 0.375rem;
+}
+
+.search-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    font-style: italic;
+}
+
+#search-status .alert {
+    margin-bottom: 0;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+#search-status .alert i {
+    margin-right: 0.5rem;
+}
+
+/* Smooth transitions for results */
+#global-db-tables {
+    transition: opacity 0.2s ease;
+}
+
+/* Search input enhancements */
+#search-input {
+    border-right: none;
+}
+
+#search-input:focus {
+    box-shadow: none;
+    border-color: #dee2e6;
+}
+
+.input-group-text {
+    background-color: #f8f9fa;
+    border-right: none;
+    color: #6c757d;
+}
+
+.btn-outline-secondary {
+    border-left: none;
+    border-color: #dee2e6;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+    color: #495057;
+}
+
+/* Form Validation Styles */
+.required-asterisk {
+    color: #dc3545;
+    font-weight: bold;
+    margin-left: 2px;
+}
+
+.field-error {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.field-error i {
+    font-size: 0.8rem;
+}
+
+.form-control.is-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+.form-control.is-invalid:focus {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+.form-note {
+    margin-top: 1rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #dee2e6;
+}
+
+.alert ul {
+    padding-left: 1.5rem;
+}
+
+.alert ul li {
+    margin-bottom: 0.25rem;
+}
+
+/* Modal form improvements */
+#addGlobalIDModal .form-group {
+    margin-bottom: 1rem;
+}
+
+#addGlobalIDModal .form-group label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #495057;
+    display: block;
+}
+
+#addGlobalIDModal .form-control {
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+    padding: 0.75rem;
+    font-size: 0.9rem;
+}
+
+#addGlobalIDModal .form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+#addGlobalIDModal .form-control::placeholder {
+    color: #6c757d;
+    opacity: 0.7;
+}
+
+/* Loading button state */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Duplicate Data Modal Styles */
+#duplicateDataModal {
+    z-index: 9999 !important;
+}
+
+#duplicateDataModal .modal-backdrop {
+    z-index: 9998 !important;
+}
+
+#duplicateDataModal .modal-dialog {
+    z-index: 10000 !important;
+    position: relative;
+}
+
+#duplicateDataModal .modal-content {
+    position: relative;
+    z-index: 10001 !important;
+    pointer-events: auto !important;
+}
+
+#duplicateDataModal .modal-header.bg-warning {
+    border-bottom: 1px solid #ffc107;
+}
+
+#duplicateDataModal .existing-data-info .card {
+    border: 1px solid #ffc107;
+    background-color: #fff3cd;
+}
+
+#duplicateDataModal .existing-data-info .card-body {
+    padding: 1rem;
+}
+
+#duplicateDataModal .existing-data-info p {
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+}
+
+#duplicateDataModal .existing-data-info strong {
+    color: #856404;
+    font-size: 0.9rem;
+}
+
+#duplicateDataModal .existing-data-info span {
+    display: block;
+    font-size: 1rem;
+    margin-top: 0.25rem;
+}
+
+#duplicateDataModal .alert-warning {
+    border-color: #ffc107;
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+#duplicateDataModal .text-primary {
+    color: #0d6efd !important;
+    font-weight: 600;
+    font-family: monospace;
+}
+
+#duplicateDataModal .badge.bg-success {
+    background-color: #198754 !important;
+}
+
+#duplicateDataModal .btn {
+    pointer-events: auto !important;
+    z-index: 10002 !important;
+    position: relative;
+    cursor: pointer !important;
+}
+
+#duplicateDataModal .modal-footer {
+    z-index: 10002 !important;
+    position: relative;
+    pointer-events: auto !important;
+}
+
+#duplicateDataModal .btn-close {
+    pointer-events: auto !important;
+    z-index: 10002 !important;
+    cursor: pointer !important;
+}
+
+/* NIK Conflict Modal Styles */
+#nikConflictModal {
+    z-index: 1060;
+}
+
+#nikConflictModal .modal-header.bg-danger {
+    border-bottom: 2px solid #dc3545;
+}
+
+#nikConflictModal .existing-data-info .card.border-danger {
+    border-color: #dc3545 !important;
+    border-width: 2px;
+}
+
+#nikConflictModal .existing-data-info .card.border-danger .card-body {
+    background-color: #f8f9fa;
+}
+
+#nikConflictModal .existing-data-info p {
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+}
+
+#nikConflictModal .existing-data-info strong {
+    color: #495057;
+    font-weight: 600;
+}
+
+#nikConflictModal .existing-data-info span {
+    display: block;
+    margin-top: 0.25rem;
+}
+
+#nikConflictModal .text-danger.font-weight-bold {
+    font-weight: 700 !important;
+    font-size: 1.1rem;
+}
+
+#nikConflictModal .alert-info ul {
+    padding-left: 1.25rem;
+}
+
+#nikConflictModal .alert-info li {
+    margin-bottom: 0.25rem;
+}
+
+#nikConflictModal .badge.bg-success {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+}
+
+#nikConflictModal .btn {
+    pointer-events: auto !important;
+    z-index: 10002 !important;
+    position: relative;
+    cursor: pointer !important;
+}
+
+#nikConflictModal .modal-footer {
+    z-index: 10002 !important;
+    position: relative;
+    pointer-events: auto !important;
+}
+
+#nikConflictModal .btn-close {
+    pointer-events: auto !important;
+    z-index: 10002 !important;
+    cursor: pointer !important;
+}
+
+/* Reactivate Modal Styles */
+#reactivateGlobalIDModal {
+    z-index: 1055;
+}
+
+#reactivateGlobalIDModal .modal-header.bg-success {
+    background: linear-gradient(135deg, #28a745, #20c997) !important;
+    border-bottom: 2px solid #28a745;
+}
+
+#reactivateGlobalIDModal .record-details {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    margin: 1rem 0;
+}
+
+#reactivateGlobalIDModal .record-details p {
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+}
+
+#reactivateGlobalIDModal .record-details strong {
+    color: #495057;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#reactivateGlobalIDModal .record-details span {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 1rem;
+}
+
+#reactivateGlobalIDModal .text-primary {
+    color: #0d6efd !important;
+    font-weight: 600;
+    font-family: monospace;
+}
+
+#reactivateGlobalIDModal .badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #000;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+}
+
+#reactivateGlobalIDModal .alert-info {
+    border-color: #0dcaf0;
+    background-color: #cff4fc;
+    color: #055160;
+}
+
+#reactivateGlobalIDModal .alert-warning {
+    border-color: #ffc107;
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+#reactivateGlobalIDModal .btn-success {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border: none;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+#reactivateGlobalIDModal .btn-success:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+#reactivateGlobalIDModal .btn-secondary {
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+/* Bootstrap Modal Z-Index Fixes for Reactivation Modal */
+.modal.fade {
+    z-index: 1055 !important;
+}
+
+.modal-backdrop {
+    z-index: 1050 !important;
+}
+
+#reactivationModal {
+    z-index: 1060 !important;
+}
+
+#reactivationModal .modal-dialog {
+    z-index: 1061 !important;
+}
+
+#reactivationModal .modal-content {
+    z-index: 1062 !important;
+}
+
+/* Ensure buttons are clickable */
+#reactivationModal .btn {
+    position: relative;
+    z-index: 1063 !important;
+    pointer-events: auto !important;
+}
+
+#reactivationModal .modal-footer {
+    z-index: 1063 !important;
+}
+
+#reactivationModal .btn-close {
+    z-index: 1063 !important;
+    pointer-events: auto !important;
+}
 </style>
 {% endblock %}
 
@@ -754,6 +1225,41 @@
                 <p><strong>Table:</strong> global_id | <strong>Total Records:</strong> <span id="global-db-record-count">0</span></p>
                 <p><strong>Description:</strong> Primary Global ID records with status tracking and source management</p>
             </div>
+            
+            <!-- Search Feature for Global ID -->
+            <div class="search-section" style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+                <div class="search-header" style="margin-bottom: 15px;">
+                    <h4 style="margin: 0; color: #495057;"><i class="fas fa-search"></i> Search Global ID Records</h4>
+                    <small class="text-muted">Search by Name, Birth Date (YYYY-MM-DD), KTP Number (no_ktp), or G_ID</small>
+                </div>
+                <div class="search-form">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" 
+                                       id="search-input" 
+                                       class="form-control" 
+                                       placeholder="Type to search... (Name, Birth Date, KTP Number, or G_ID)"
+                                       style="font-size: 0.9rem;"
+                                       autocomplete="off">
+                                <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()" title="Clear search">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="search-info text-muted small">
+                                <i class="fas fa-info-circle"></i> Results update automatically as you type
+                            </div>
+                        </div>
+                    </div>
+                    <div id="search-status" class="mt-2" style="display: none;">
+                        <!-- Search status will be shown here -->
+                    </div>
+                </div>
+            </div>
+            
             <div id="global-db-tables">
                 <!-- Global ID table will be loaded here -->
             </div>
@@ -881,9 +1387,150 @@ async function loadAllDatabaseData(page = 1) {
     }
 }
 
+// Real-time search functionality for Global ID records
+let currentSearchQuery = '';
+let searchTimeout = null;
+let isSearching = false;
+
+// Debounced search function - waits for user to stop typing
+function debounceSearch(query, delay = 500) {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        performRealTimeSearch(query);
+    }, delay);
+}
+
+async function performRealTimeSearch(query) {
+    if (isSearching) return; // Prevent multiple simultaneous searches
+    
+    const searchStatus = document.getElementById('search-status');
+    const trimmedQuery = query.trim();
+    
+    // If query is empty, show all records
+    if (!trimmedQuery) {
+        currentSearchQuery = '';
+        searchStatus.style.display = 'none';
+        await loadAllDatabaseData(1);
+        return;
+    }
+    
+    // If query is too short, wait for more characters
+    if (trimmedQuery.length < 2) {
+        searchStatus.style.display = 'block';
+        searchStatus.innerHTML = '<div class="alert alert-info"><i class="fas fa-keyboard"></i> Type at least 2 characters to search...</div>';
+        return;
+    }
+    
+    currentSearchQuery = trimmedQuery;
+    isSearching = true;
+    
+    // Show searching status
+    searchStatus.style.display = 'block';
+    searchStatus.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Searching...</div>';
+    
+    try {
+        await loadSearchResults(1, trimmedQuery);
+        
+        // Show success status with result count
+        const globalTables = document.getElementById('global-db-tables');
+        const tableContent = globalTables ? globalTables.innerHTML : '';
+        const hasResults = tableContent.includes('<tbody>') && !tableContent.includes('No records found');
+        
+        if (hasResults) {
+            searchStatus.innerHTML = `<div class="alert alert-success"><i class="fas fa-check"></i> Search results for: "<strong>${trimmedQuery}</strong>"</div>`;
+        } else {
+            searchStatus.innerHTML = `<div class="alert alert-warning"><i class="fas fa-search"></i> No results found for: "<strong>${trimmedQuery}</strong>"</div>`;
+        }
+        
+    } catch (error) {
+        searchStatus.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Search failed: ${error.message}</div>`;
+    } finally {
+        isSearching = false;
+    }
+}
+
+async function clearSearch() {
+    const searchInput = document.getElementById('search-input');
+    const searchStatus = document.getElementById('search-status');
+    
+    // Clear the input and trigger search
+    searchInput.value = '';
+    currentSearchQuery = '';
+    searchStatus.style.display = 'none';
+    
+    // Clear any pending search
+    clearTimeout(searchTimeout);
+    
+    // Reload all data without search
+    await loadAllDatabaseData(1);
+}
+
+async function loadSearchResults(page = 1, query = null) {
+    // Use current search query if no query provided
+    if (!query && currentSearchQuery) {
+        query = currentSearchQuery;
+    }
+    
+    if (!query) {
+        return await loadAllDatabaseData(page);
+    }
+    
+    try {
+        // Build search query parameters
+        const queryParams = `page=${page}&size=50&search=${encodeURIComponent(query)}`;
+        console.log(`Searching Global ID records: ${queryParams}`);
+        
+        const data = await api.request(`/database/explorer?${queryParams}`);
+        console.log('Search results received:', data);
+        
+        // Update consolidated database section with search results (without showing loading)
+        updateDatabaseSection('dbvendor', data.dbvendor, 'global');
+        
+    } catch (error) {
+        console.error('Error performing search:', error);
+        throw error; // Re-throw to be handled by caller
+    }
+}
+
+// Initialize real-time search when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        // Add input event listener for real-time search
+        searchInput.addEventListener('input', function(e) {
+            const query = e.target.value;
+            debounceSearch(query);
+        });
+        
+        // Optional: Still support Enter key for immediate search
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout); // Cancel debounced search
+                performRealTimeSearch(e.target.value);
+            }
+        });
+        
+        // Add focus styling
+        searchInput.addEventListener('focus', function() {
+            this.parentElement.classList.add('focused');
+        });
+        
+        searchInput.addEventListener('blur', function() {
+            this.parentElement.classList.remove('focused');
+        });
+    }
+});
+
 // Wrapper function for pagination
 async function loadDatabasePage(page) {
     if (page < 1) return;
+    
+    // Check if we have an active search query
+    if (currentSearchQuery) {
+        await loadSearchResults(page, currentSearchQuery);
+        return;
+    }
     
     // Check if we have active filters
     const urlParams = new URLSearchParams(window.location.search);
@@ -1132,16 +1779,46 @@ function generateTableHtml(tableName, tableData) {
                         String(value);
                 tableHtml += `<td>${displayValue}</td>`;
             });
-            // Add delete button for global_id (only if user has delete permissions)
-            if (tableName === 'global_id' && window.userPermissions && window.userPermissions.can_delete) {
-                tableHtml += `<td class="actions-cell">
-                    <button class="btn btn-danger btn-sm" onclick="showDeleteGlobalIDModal('${row.g_id}', '${row.name}', '${row.no_ktp}')">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
-                </td>`;
-            } else if (tableName === 'global_id') {
-                // Add empty cell to maintain table structure
-                tableHtml += `<td class="actions-cell"></td>`;
+            // Add status-based actions for global_id
+            if (tableName === 'global_id') {
+                const status = row.status || 'Unknown';
+                const isActive = status.toLowerCase() === 'active';
+                
+                if (window.userPermissions && (window.userPermissions.can_delete || window.userPermissions.can_edit)) {
+                    if (isActive && window.userPermissions.can_delete) {
+                        // Show Delete action for Active records
+                        tableHtml += `<td class="actions-cell">
+                            <button class="btn btn-danger btn-sm" onclick="showDeleteGlobalIDModal('${row.g_id}', '${row.name}', '${row.no_ktp}', '${status}')" title="Delete this record">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </td>`;
+                    } else if (!isActive && window.userPermissions.can_edit) {
+                        // Show Refill action for Non-Active records, but not for Excel sources
+                        const source = (row.source || '').toLowerCase();
+                        if (source !== 'excel') {
+                            tableHtml += `<td class="actions-cell">
+                                <button class="btn btn-info btn-sm" onclick="showRefillModal('${row.g_id}', '${row.name}', '${row.no_ktp}', '${row.bod}', '${row.personal_number || ''}')" title="Refill with this data">
+                                    <i class="fas fa-plus-circle"></i> Refill
+                                </button>
+                            </td>`;
+                        } else {
+                            // No refill button for Excel sources
+                            tableHtml += `<td class="actions-cell">
+                                <span class="text-muted small">Excel source</span>
+                            </td>`;
+                        }
+                    } else {
+                        // Add empty cell if no permissions
+                        tableHtml += `<td class="actions-cell">
+                            <span class="text-muted small">No actions</span>
+                        </td>`;
+                    }
+                } else {
+                    // Add empty cell to maintain table structure
+                    tableHtml += `<td class="actions-cell">
+                        <span class="text-muted small">No permissions</span>
+                    </td>`;
+                }
             }
             tableHtml += '</tr>';
         });
@@ -1171,22 +1848,33 @@ function showAddGlobalIDModal() {
                 <button class="close" onclick="closeModal('addGlobalIDModal')" aria-label="Close modal">&times;</button>
             </div>
             <div class="modal-body">
+                <div id="add-validation-errors" style="display: none;">
+                    <!-- Validation errors will be displayed here -->
+                </div>
                 <form id="addGlobalIDForm">
                     <div class="form-group">
-                        <label>Name</label>
-                        <input type="text" name="name" required />
+                        <label>Name <span class="required-asterisk">*</span></label>
+                        <input type="text" name="name" id="add-name" class="form-control" placeholder="Enter full name" required />
+                        <div class="field-error" id="name-error" style="display: none;"></div>
                     </div>
                     <div class="form-group">
-                        <label>NIK (No KTP)</label>
-                        <input type="text" name="no_ktp" required />
+                        <label>NIK (No KTP) <span class="required-asterisk">*</span></label>
+                        <input type="text" name="no_ktp" id="add-no-ktp" class="form-control" placeholder="Enter 16-digit NIK" maxlength="16" required />
+                        <div class="field-error" id="no-ktp-error" style="display: none;"></div>
                     </div>
                     <div class="form-group">
-                        <label>BOD (Birthdate)</label>
-                        <input type="date" name="bod" required />
+                        <label>BOD (Birth Date) <span class="required-asterisk">*</span></label>
+                        <input type="date" name="bod" id="add-bod" class="form-control" required />
+                        <div class="field-error" id="bod-error" style="display: none;"></div>
                     </div>
                     <div class="form-group">
                         <label>Personal Number</label>
-                        <input type="text" name="personal_number" />
+                        <input type="text" name="personal_number" id="add-personal-number" class="form-control" placeholder="Optional personal number" />
+                    </div>
+                    <div class="form-note">
+                        <small class="text-muted">
+                            <span class="required-asterisk">*</span> Required fields
+                        </small>
                     </div>
                 </form>
             </div>
@@ -1220,36 +1908,941 @@ function showAddGlobalIDModal() {
                 closeModal('addGlobalIDModal');
             }
         });
+        
+        // Add real-time validation
+        addRealTimeValidation();
     }, 100);
 }
 
-function submitAddGlobalID() {
-    const form = document.getElementById('addGlobalIDForm');
-    const formData = new FormData(form);
-    const payload = {
-        name: formData.get('name'),
-        no_ktp: formData.get('no_ktp'),
-        bod: formData.get('bod'),
-        personal_number: formData.get('personal_number')
-    };
-    fetch(`${getApiBaseUrl()}/data/pegawai`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(data => {
-        closeModal('addGlobalIDModal');
-        showNotification(data.message || 'Data added', data.success ? 'success' : 'error');
-        loadAllDatabaseData();
-    })
-    .catch(err => {
-        showNotification('Failed to add data: ' + err, 'error');
+async function submitAddGlobalID() {
+    // Clear previous validation errors
+    clearValidationErrors();
+    
+    // Get form values
+    const name = document.getElementById('add-name').value.trim();
+    const no_ktp = document.getElementById('add-no-ktp').value.trim();
+    const bod = document.getElementById('add-bod').value;
+    const personal_number = document.getElementById('add-personal-number').value.trim();
+    
+    // Validate required fields
+    const errors = validateAddGlobalIDForm(name, no_ktp, bod);
+    
+    if (errors.length > 0) {
+        displayValidationErrors(errors);
+        return; // Don't close modal, stay open to show errors
+    }
+    
+    // Show loading state
+    const submitBtn = document.querySelector('#addGlobalIDModal .btn-success');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+    submitBtn.disabled = true;
+    
+    try {
+        // First, check if data already exists - pass personal number for reactivation logic
+        const existingData = await checkExistingData(name, no_ktp, bod, personal_number);
+        
+        if (existingData.exists) {
+            // Handle different types of existing data
+            if (existingData.type === 'nik_conflict') {
+                showNikConflictModal(existingData.data);
+                return; // Don't proceed with submission
+            } else if (existingData.type === 'active_duplicate') {
+                // Active record - show error that it cannot be added or changed
+                showActiveDuplicateModal(existingData.data);
+                return; // Don't proceed with submission
+            } else if (existingData.type === 'reactivation_candidate') {
+                // Non-Active record - show reactivation modal
+                showReactivationModal(existingData.data, personal_number);
+                return; // Don't proceed with submission - let reactivation modal handle it
+            }
+        }
+        
+        // If no duplicates found, proceed with submission
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+        
+        const payload = {
+            name: name,
+            no_ktp: no_ktp,
+            bod: bod,
+            personal_number: personal_number || null
+        };
+        
+        const response = await fetch(`${getApiBaseUrl()}/data/pegawai`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            closeModal('addGlobalIDModal');
+            showNotification(data.message || 'Data added successfully', 'success');
+            loadAllDatabaseData();
+        } else {
+            // Show server validation errors
+            displayValidationErrors([data.message || 'Failed to add data']);
+        }
+        
+    } catch (error) {
+        console.error('Error adding data:', error);
+        displayValidationErrors(['Failed to add data: ' + error.message]);
+    } finally {
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+}
+
+// Function to check if data already exists and determine action needed
+async function checkExistingData(name, no_ktp, bod, newPersonalNumber = '') {
+    try {
+        // Search for records with the same NIK in database explorer
+        const nikResponse = await fetch(`${getApiBaseUrl()}/database/explorer?search=${encodeURIComponent(no_ktp)}&size=100`);
+        const nikData = await nikResponse.json();
+        
+        if (nikData.dbvendor?.tables?.global_id?.data) {
+            const records = nikData.dbvendor.tables.global_id.data;
+            
+            // Check for exact match of all key fields (name, NIK, BOD)
+            for (const record of records) {
+                const isExactMatch = record.name.toLowerCase() === name.toLowerCase() && 
+                                   record.no_ktp === no_ktp && 
+                                   record.bod === bod;
+                
+                if (isExactMatch) {
+                    // Exact match found - check status
+                    if (record.status && record.status.toLowerCase() === 'active') {
+                        // Active record - cannot be added or changed at all
+                        return {
+                            exists: true,
+                            type: 'active_duplicate',
+                            data: record,
+                            message: 'This data already exists with Active status and cannot be added or modified.'
+                        };
+                    } else {
+                        // Non-Active record - should be reactivated with personal number logic
+                        return {
+                            exists: true,
+                            type: 'reactivation_candidate',
+                            data: record,
+                            newPersonalNumber: newPersonalNumber,
+                            message: 'This data exists with Non-Active status. It will be reactivated.'
+                        };
+                    }
+                }
+                
+                // Check for NIK conflict with different data
+                if (record.no_ktp === no_ktp && !isExactMatch) {
+                    return {
+                        exists: true,
+                        type: 'nik_conflict',
+                        data: record,
+                        message: 'This NIK is already used by a different person.'
+                    };
+                }
+            }
+        }
+        
+        return { exists: false };
+        
+    } catch (error) {
+        console.error('Error checking existing data:', error);
+        return { exists: false };
+    }
+}
+
+// Function to show duplicate data modal
+function showDuplicateDataModal(existingRecord) {
+    const modalHtml = `
+        <div class="modal fade" id="duplicateDataModal" tabindex="-1" aria-labelledby="duplicateDataModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning text-dark">
+                        <h5 class="modal-title" id="duplicateDataModalLabel">
+                            <i class="fas fa-exclamation-triangle"></i> Data Already Exists
+                        </h5>
+                        <button type="button" class="btn-close" onclick="closeDuplicateDataModal()" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-warning" role="alert">
+                            <h6><i class="fas fa-info-circle"></i> Duplicate Data Found</h6>
+                            <p>The data you are trying to add already exists in the system with <strong>${existingRecord.status || 'Unknown'}</strong> status.</p>
+                        </div>
+                        
+                        <div class="existing-data-info">
+                            <h6><i class="fas fa-database"></i> Existing Record Details:</h6>
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong><i class="fas fa-id-badge"></i> G_ID:</strong><br>
+                                               <span class="text-primary">${existingRecord.g_id || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-user"></i> Name:</strong><br>
+                                               <span class="text-dark">${existingRecord.name || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-id-card"></i> NIK (No KTP):</strong><br>
+                                               <span class="text-dark">${existingRecord.no_ktp || 'N/A'}</span></p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong><i class="fas fa-calendar-alt"></i> Birth Date:</strong><br>
+                                               <span class="text-dark">${existingRecord.bod || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-hashtag"></i> Personal Number:</strong><br>
+                                               <span class="text-dark">${existingRecord.personal_number || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-check-circle"></i> Status:</strong><br>
+                                               <span class="badge ${existingRecord.status && existingRecord.status.toLowerCase() === 'active' ? 'bg-success' : 'bg-secondary'}">${existingRecord.status || 'N/A'}</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-lightbulb"></i> 
+                                <strong>Suggestion:</strong> Please verify the data you entered. If this is a different person, 
+                                please ensure the NIK and other details are correct.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeDuplicateDataModal()">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="goBackToAddForm()">
+                            <i class="fas fa-edit"></i> Edit Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing duplicate modal if any
+    const existingModal = document.getElementById('duplicateDataModal');
+    if (existingModal) {
+        // Dispose of any existing Bootstrap modal instance
+        const existingModalInstance = bootstrap.Modal.getInstance(existingModal);
+        if (existingModalInstance) {
+            existingModalInstance.dispose();
+        }
+        existingModal.remove();
+    }
+    
+    // Add modal to DOM
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Get the modal element
+    const modalElement = document.getElementById('duplicateDataModal');
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(modalElement, {
+        backdrop: 'static', // Prevent closing by clicking outside
+        keyboard: true      // Allow closing with Escape key
+    });
+    modal.show();
+    
+    // Clean up modal after it's hidden
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        // Dispose of the Bootstrap modal instance
+        const modalInstance = bootstrap.Modal.getInstance(this);
+        if (modalInstance) {
+            modalInstance.dispose();
+        }
+        // Remove the modal from DOM
+        this.remove();
+    }, { once: true }); // Use { once: true } to ensure the event listener is only called once
+    
+    // Add click handlers for close buttons
+    modalElement.addEventListener('click', function(e) {
+        if (e.target.matches('[data-bs-dismiss="modal"]') || e.target.closest('[data-bs-dismiss="modal"]')) {
+            modal.hide();
+        }
     });
 }
 
+// Function to properly close the duplicate data modal
+function closeDuplicateDataModal() {
+    const duplicateModal = document.getElementById('duplicateDataModal');
+    if (duplicateModal) {
+        const modalInstance = bootstrap.Modal.getInstance(duplicateModal);
+        if (modalInstance) {
+            modalInstance.dispose();
+        }
+        
+        // Remove modal backdrop if exists
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+        
+        // Remove the modal from DOM
+        duplicateModal.remove();
+        
+        // Remove modal-open class from body
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+    }
+}
+
+// Function to show reactivation confirmation modal
+function showReactivationModal(existingRecord, newPersonalNumber) {
+    // Check if personal number will be updated
+    const hasNewPersonalNumber = newPersonalNumber && newPersonalNumber.trim() !== '';
+    const hasExistingPersonalNumber = existingRecord.personal_number && existingRecord.personal_number.trim() !== '';
+    
+    // Determine what the final personal number will be
+    let finalPersonalNumber;
+    let willUpdatePersonalNumber = false;
+    
+    if (hasNewPersonalNumber) {
+        finalPersonalNumber = newPersonalNumber.trim();
+        willUpdatePersonalNumber = finalPersonalNumber !== (existingRecord.personal_number || '');
+    } else if (hasExistingPersonalNumber) {
+        finalPersonalNumber = existingRecord.personal_number;
+        willUpdatePersonalNumber = false; // Keeping existing
+    } else {
+        finalPersonalNumber = 'N/A';
+        willUpdatePersonalNumber = false;
+    }
+    
+    const modalHtml = `
+        <div class="modal fade" id="reactivationModal" tabindex="-1" aria-labelledby="reactivationModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title" id="reactivationModalLabel">
+                            <i class="fas fa-check-circle"></i> Reactivate Existing Data
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-success" role="alert">
+                            <h6><i class="fas fa-info-circle"></i> Data Found - Reactivation Available</h6>
+                            <p>The data you entered matches an existing <strong>Non-Active</strong> record. 
+                            The system will reactivate this record and change its status to <strong>Active</strong>.</p>
+                        </div>
+                        
+                        <div class="existing-data-info">
+                            <h6><i class="fas fa-database"></i> Record to be Reactivated:</h6>
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong><i class="fas fa-id-badge"></i> G_ID:</strong><br>
+                                               <span class="text-primary">${existingRecord.g_id || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-user"></i> Name:</strong><br>
+                                               <span class="text-dark">${existingRecord.name || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-id-card"></i> NIK (No KTP):</strong><br>
+                                               <span class="text-dark">${existingRecord.no_ktp || 'N/A'}</span></p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong><i class="fas fa-calendar-alt"></i> Birth Date:</strong><br>
+                                               <span class="text-dark">${existingRecord.bod || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-hashtag"></i> Personal Number:</strong><br>
+                                               <span class="text-dark" id="display-personal-number">${existingRecord.personal_number || 'N/A'}</span>
+                                               ${willUpdatePersonalNumber ? '<br><small class="text-info"><i class="fas fa-arrow-right"></i> Will be updated to: <strong>' + finalPersonalNumber + '</strong></small>' : 
+                                                 (hasNewPersonalNumber ? '' : '<br><small class="text-muted"><i class="fas fa-info-circle"></i> Will keep existing personal number</small>')}</p>
+                                            <p><strong><i class="fas fa-toggle-off"></i> Current Status:</strong><br>
+                                               <span class="badge bg-secondary">${existingRecord.status || 'N/A'}</span>
+                                               <i class="fas fa-arrow-right mx-2"></i>
+                                               <span class="badge bg-success">Active</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${willUpdatePersonalNumber ? 
+                            '<div class="alert alert-info mt-3"><h6><i class="fas fa-edit"></i> Personal Number Update</h6><p>The personal number will be updated from "<strong>' + (existingRecord.personal_number || 'empty') + '</strong>" to "<strong>' + finalPersonalNumber + '</strong>".</p></div>' 
+                            : (hasNewPersonalNumber ? '' : 
+                                '<div class="alert alert-info mt-3"><h6><i class="fas fa-info-circle"></i> Personal Number</h6><p>Since no new personal number was provided, the existing personal number "<strong>' + (existingRecord.personal_number || 'empty') + '</strong>" will be retained.</p></div>')}
+                        
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-lightbulb"></i> 
+                                <strong>Note:</strong> This action will reactivate the existing record rather than creating a new one.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="confirmReactivation('${existingRecord.g_id}', '${newPersonalNumber || ''}')" data-g-id="${existingRecord.g_id}" data-personal-number="${newPersonalNumber || ''}">
+                            <i class="fas fa-check"></i> Yes, Reactivate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing reactivation modal if any
+    const existingModal = document.getElementById('reactivationModal');
+    if (existingModal) {
+        const existingModalInstance = bootstrap.Modal.getInstance(existingModal);
+        if (existingModalInstance) {
+            existingModalInstance.dispose();
+        }
+        existingModal.remove();
+    }
+    
+    // Add modal to DOM
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show the modal with proper Bootstrap handling
+    const modalElement = document.getElementById('reactivationModal');
+    const modal = new bootstrap.Modal(modalElement, {
+        backdrop: 'static',
+        keyboard: true
+    });
+    
+    // Add click event listener for the reactivate button (backup to onclick)
+    const reactivateButton = modalElement.querySelector('.btn-success');
+    if (reactivateButton) {
+        reactivateButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const gId = this.getAttribute('data-g-id');
+            const personalNumber = this.getAttribute('data-personal-number');
+            confirmReactivation(gId, personalNumber);
+        });
+    }
+    
+    modal.show();
+    
+    // Clean up modal after it's hidden
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        const modalInstance = bootstrap.Modal.getInstance(this);
+        if (modalInstance) {
+            modalInstance.dispose();
+        }
+        this.remove();
+    }, { once: true });
+}
+
+// Function to close reactivation modal
+
+// Function to show active duplicate modal (cannot be modified)
+function showActiveDuplicateModal(existingRecord) {
+    const modalHtml = `
+        <div class="modal fade" id="activeDuplicateModal" tabindex="-1" aria-labelledby="activeDuplicateModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title" id="activeDuplicateModalLabel">
+                            <i class="fas fa-ban"></i> Data Already Active
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" onclick="closeActiveDuplicateModal()" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger" role="alert">
+                            <h6><i class="fas fa-exclamation-circle"></i> Cannot Add or Modify</h6>
+                            <p>This data already exists with <strong>Active</strong> status and cannot be added or modified.</p>
+                        </div>
+                        
+                        <div class="existing-data-info">
+                            <h6><i class="fas fa-database"></i> Existing Active Record:</h6>
+                            <div class="card border-success">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong><i class="fas fa-id-badge"></i> G_ID:</strong><br>
+                                               <span class="text-primary">${existingRecord.g_id || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-user"></i> Name:</strong><br>
+                                               <span class="text-dark">${existingRecord.name || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-id-card"></i> NIK (No KTP):</strong><br>
+                                               <span class="text-dark">${existingRecord.no_ktp || 'N/A'}</span></p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong><i class="fas fa-calendar-alt"></i> Birth Date:</strong><br>
+                                               <span class="text-dark">${existingRecord.bod || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-hashtag"></i> Personal Number:</strong><br>
+                                               <span class="text-dark">${existingRecord.personal_number || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-check-circle"></i> Status:</strong><br>
+                                               <span class="badge bg-success">Active</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <div class="alert alert-info" role="alert">
+                                <i class="fas fa-info-circle"></i> 
+                                <strong>Policy:</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li>Active records cannot be duplicated</li>
+                                    <li>Active records cannot be modified through add data</li>
+                                    <li>If you need to make changes, use the edit function instead</li>
+                                    <li>If this is a different person, please verify the NIK number</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeActiveDuplicateModal()">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="goBackToAddForm()">
+                            <i class="fas fa-edit"></i> Edit Form
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('activeDuplicateModal');
+    if (existingModal) {
+        const existingModalInstance = bootstrap.Modal.getInstance(existingModal);
+        if (existingModalInstance) {
+            existingModalInstance.dispose();
+        }
+        existingModal.remove();
+    }
+    
+    // Add modal to DOM
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show the modal
+    const modalElement = document.getElementById('activeDuplicateModal');
+    const modal = new bootstrap.Modal(modalElement, {
+        backdrop: 'static',
+        keyboard: true
+    });
+    modal.show();
+    
+    // Clean up after modal is hidden
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        const modalInstance = bootstrap.Modal.getInstance(this);
+        if (modalInstance) {
+            modalInstance.dispose();
+        }
+        this.remove();
+    }, { once: true });
+}
+
+// Function to close active duplicate modal
+function closeActiveDuplicateModal() {
+    const modal = document.getElementById('activeDuplicateModal');
+    if (modal) {
+        const modalInstance = bootstrap.Modal.getInstance(modal);
+        if (modalInstance) {
+            modalInstance.dispose();
+        }
+        
+        // Remove modal backdrop
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+        
+        modal.remove();
+        
+        // Clean up body classes
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+    }
+}
+
+// Function to confirm reactivation - SIMPLE METHOD
+async function confirmReactivation(g_id, newPersonalNumber) {
+    const submitBtn = document.querySelector('#reactivationModal .btn-success');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reactivating...';
+    submitBtn.disabled = true;
+    
+    try {
+        // Simple approach: Get all pegawai records (including deleted) in one call
+        const pegawaiResponse = await fetch(`${getApiBaseUrl()}/data/pegawai?page=1&size=1000&include_deleted=true`);
+        const pegawaiData = await pegawaiResponse.json();
+        
+        if (!pegawaiData.data) {
+            throw new Error('Failed to fetch pegawai data');
+        }
+        
+        // Find the pegawai record by G_ID
+        const pegawai = pegawaiData.data.find(p => p.g_id === g_id);
+        
+        if (pegawai) {
+            // Handle personal number logic: use new if provided, otherwise keep existing
+            let finalPersonalNumber;
+            if (newPersonalNumber && newPersonalNumber.trim() !== '') {
+                finalPersonalNumber = newPersonalNumber.trim();
+            } else {
+                finalPersonalNumber = pegawai.personal_number || null;
+            }
+            
+            // Simple update: change status to Active and clear deleted_at
+            const updateData = {
+                name: pegawai.name,
+                no_ktp: pegawai.no_ktp,
+                bod: pegawai.bod,
+                status: 'Active',
+                personal_number: finalPersonalNumber,
+                deleted_at: null
+            };
+            
+            const updateResponse = await fetch(`${getApiBaseUrl()}/data/pegawai/${pegawai.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updateData)
+            });
+            
+            if (!updateResponse.ok) {
+                throw new Error(`Update failed: ${updateResponse.status}`);
+            }
+            
+            // Close modals
+            const reactivationModal = bootstrap.Modal.getInstance(document.getElementById('reactivationModal'));
+            if (reactivationModal) reactivationModal.hide();
+            
+            const addModal = bootstrap.Modal.getInstance(document.getElementById('addGlobalIDModal'));
+            if (addModal) addModal.hide();
+            
+            showNotification(`Record reactivated successfully! G_ID: ${g_id} is now Active.`, 'success');
+            
+            // Reload data
+            setTimeout(() => {
+                loadAllDatabaseData();
+            }, 500);
+            
+        } else {
+            throw new Error(`No pegawai record found for G_ID: ${g_id}`);
+        }
+        
+    } catch (error) {
+        console.error('Reactivation error:', error);
+        showNotification('Failed to reactivate record: ' + error.message, 'error');
+    } finally {
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+}
+
+// Function to show NIK conflict modal
+function showNikConflictModal(existingRecord) {
+    const modalHtml = `
+        <div class="modal fade" id="nikConflictModal" tabindex="-1" aria-labelledby="nikConflictModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title" id="nikConflictModalLabel">
+                            <i class="fas fa-exclamation-circle"></i> NIK Already Exists
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" onclick="closeNikConflictModal()" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger" role="alert">
+                            <h6><i class="fas fa-ban"></i> NIK Conflict Detected</h6>
+                            <p>The NIK (ID Number) <strong>${existingRecord.no_ktp || 'N/A'}</strong> is already in use in the system.</p>
+                            <p>Each NIK must be unique and cannot be duplicated.</p>
+                        </div>
+                        
+                        <div class="existing-data-info">
+                            <h6><i class="fas fa-user-check"></i> Current NIK Owner:</h6>
+                            <div class="card border-danger">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong><i class="fas fa-id-badge"></i> G_ID:</strong><br>
+                                               <span class="text-primary">${existingRecord.g_id || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-user"></i> Name:</strong><br>
+                                               <span class="text-dark">${existingRecord.name || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-id-card"></i> NIK (No KTP):</strong><br>
+                                               <span class="text-danger font-weight-bold">${existingRecord.no_ktp || 'N/A'}</span></p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong><i class="fas fa-calendar-alt"></i> Birth Date:</strong><br>
+                                               <span class="text-dark">${existingRecord.bod || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-hashtag"></i> Personal Number:</strong><br>
+                                               <span class="text-dark">${existingRecord.personal_number || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-check-circle"></i> Status:</strong><br>
+                                               <span class="badge bg-success">${existingRecord.status || 'N/A'}</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <div class="alert alert-info" role="alert">
+                                <i class="fas fa-info-circle"></i> 
+                                <strong>Please Note:</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li>Verify that you entered the correct NIK</li>
+                                    <li>If this is the same person, no action is needed</li>
+                                    <li>If this is a different person, please check the NIK number</li>
+                                    <li>Contact administrator if you believe this is an error</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeNikConflictModal()">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="goBackToAddFormFromNik()">
+                            <i class="fas fa-edit"></i> Correct NIK
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing NIK conflict modal if any
+    const existingModal = document.getElementById('nikConflictModal');
+    if (existingModal) {
+        // Dispose of any existing Bootstrap modal instance
+        const existingModalInstance = bootstrap.Modal.getInstance(existingModal);
+        if (existingModalInstance) {
+            existingModalInstance.dispose();
+        }
+        existingModal.remove();
+    }
+    
+    // Add modal to DOM
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('nikConflictModal'), {
+        backdrop: 'static', // Prevent closing by clicking outside
+        keyboard: false    // Prevent closing with Escape key
+    });
+    modal.show();
+    
+    // Clean up modal when it's hidden
+    document.getElementById('nikConflictModal').addEventListener('hidden.bs.modal', function () {
+        const modalInstance = bootstrap.Modal.getInstance(this);
+        if (modalInstance) {
+            modalInstance.dispose();
+        }
+        this.remove();
+    }, { once: true });
+}
+
+// Function to close NIK conflict modal
+function closeNikConflictModal() {
+    const modal = document.getElementById('nikConflictModal');
+    if (modal) {
+        const modalInstance = bootstrap.Modal.getInstance(modal);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
+    }
+}
+
+// Function to close NIK conflict modal and return to add form with focus on NIK field
+function goBackToAddFormFromNik() {
+    closeNikConflictModal();
+    
+    // Keep add modal open and focus on the NIK input
+    setTimeout(() => {
+        const nikInput = document.getElementById('add-no_ktp');
+        if (nikInput) {
+            nikInput.focus();
+            nikInput.select(); // Select the text so user can easily replace it
+        }
+    }, 300);
+}
+
+// Function to close duplicate modal and return to add form
+function goBackToAddForm() {
+    // Close duplicate modal using the dedicated close function
+    closeDuplicateDataModal();
+    
+    // Keep add modal open and focus on the first input
+    setTimeout(() => {
+        const nameInput = document.getElementById('add-name');
+        if (nameInput) {
+            nameInput.focus();
+            nameInput.select(); // Select the text to make it easier to edit
+        }
+    }, 300);
+}
+
+function validateAddGlobalIDForm(name, no_ktp, bod) {
+    const errors = [];
+    
+    // Validate Name
+    if (!name) {
+        errors.push({ field: 'name', message: 'Name is required' });
+        showFieldError('name-error', 'Name is required');
+    } else if (name.length < 2) {
+        errors.push({ field: 'name', message: 'Name must be at least 2 characters long' });
+        showFieldError('name-error', 'Name must be at least 2 characters long');
+    }
+    
+    // Validate NIK (No KTP)
+    if (!no_ktp) {
+        errors.push({ field: 'no_ktp', message: 'NIK (No KTP) is required' });
+        showFieldError('no-ktp-error', 'NIK (No KTP) is required');
+    } else if (!/^\d{16}$/.test(no_ktp)) {
+        errors.push({ field: 'no_ktp', message: 'NIK must be exactly 16 digits' });
+        showFieldError('no-ktp-error', 'NIK must be exactly 16 digits');
+    }
+    
+    // Validate Birth Date
+    if (!bod) {
+        errors.push({ field: 'bod', message: 'Birth Date is required' });
+        showFieldError('bod-error', 'Birth Date is required');
+    } else {
+        const birthDate = new Date(bod);
+        const today = new Date();
+        const minDate = new Date();
+        minDate.setFullYear(today.getFullYear() - 100); // Max 100 years old
+        
+        if (birthDate > today) {
+            errors.push({ field: 'bod', message: 'Birth Date cannot be in the future' });
+            showFieldError('bod-error', 'Birth Date cannot be in the future');
+        } else if (birthDate < minDate) {
+            errors.push({ field: 'bod', message: 'Birth Date seems unrealistic (over 100 years ago)' });
+            showFieldError('bod-error', 'Birth Date seems unrealistic (over 100 years ago)');
+        }
+    }
+    
+    return errors;
+}
+
+function clearValidationErrors() {
+    const errorContainer = document.getElementById('add-validation-errors');
+    errorContainer.style.display = 'none';
+    errorContainer.innerHTML = '';
+    
+    // Clear individual field errors
+    const fieldErrors = document.querySelectorAll('.field-error');
+    fieldErrors.forEach(error => {
+        error.style.display = 'none';
+        error.innerHTML = '';
+    });
+    
+    // Remove error styling from inputs
+    const inputs = document.querySelectorAll('#addGlobalIDForm input');
+    inputs.forEach(input => {
+        input.classList.remove('is-invalid');
+    });
+}
+
+function showFieldError(errorId, message) {
+    const errorElement = document.getElementById(errorId);
+    if (errorElement) {
+        errorElement.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        errorElement.style.display = 'block';
+        
+        // Add error styling to corresponding input
+        const fieldName = errorId.replace('-error', '');
+        const input = document.getElementById('add-' + fieldName);
+        if (input) {
+            input.classList.add('is-invalid');
+        }
+    }
+}
+
+function displayValidationErrors(errors) {
+    const errorContainer = document.getElementById('add-validation-errors');
+    const errorMessages = errors.map(error => 
+        typeof error === 'string' ? error : error.message
+    );
+    
+    errorContainer.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Please fix the following errors:</strong>
+            <ul class="mb-0 mt-2">
+                ${errorMessages.map(msg => `<li>${msg}</li>`).join('')}
+            </ul>
+        </div>
+    `;
+    errorContainer.style.display = 'block';
+    
+    // Scroll to top of modal to show errors
+    const modalBody = document.querySelector('#addGlobalIDModal .modal-body');
+    if (modalBody) {
+        modalBody.scrollTop = 0;
+    }
+}
+
+function addRealTimeValidation() {
+    // Real-time validation for name
+    const nameInput = document.getElementById('add-name');
+    if (nameInput) {
+        nameInput.addEventListener('blur', function() {
+            const value = this.value.trim();
+            const errorElement = document.getElementById('name-error');
+            
+            if (!value) {
+                showFieldError('name-error', 'Name is required');
+            } else if (value.length < 2) {
+                showFieldError('name-error', 'Name must be at least 2 characters long');
+            } else {
+                errorElement.style.display = 'none';
+                this.classList.remove('is-invalid');
+            }
+        });
+    }
+    
+    // Real-time validation for NIK
+    const nikInput = document.getElementById('add-no-ktp');
+    if (nikInput) {
+        // Only allow digits
+        nikInput.addEventListener('input', function() {
+            this.value = this.value.replace(/\D/g, ''); // Remove non-digits
+        });
+        
+        nikInput.addEventListener('blur', function() {
+            const value = this.value.trim();
+            const errorElement = document.getElementById('no-ktp-error');
+            
+            if (!value) {
+                showFieldError('no-ktp-error', 'NIK (No KTP) is required');
+            } else if (!/^\d{16}$/.test(value)) {
+                showFieldError('no-ktp-error', 'NIK must be exactly 16 digits');
+            } else {
+                errorElement.style.display = 'none';
+                this.classList.remove('is-invalid');
+            }
+        });
+    }
+    
+    // Real-time validation for birth date
+    const bodInput = document.getElementById('add-bod');
+    if (bodInput) {
+        bodInput.addEventListener('blur', function() {
+            const value = this.value;
+            const errorElement = document.getElementById('bod-error');
+            
+            if (!value) {
+                showFieldError('bod-error', 'Birth Date is required');
+            } else {
+                const birthDate = new Date(value);
+                const today = new Date();
+                const minDate = new Date();
+                minDate.setFullYear(today.getFullYear() - 100);
+                
+                if (birthDate > today) {
+                    showFieldError('bod-error', 'Birth Date cannot be in the future');
+                } else if (birthDate < minDate) {
+                    showFieldError('bod-error', 'Birth Date seems unrealistic (over 100 years ago)');
+                } else {
+                    errorElement.style.display = 'none';
+                    this.classList.remove('is-invalid');
+                }
+            }
+        });
+    }
+}
+
 // Modal for Delete Data
-function showDeleteGlobalIDModal(g_id, name, no_ktp) {
+function showDeleteGlobalIDModal(g_id, name, no_ktp, currentStatus) {
     const modalHtml = `
     <div class="modal" id="deleteGlobalIDModal" role="dialog" aria-labelledby="deleteModalTitle" aria-hidden="false">
         <div class="modal-content" role="document">
@@ -1295,7 +2888,7 @@ function showDeleteGlobalIDModal(g_id, name, no_ktp) {
 
 function submitDeleteGlobalID(g_id) {
     // Find pegawai_id by g_id (API expects pegawai_id)
-    fetch(`${getApiBaseUrl()}/data/pegawai?page=1&page_size=1&search=${g_id}`)
+    fetch(`${getApiBaseUrl()}/data/pegawai?page=1&size=50&search=${g_id}`)
     .then(res => res.json())
     .then(data => {
         if (data.data && data.data.length > 0) {
@@ -1318,6 +2911,120 @@ function submitDeleteGlobalID(g_id) {
     })
     .catch(err => {
         showNotification('Failed to find pegawai record: ' + err, 'error');
+    });
+}
+
+// Modal for Refill Data - Creates new Active record based on Non-Active data
+function showRefillModal(g_id, name, no_ktp, bod, personal_number) {
+    const modalHtml = `
+    <div class="modal" id="refillModal" role="dialog" aria-labelledby="refillModalTitle" aria-hidden="false">
+        <div class="modal-content" role="document">
+            <div class="modal-header bg-info text-white">
+                <h3 id="refillModalTitle"><i class="fas fa-plus-circle"></i> Refill Global ID Data</h3>
+                <button class="close text-white" onclick="closeModal('refillModal')" aria-label="Close modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle"></i> Refill Details</h6>
+                    <p>Create a new Active record using the data from this Non-Active record:</p>
+                </div>
+                
+                <div class="record-details">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong><i class="fas fa-user"></i> Name:</strong><br>
+                               <span class="text-dark">${name}</span></p>
+                            <p><strong><i class="fas fa-id-card"></i> NIK (No KTP):</strong><br>
+                               <span class="text-dark">${no_ktp}</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong><i class="fas fa-calendar-alt"></i> Birth Date:</strong><br>
+                               <span class="text-dark">${bod || 'N/A'}</span></p>
+                            <p><strong><i class="fas fa-hashtag"></i> Personal Number:</strong><br>
+                               <span class="text-dark">${personal_number || 'N/A'}</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning mt-3">
+                    <h6><i class="fas fa-exclamation-triangle"></i> Important Note</h6>
+                    <p>This action will create a <strong>new Active record</strong> with the same data. 
+                    A new G_ID will be automatically generated for this record.</p>
+                </div>
+                
+                <div class="confirmation-text mt-3">
+                    <p><strong>Are you sure you want to refill this data as a new Active record?</strong></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-info" onclick="submitRefillGlobalID('${name}', '${no_ktp}', '${bod}', '${personal_number}')">
+                    <i class="fas fa-check"></i> Yes, Refill
+                </button>
+                <button class="btn btn-secondary" onclick="closeModal('refillModal')">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </div>
+    </div>`;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = document.getElementById('refillModal');
+    modal.style.display = 'block';
+    
+    // Focus management and keyboard handling
+    setTimeout(() => {
+        const refillButton = modal.querySelector('.btn-info');
+        if (refillButton) {
+            refillButton.focus();
+        }
+        
+        // Add escape key handler
+        modal.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal('refillModal');
+            }
+        });
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeModal('refillModal');
+            }
+        });
+    }, 100);
+}
+
+function submitRefillGlobalID(name, no_ktp, bod, personal_number) {
+    // Create new Active record with the same data
+    const newData = {
+        name: name,
+        no_ktp: no_ktp,
+        bod: bod || null,
+        personal_number: personal_number || null,
+        status: 'Active'
+    };
+    
+    fetch(`${getApiBaseUrl()}/data/pegawai`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newData)
+    })
+    .then(res => res.json())
+    .then(result => {
+        closeModal('refillModal');
+        if (result.success) {
+            showNotification(`New Active record created successfully with G_ID: ${result.data?.g_id || 'Generated'}`, 'success');
+            // Reload the page data to show the new record
+            loadAllDatabaseData();
+        } else {
+            showNotification('Failed to create refill record: ' + (result.message || 'Unknown error'), 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Refill error:', err);
+        showNotification('Failed to create refill record: ' + err.message, 'error');
     });
 }
 

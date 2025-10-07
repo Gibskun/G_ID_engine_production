@@ -402,8 +402,9 @@ class AdvancedWorkflowService:
                     elif getattr(pegawai_record, 'deleted_at', None) is not None:
                         # Rule: If employee status is non-active, update to non-active
                         current_status = getattr(global_record, 'status', '')
+                        old_values = {'status': current_status}  # Always define old_values
+                        
                         if current_status != 'Non Active':
-                            old_values = {'status': current_status}
                             setattr(global_record, 'status', 'Non Active')
                             
                             # Log audit trail
@@ -417,6 +418,7 @@ class AdvancedWorkflowService:
                             )
                             
                             result['status_updates'] += 1
+                            
                         result['updated_records'].append({
                             'g_id': getattr(global_record, 'g_id', ''),
                             'name': getattr(global_record, 'name', ''),

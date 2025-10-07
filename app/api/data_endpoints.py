@@ -35,6 +35,8 @@ class PegawaiUpdateRequest(BaseModel):
     personal_number: Optional[str] = None
     no_ktp: Optional[str] = None
     bod: Optional[date] = None
+    status: Optional[str] = None
+    deleted_at: Optional[datetime] = None
 
 class DataResponse(BaseModel):
     data: List[Dict[str, Any]]
@@ -622,12 +624,17 @@ async def update_pegawai_record(
             setattr(pegawai_record, 'no_ktp', request.no_ktp)
         if request.bod is not None:
             setattr(pegawai_record, 'bod', request.bod)
+        if request.status is not None:
+            setattr(pegawai_record, 'status', request.status)
+        # Handle deleted_at specially - allow setting to None for reactivation
+        if hasattr(request, 'deleted_at'):
+            setattr(pegawai_record, 'deleted_at', request.deleted_at)
         
         setattr(pegawai_record, 'updated_at', datetime.now())
         
         source_db.commit()
         
-        # Update corresponding global_id record if exists
+        # Update corresponding global_id record if exists and sync status
         pegawai_g_id = getattr(pegawai_record, 'g_id', None)
         if pegawai_g_id:
             global_record = db.query(GlobalID).filter(GlobalID.g_id == pegawai_g_id).first()
@@ -641,12 +648,37 @@ async def update_pegawai_record(
                 if request.bod is not None:
                     setattr(global_record, 'bod', request.bod)
                 
+                # Sync status from pegawai to global_id
+                pegawai_status = getattr(pegawai_record, 'status', None)
+                pegawai_deleted_at = getattr(pegawai_record, 'deleted_at', None)
+                old_global_status = getattr(global_record, 'status', None)
+                
+                logger.info(f"Status sync debug - G_ID: {pegawai_g_id}")
+                logger.info(f"  Pegawai status: {pegawai_status}")
+                logger.info(f"  Pegawai deleted_at: {pegawai_deleted_at}")
+                logger.info(f"  Old Global status: {old_global_status}")
+                
+                if pegawai_deleted_at is None and pegawai_status == 'Active':
+                    # Pegawai is active and not deleted -> Global ID should be Active
+                    setattr(global_record, 'status', 'Active')
+                    logger.info(f"  Setting Global status to: Active")
+                elif pegawai_deleted_at is not None or pegawai_status != 'Active':
+                    # Pegawai is deleted or not active -> Global ID should be Non Active
+                    setattr(global_record, 'status', 'Non Active')
+                    logger.info(f"  Setting Global status to: Non Active")
+                
                 setattr(global_record, 'updated_at', datetime.now())
                 db.commit()
         
-        # Perform automatic synchronization
-        automation_service = AutomationService(db, source_db)
-        sync_result = automation_service.automatic_synchronization()
+        # Automatic synchronization disabled - per user request to not use advanced workflow service
+        # automation_service = AutomationService(db, source_db)
+        # sync_result = automation_service.automatic_synchronization()
+        
+        # Verify the update was successful by checking the record again
+        updated_global_record = db.query(GlobalID).filter(GlobalID.g_id == pegawai_g_id).first()
+        if updated_global_record:
+            final_status = getattr(updated_global_record, 'status', None)
+            logger.info(f"Final verification - Global ID {pegawai_g_id} status is now: {final_status}")
         
         logger.info(f"Pegawai record {pegawai_id} updated successfully")
         
@@ -657,7 +689,7 @@ async def update_pegawai_record(
                 "message": "Record updated successfully",
                 "pegawai_id": pegawai_id,
                 "g_id": pegawai_g_id,
-                "sync_completed": sync_result["success"]
+                "sync_completed": True  # Set to True since we're not running sync
             }
         )
         

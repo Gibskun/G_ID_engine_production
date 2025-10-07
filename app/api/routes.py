@@ -991,6 +991,7 @@ async def get_all_database_info(
     size: int = Query(50, ge=1, le=100, description="Records per page"),
     table: Optional[str] = Query(None, description="Specific table to view"),
     status: Optional[str] = Query(None, description="Filter by status (Active/Non Active)"),
+    search: Optional[str] = Query(None, description="Search by name, date of birth, ID number, or G_ID"),
     db: Session = Depends(get_db),
     source_db: Session = Depends(get_source_db)
 ):
@@ -1061,13 +1062,49 @@ async def get_all_database_info(
                         elif order_column is None:
                             order_column = col["name"]  # fallback to first column
                     
-                    # Build WHERE clause for status filtering
-                    where_clause = ""
+                    # Build WHERE clause for status and search filtering
+                    where_conditions = []
+                    
+                    # Status filtering
                     if status:
                         # Check if table has status column
                         has_status = any(col["name"].lower() == "status" for col in columns)
                         if has_status:
-                            where_clause = f"WHERE status = '{status}'"
+                            where_conditions.append(f"status = '{status}'")
+                    
+                    # Search filtering (for global_id table)
+                    if search and table_name == 'global_id':
+                        search_term = search.replace("'", "''")  # Escape single quotes
+                        
+                        # Build search conditions for multiple columns
+                        search_conditions = []
+                        
+                        # Search in common columns (based on actual GlobalID model structure)
+                        for col in columns:
+                            col_name = col["name"].lower()
+                            col_type = col["type"].lower()
+                            
+                            # Search in text/varchar columns (names, IDs)
+                            if col_type in ['varchar', 'nvarchar', 'char', 'nchar', 'text', 'ntext']:
+                                # Match actual column names from GlobalID model
+                                if col_name in ['name', 'g_id', 'no_ktp', 'personal_number']:
+                                    search_conditions.append(f"LOWER({col['name']}) LIKE LOWER('%{search_term}%')")
+                            
+                            # Search in date columns (birth date)
+                            elif col_type in ['date', 'datetime', 'datetime2', 'smalldatetime']:
+                                # Match actual date column name 'bod' (birth of date)
+                                if col_name in ['bod']:
+                                    # Try to match date format (YYYY-MM-DD or partial matches)
+                                    search_conditions.append(f"CONVERT(varchar, {col['name']}, 23) LIKE '%{search_term}%'")
+                        
+                        # If we have search conditions, add them to where clause
+                        if search_conditions:
+                            where_conditions.append(f"({' OR '.join(search_conditions)})")
+                    
+                    # Combine all conditions
+                    where_clause = ""
+                    if where_conditions:
+                        where_clause = f"WHERE {' AND '.join(where_conditions)}"
                     
                     # Get total count for pagination
                     count_query = text(f"SELECT COUNT(*) as total FROM dbo.{table_name} {where_clause}")
