@@ -2515,7 +2515,60 @@ async function confirmReactivation(g_id, newPersonalNumber) {
             }, 500);
             
         } else {
-            throw new Error(`No pegawai record found for G_ID: ${g_id}`);
+            // Pegawai record not found - get data from database explorer and create new pegawai record
+            console.log(`No pegawai record found for G_ID: ${g_id}, attempting to create from global_id data`);
+            
+            // Get the global_id record data from database explorer
+            const explorerResponse = await fetch(`${getApiBaseUrl()}/database/explorer?search=${g_id}&size=10`);
+            const explorerData = await explorerResponse.json();
+            
+            let globalRecord = null;
+            if (explorerData.dbvendor?.tables?.global_id?.data) {
+                globalRecord = explorerData.dbvendor.tables.global_id.data.find(record => record.g_id === g_id);
+            }
+            
+            if (globalRecord) {
+                // Create new pegawai record using global_id data
+                const createData = {
+                    name: globalRecord.name,
+                    no_ktp: globalRecord.no_ktp,
+                    bod: globalRecord.bod,
+                    status: 'Active',
+                    personal_number: newPersonalNumber || globalRecord.personal_number || null,
+                    g_id: g_id
+                };
+                
+                console.log('Creating new pegawai record with data:', createData);
+                
+                const createResponse = await fetch(`${getApiBaseUrl()}/data/pegawai`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(createData)
+                });
+                
+                if (!createResponse.ok) {
+                    throw new Error(`Failed to create pegawai record: ${createResponse.status}`);
+                }
+                
+                // Close modals
+                const reactivationModal = bootstrap.Modal.getInstance(document.getElementById('reactivationModal'));
+                if (reactivationModal) reactivationModal.hide();
+                
+                const addModal = bootstrap.Modal.getInstance(document.getElementById('addGlobalIDModal'));
+                if (addModal) addModal.hide();
+                
+                showNotification(`Record reactivated successfully! New pegawai record created for G_ID: ${g_id}`, 'success');
+                
+                // Reload data
+                setTimeout(() => {
+                    loadAllDatabaseData();
+                }, 500);
+                
+            } else {
+                throw new Error(`No global_id record found for G_ID: ${g_id}. Cannot create pegawai record.`);
+            }
         }
         
     } catch (error) {
