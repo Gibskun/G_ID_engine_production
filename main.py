@@ -4,11 +4,12 @@ Main FastAPI application with environment detection
 
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -42,6 +43,16 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+
+class NoCacheStaticFiles(StaticFiles):
+    """Custom StaticFiles that adds no-cache headers for development"""
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
 
 @asynccontextmanager
@@ -80,8 +91,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Mount static files with no-cache headers for development
+app.mount("/static", NoCacheStaticFiles(directory="static"), name="static")
 
 # Setup templates
 templates = Jinja2Templates(directory="templates")
@@ -114,7 +125,7 @@ gid_app.add_middleware(
 
 # Mount static also on the sub-app so url_for('static', ...) resolves to /gid/static/...
 # Static mount retained (safe even if nginx rewrite strips /gid)
-gid_app.mount("/static", StaticFiles(directory="static"), name="static")
+gid_app.mount("/static", NoCacheStaticFiles(directory="static"), name="static")
 
 # Include same routes in sub-application
 gid_app.include_router(api_router)
@@ -197,7 +208,8 @@ async def main_unauthorized_page(request: Request):
     return templates.TemplateResponse("unauthorized.html", {"request": request})
 
 
-# Frontend routes
+# Frontend routes (duplicate - these can be removed as they're already handled above)
+# Keeping for backward compatibility
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """Main dashboard page"""

@@ -19,11 +19,15 @@ window.showDeleteGlobalIDModal = showDeleteGlobalIDModal;
 .pagination-controls {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.2rem;
     background: #f8f9fa;
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 0.8rem;
     border-radius: 8px;
     border: 1px solid #dee2e6;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    white-space: nowrap;
 }
 
 .page-info {
@@ -39,18 +43,69 @@ window.showDeleteGlobalIDModal = showDeleteGlobalIDModal;
     text-align: center;
 }
 
+/* Hide old page info when using advanced pagination */
+.pagination-controls:has(.page-info-advanced) .page-info {
+    display: none;
+}
+
 .pagination-controls .btn {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.85rem;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
     border: 1px solid #dee2e6;
     background: white;
     color: #495057;
-    min-width: 80px;
-    height: 34px;
+    min-width: 32px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.3rem;
+    gap: 0.2rem;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.pagination-controls .pagination-btn {
+    transition: all 0.2s ease;
+}
+
+.pagination-controls .page-number {
+    min-width: 32px;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.pagination-controls .btn-primary {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+    font-weight: 600;
+}
+
+.pagination-ellipsis {
+    color: #6c757d;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    height: 30px;
+    flex-shrink: 0;
+}
+
+.page-info-advanced {
+    font-weight: 500;
+    color: #495057;
+    padding: 0.3rem 0.6rem;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    text-align: center;
+    margin-left: 0.3rem;
+    flex-shrink: 0;
+    height: 30px;
+    display: flex;
+    align-items: center;
 }
 
 .pagination-controls .btn:hover:not(:disabled) {
@@ -606,24 +661,52 @@ window.showDeleteGlobalIDModal = showDeleteGlobalIDModal;
     }
     
     .pagination-controls {
-        justify-content: center;
-        gap: 0.3rem;
-        padding: 0.4rem 0.8rem;
+        justify-content: flex-start;
+        gap: 0.1rem;
+        padding: 0.4rem 0.6rem;
         min-height: auto;
+        flex-wrap: nowrap;
+        overflow-x: auto;
     }
     
-    .page-info {
+    .page-info, .page-info-advanced {
         text-align: center;
-        padding: 0.3rem 0.6rem;
-        font-size: 0.85rem;
-        min-width: 100px;
+        padding: 0.2rem 0.4rem;
+        font-size: 0.7rem;
+        min-width: auto;
+        margin-left: 0.2rem;
+        flex-shrink: 0;
+        height: 26px;
     }
     
     .pagination-controls .btn {
-        padding: 0.3rem 0.6rem;
-        font-size: 0.8rem;
-        min-width: 70px;
-        height: 30px;
+        padding: 0.2rem 0.4rem;
+        font-size: 0.75rem;
+        min-width: 28px;
+        height: 26px;
+        flex-shrink: 0;
+    }
+    
+    .pagination-controls .page-number {
+        min-width: 28px;
+    }
+    
+    .pagination-ellipsis {
+        padding: 0.2rem 0.3rem;
+        font-size: 0.75rem;
+        height: 26px;
+    }
+    
+    /* Hide some page numbers on very small screens */
+    @media (max-width: 480px) {
+        .pagination-controls .page-number:nth-child(n+8):nth-child(-n+12) {
+            display: none;
+        }
+        
+        .page-info-advanced {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
     }
     
     .modal-content {
@@ -691,6 +774,82 @@ function getApiBaseUrl() {
     } else {
         return '/api/v1';
     }
+}
+
+// Advanced Pagination Generator
+function generateAdvancedPagination(pagination) {
+    const currentPage = pagination.current_page || 1;
+    const totalPages = pagination.total_pages || 1;
+    const hasNext = pagination.has_next || false;
+    const hasPrevious = pagination.has_previous || false;
+    
+    if (totalPages <= 1) {
+        return `<span class="page-info">Page 1 of 1</span>`;
+    }
+    
+    let paginationHtml = '';
+    
+    // Previous button
+    paginationHtml += `
+        <button class="btn btn-sm btn-secondary pagination-btn" 
+                onclick="loadDatabasePage(${currentPage - 1})" 
+                ${!hasPrevious ? 'disabled' : ''}>
+            <i class="fas fa-chevron-left"></i>
+        </button>
+    `;
+    
+    // First page
+    if (currentPage > 2) {
+        paginationHtml += `
+            <button class="btn btn-sm btn-outline-primary pagination-btn page-number" 
+                    onclick="loadDatabasePage(1)">1</button>
+        `;
+        if (currentPage > 3) {
+            paginationHtml += `<span class="pagination-ellipsis">...</span>`;
+        }
+    }
+    
+    // Pages around current page (show only 1 page before and after on each side)
+    const startPage = Math.max(1, currentPage - 1);
+    const endPage = Math.min(totalPages, currentPage + 1);
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const isActive = i === currentPage;
+        paginationHtml += `
+            <button class="btn btn-sm ${isActive ? 'btn-primary' : 'btn-outline-primary'} pagination-btn page-number" 
+                    onclick="loadDatabasePage(${i})" 
+                    ${isActive ? 'disabled' : ''}>${i}</button>
+        `;
+    }
+    
+    // Last pages
+    if (currentPage < totalPages - 1) {
+        if (currentPage < totalPages - 2) {
+            paginationHtml += `<span class="pagination-ellipsis">...</span>`;
+        }
+        paginationHtml += `
+            <button class="btn btn-sm btn-outline-primary pagination-btn page-number" 
+                    onclick="loadDatabasePage(${totalPages})">${totalPages}</button>
+        `;
+    }
+    
+    // Next button
+    paginationHtml += `
+        <button class="btn btn-sm btn-secondary pagination-btn" 
+                onclick="loadDatabasePage(${currentPage + 1})" 
+                ${!hasNext ? 'disabled' : ''}>
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    `;
+    
+    // Page info
+    paginationHtml += `
+        <span class="page-info-advanced">
+            Page ${currentPage} of ${totalPages} (${pagination.total_records || 0} records)
+        </span>
+    `;
+    
+    return paginationHtml;
 }
 
 async function loadAllDatabaseData(page = 1) {
@@ -875,23 +1034,9 @@ function generateTableHtml(tableName, tableData) {
     
     // Global ID table - add CRUD controls for add/delete
     if (tableName === 'global_id') {
+        // Action buttons section (Refresh and Add Data)
         tableHtml += `
             <div class="crud-controls">
-                <div class="pagination-controls">
-                    <button class="btn btn-sm btn-secondary" 
-                            onclick="loadDatabasePage(${pagination.current_page - 1})" 
-                            ${!pagination.has_previous ? 'disabled' : ''}>
-                        <i class="fas fa-chevron-left"></i> Previous
-                    </button>
-                    <span class="page-info">
-                        Page ${pagination.current_page || 1} of ${pagination.total_pages || 1}
-                    </span>
-                    <button class="btn btn-sm btn-secondary" 
-                            onclick="loadDatabasePage(${pagination.current_page + 1})" 
-                            ${!pagination.has_next ? 'disabled' : ''}>
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
                 <button class="btn btn-info" onclick="loadDatabasePage(${pagination.current_page || 1})">
                     <i class="fas fa-refresh"></i> Refresh
                 </button>
@@ -902,6 +1047,15 @@ function generateTableHtml(tableName, tableData) {
                 }
                 <div style="margin-left: auto; color: #6c757d; font-size: 0.9rem;">
                     <i class="fas fa-eye"></i> ${totalRecords} total records (paginated view)
+                </div>
+            </div>
+        `;
+        
+        // Pagination controls section (separate from action buttons)
+        tableHtml += `
+            <div class="pagination-section">
+                <div class="pagination-controls">
+                    ${generateAdvancedPagination(pagination)}
                 </div>
             </div>
         `;
