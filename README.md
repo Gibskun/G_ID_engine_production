@@ -460,6 +460,87 @@ git pull origin main
 sudo systemctl restart gid-system.service
 ```
 
+---
+
+## 🛡️ Production Update & Verification Guide
+
+This guide ensures your Global ID Management System is updated and running correctly on the server, with no changes to source code or nginx configuration. The same process works for local development.
+
+### 1. Update Project Source
+Navigate to your project directory and pull the latest code:
+
+```bash
+cd /var/www/G_ID_engine_production
+git pull origin main
+```
+
+### 2. (Optional) Activate Python Virtual Environment
+If not already active:
+
+```bash
+source venv/bin/activate
+```
+
+### 3. Restart the Service
+Restart the FastAPI service to apply updates:
+
+```bash
+sudo systemctl restart gid-system.service
+```
+
+### 4. Check Service Status
+Verify the service is running without errors:
+
+```bash
+sudo systemctl status gid-system.service --no-pager
+```
+Look for `active (running)` and absence of errors.
+
+### 5. Verify Application & Static Assets
+Test that the dashboard, static assets, and API endpoints are accessible:
+
+```bash
+# Dashboard HTML
+curl -I https://wecare.techconnect.co.id/gid/
+
+# CSS
+curl -I https://wecare.techconnect.co.id/gid/static/css/style.css
+
+# JS
+curl -I https://wecare.techconnect.co.id/gid/static/js/main.js
+
+# API Health
+curl -I https://wecare.techconnect.co.id/gid/api/v1/health
+```
+All should return HTTP 200 OK (or 301 for the first, then 200 after redirect).
+
+### 6. Browser Verification
+Open https://wecare.techconnect.co.id/gid/ in your browser:
+- Confirm the dashboard loads with correct styles and scripts.
+- Use browser DevTools (Network tab) to check that CSS/JS are loaded from `/gid/static/...` (status 200).
+- API calls should go to `/gid/api/v1/...` and succeed.
+
+### 7. Local Development
+For local testing, run:
+
+```bash
+python main.py
+# or
+python start_interactive.py
+```
+Access via http://localhost:8000/ or http://localhost:8000/gid/ (both work).
+
+### 8. Troubleshooting
+- If static assets do not load, clear browser cache or use a private window.
+- If favicon is missing, add `static/favicon.ico` or remove the favicon link in `base.html`.
+- If service fails to start, check logs:
+  ```bash
+  sudo journalctl -u gid-system.service -n 100
+  tail -f gid_system.log
+  ```
+
+---
+
 ## 🧪 API Testing
 
 ### Postman Testing
