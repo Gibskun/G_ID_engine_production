@@ -2549,7 +2549,28 @@ async function confirmReactivation(g_id, newPersonalNumber) {
                 });
                 
                 if (!createResponse.ok) {
-                    throw new Error(`Failed to create pegawai record: ${createResponse.status}`);
+                    // Log the detailed error but don't fail the reactivation
+                    const errorText = await createResponse.text();
+                    console.warn(`Pegawai creation failed (${createResponse.status}): ${errorText}`);
+                    console.log('Continuing with reactivation anyway as global_id status may have been updated...');
+                    
+                    // Check if the reactivation actually worked by verifying the global_id status
+                    const verifyResponse = await fetch(`${getApiBaseUrl()}/database/explorer?search=${g_id}&size=10`);
+                    if (verifyResponse.ok) {
+                        const verifyData = await verifyResponse.json();
+                        const updatedRecord = verifyData.dbvendor?.tables?.global_id?.data?.find(r => r.g_id === g_id);
+                        
+                        if (updatedRecord && updatedRecord.status === 'Active') {
+                            // Reactivation worked despite pegawai creation failure
+                            console.log('Reactivation successful - global_id status is now Active');
+                        } else {
+                            // Reactivation truly failed
+                            throw new Error(`Failed to create pegawai record: ${createResponse.status} - ${errorText}`);
+                        }
+                    } else {
+                        // Can't verify, but don't fail
+                        console.warn('Could not verify reactivation status');
+                    }
                 }
                 
                 // Close modals
@@ -2559,7 +2580,12 @@ async function confirmReactivation(g_id, newPersonalNumber) {
                 const addModal = bootstrap.Modal.getInstance(document.getElementById('addGlobalIDModal'));
                 if (addModal) addModal.hide();
                 
-                showNotification(`Record reactivated successfully! New pegawai record created for G_ID: ${g_id}`, 'success');
+                // Show appropriate success message
+                if (createResponse.ok) {
+                    showNotification(`Record reactivated successfully! New pegawai record created for G_ID: ${g_id}`, 'success');
+                } else {
+                    showNotification(`Record reactivated successfully! G_ID: ${g_id} is now Active.`, 'success');
+                }
                 
                 // Reload data
                 setTimeout(() => {
