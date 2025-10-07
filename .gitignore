@@ -1,4 +1,25 @@
 # ================================
+# GLOBAL ID MANAGEMENT SYSTEM
+# .gitignore - Updated Oct 2025
+# ================================
+# 
+# This .gitignore covers:
+# - Python environment and cache files
+# - Sample data files (specific ones are tracked for testing)
+# - Environment configurations (specific ones are tracked)
+# - Generated dummy data (except official samples)
+# - Logs, temporary files, and system-specific files
+# - Development and deployment artifacts
+#
+# TRACKED sample files:
+# - sample_data_small.csv/.xlsx (10 records)
+# - sample_data_medium.csv/.xlsx (100 records)  
+# - sample_data_large.csv/.xlsx (1000 records)
+#
+# TRACKED environment files:
+# - .env.local, .env.production, .env.server
+#
+# ================================
 # PYTHON SPECIFIC
 # ================================
 
@@ -207,6 +228,10 @@ Icon?
 # Environment configuration files
 .env*
 !.env.example
+# Keep specific env files that exist
+!.env.local
+!.env.production
+!.env.server
 config.local.py
 settings.local.py
 
@@ -224,9 +249,13 @@ gid_system.log
 *.csv
 *.xlsx
 *.xls
+# Keep sample data files for testing
 !sample_data_small.csv
 !sample_data_medium.csv
 !sample_data_large.csv
+!sample_data_small.xlsx
+!sample_data_medium.xlsx
+!sample_data_large.xlsx
 
 # Generated test and dummy data
 generated_data_*
@@ -234,6 +263,10 @@ dummy_*.csv
 dummy_*.xlsx
 test_data_*
 *_test_results.json
+# Dummy data generator output (except sample files)
+dummy_data_*records_*.csv
+dummy_data_*records_*.xlsx
+dummy_data_*records_*.xls
 
 # Upload directories
 uploads/
@@ -348,6 +381,39 @@ TODO.md
 NOTES.md
 notes.txt
 todo.txt
+
+# ================================
+# G_ID PROJECT SPECIFIC
+# ================================
+
+# System service files (if copied locally)
+*.service
+
+# Deployment scripts output
+deployment_*.log
+update_*.log
+
+# Database migration files (contain sensitive data)
+migration_*.sql
+restore_*.sql
+
+# System monitoring output  
+monitoring_*.json
+performance_*.json
+
+# Local testing files
+test_*.csv
+test_*.xlsx
+local_test_*
+
+# Scripts output
+scripts/generated_*
+scripts/output_*
+
+# SQL temporary files
+sql/temp_*
+sql/backup_*
+sql/*_backup.sql
 
 # Development files
 test_*.py

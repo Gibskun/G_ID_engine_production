@@ -583,13 +583,7 @@ async function loadAllDatabaseData() {
     
     try {
         console.log('Fetching database information...');
-        const response = await fetch('/api/v1/database/explorer');
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
+        const data = await api.request('/database/explorer');
         console.log('Database data received:', data);
         
         // Update consolidated database (dbvendor contains all tables now)
@@ -864,18 +858,13 @@ async function createPegawai() {
         
         console.log('Creating pegawai with payload:', payload);
         
-        const response = await fetch('/api/v1/data/pegawai', {
+        const result = await api.request('/data/pegawai', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify(payload)
         });
-        
-        const result = await response.json();
         console.log('Create response:', result);
         
-        if (response.ok && result.success) {
+        if (result.success) {
             // Success notification with performance info
             const performanceInfo = result.execution_time ? 
                 ` (${result.execution_time}s - ${result.performance_status})` : '';
@@ -925,14 +914,12 @@ async function deletePegawai(pegawaiId, gId) {
         
         console.log(`Deleting pegawai ID: ${pegawaiId}, G_ID: ${gId}`);
         
-        const response = await fetch(`/api/v1/data/pegawai/${pegawaiId}`, {
+        const result = await api.request(`/data/pegawai/${pegawaiId}`, {
             method: 'DELETE'
         });
-        
-        const result = await response.json();
         console.log('Delete response:', result);
         
-        if (response.ok && result.success) {
+        if (result.success) {
             const performanceInfo = result.execution_time ? 
                 ` (${result.execution_time}s - ${result.performance_status})` : '';
             

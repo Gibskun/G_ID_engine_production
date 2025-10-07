@@ -562,6 +562,17 @@ $body = @{
 Invoke-WebRequest -Uri "https://wecare.techconnect.co.id/gid/api/v1/pegawai/" -Method POST -Body $body -ContentType "application/json"
 ```
 
+### Test Data Generation
+```bash
+# Generate sample employee data in multiple formats (CSV, XLSX, XLS)
+python dummy_data_generator.py
+
+# This creates test files:
+# - sample_data_small.csv/.xlsx/.xls (10 records)
+# - sample_data_medium.csv/.xlsx/.xls (100 records)  
+# - sample_data_large.csv/.xlsx/.xls (1000 records)
+```
+
 ### Ultra-Performance Testing
 ```bash
 # Run ultra-performance setup
