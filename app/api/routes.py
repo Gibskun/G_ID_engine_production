@@ -28,6 +28,9 @@ from app.api.pegawai_endpoints import pegawai_router
 # Import global ID endpoints router
 from app.api.globalid_endpoints import globalid_router
 
+# Import G_ID-based operations router
+from app.api.gid_operations import gid_api_router
+
 # Pydantic models for API requests/responses
 class GlobalIDResponse(BaseModel):
     g_id: str
@@ -1056,3 +1059,4 @@ api_router.include_router(router)
 api_router.include_router(data_router)  # Include data endpoints with automated functionality
 api_router.include_router(pegawai_router)  # Include pegawai REST API endpoints
 api_router.include_router(globalid_router)  # Include Global ID data view endpoints
+api_router.include_router(gid_api_router)  # Include G_ID-based CRUD operations for all tables

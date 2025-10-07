@@ -1,5 +1,5 @@
 """
-Database configuration and connection management
+Database configuration and connection management with environment detection
 """
 
 import os
@@ -9,19 +9,37 @@ from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import urllib.parse
 
-# Load environment variables
-load_dotenv()
+# Import environment configuration
+try:
+    from app.config.environment import env_config
+except ImportError:
+    # Fallback if environment config not available
+    load_dotenv()
+    env_config = None
 
-# Database URLs - Both pointing to the same consolidated SQL Server database
-DATABASE_URL = os.getenv("DATABASE_URL", "mssql+pyodbc://sqlvendor1:password@localhost:1435/dbvendor?driver=ODBC+Driver+17+for+SQL+Server")
-SOURCE_DATABASE_URL = os.getenv("SOURCE_DATABASE_URL", "mssql+pyodbc://sqlvendor1:password@localhost:1435/dbvendor?driver=ODBC+Driver+17+for+SQL+Server")
-
-# Get performance configuration from environment
-POOL_SIZE = int(os.getenv("DATABASE_POOL_SIZE", "10"))
-MAX_OVERFLOW = int(os.getenv("DATABASE_MAX_OVERFLOW", "20"))
-POOL_TIMEOUT = int(os.getenv("DATABASE_POOL_TIMEOUT", "30"))
-POOL_RECYCLE = int(os.getenv("DATABASE_POOL_RECYCLE", "3600"))
-QUERY_TIMEOUT = int(os.getenv("QUERY_TIMEOUT", "60"))
+# Get configuration from environment manager or fallback to env vars
+if env_config:
+    config = env_config.get_config()
+    DATABASE_URL = config['database_url']
+    SOURCE_DATABASE_URL = config['database_url']  # Same database for both
+    POOL_SIZE = config['pool_size']
+    MAX_OVERFLOW = config['max_overflow']
+    POOL_TIMEOUT = config['pool_timeout']
+    POOL_RECYCLE = config['pool_recycle']
+    QUERY_TIMEOUT = config['query_timeout']
+    
+    # Print configuration for debugging
+    env_config.print_config()
+else:
+    # Fallback configuration
+    load_dotenv()
+    DATABASE_URL = os.getenv("DATABASE_URL", "mssql+pyodbc://sqlvendor1:1U~xO%602Un-gGqmPj@127.0.0.1:1435/dbvendor?driver=ODBC+Driver+17+for+SQL+Server")
+    SOURCE_DATABASE_URL = os.getenv("SOURCE_DATABASE_URL", DATABASE_URL)
+    POOL_SIZE = int(os.getenv("DATABASE_POOL_SIZE", "5"))
+    MAX_OVERFLOW = int(os.getenv("DATABASE_MAX_OVERFLOW", "10"))
+    POOL_TIMEOUT = int(os.getenv("DATABASE_POOL_TIMEOUT", "10"))
+    POOL_RECYCLE = int(os.getenv("DATABASE_POOL_RECYCLE", "1800"))
+    QUERY_TIMEOUT = int(os.getenv("QUERY_TIMEOUT", "30"))
 
 # Create engines with optimized performance settings
 engine = create_engine(
