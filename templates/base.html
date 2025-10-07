@@ -5,18 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Global ID Management System{% endblock %}</title>
     
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Custom CSS -->
-        <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Custom CSS -->
-    {# Support both root and /gid/ prefixed deployment. url_for under sub-app already emits /gid/static/... after our middleware; fallback relative path if broken #}
-    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') if request.url.path.startswith('/gid') or request.url.path.startswith('/database') or True else '/static/css/style.css' }}">
+        <!-- Bootstrap CSS (CDN) -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+        <!-- Font Awesome (CDN) -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+        {#
+                IMPORTANT STATIC PATH STRATEGY
+                We intentionally use *relative* paths (no leading slash) for static assets:
+                    href="static/css/style.css" and src="static/js/main.js"
+                Why: Nginx rewrites /gid/<path> -> /<path> before hitting FastAPI. The application
+                cannot reliably detect the original /gid prefix (request.url.path is already rewritten),
+                so url_for('static', ...) would emit /static/... which in production maps to a different
+                upstream (n8n) and breaks CSS/JS loading.
+                Relative paths allow the browser to resolve against the *original* URL the user sees.
+                    - When accessed at https://domain/gid/, "static/css/style.css" resolves to /gid/static/css/style.css
+                        which Nginx rewrites to /static/css/style.css and FastAPI serves correctly.
+                    - When accessed locally at http://localhost:8000/ the same relative path becomes /static/css/style.css.
+                    - When accessing locally at http://localhost:8000/gid/ (sub-app) it becomes /gid/static/css/style.css
+                        which is mounted as well. This keeps one portable template for all environments
+                        without needing nginx changes.
+        #}
+        <link rel="stylesheet" href="static/css/style.css">
     
     <!-- Additional responsive meta tags for better mobile support -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -27,7 +37,7 @@
     <!-- Custom page styles -->
     {% block styles %}{% endblock %}
     
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='/favicon.ico') }}">
+    <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 </head>
 <body>
     <header>
@@ -45,13 +55,12 @@
                 
                 <nav class="main-nav">
                     <ul class="nav-menu" id="navMenu">
-                        {# Build base prefix dynamically. If path starts with /gid/ keep it; else root #}
-                        {% set _prefix = '/gid' if request.url.path.startswith('/gid') else '' %}
-                        <li><a href="{{ _prefix }}/"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
-                        <li><a href="{{ _prefix }}/database-explorer"><i class="fas fa-database"></i> <span>Database Explorer</span></a></li>
-                        <li><a href="{{ _prefix }}/upload"><i class="fas fa-upload"></i> <span>Excel Upload</span></a></li>
-                        <li><a href="{{ _prefix }}/sync"><i class="fas fa-sync"></i> <span>Sync Management</span></a></li>
-                        <li><a href="{{ _prefix }}/monitoring"><i class="fas fa-chart-line"></i> <span>Monitoring</span></a></li>
+                        {# Use relative links so they work both under / and under /gid/ without needing to know prefix #}
+                        <li><a href="."><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
+                        <li><a href="database-explorer"><i class="fas fa-database"></i> <span>Database Explorer</span></a></li>
+                        <li><a href="upload"><i class="fas fa-upload"></i> <span>Excel Upload</span></a></li>
+                        <li><a href="sync"><i class="fas fa-sync"></i> <span>Sync Management</span></a></li>
+                        <li><a href="monitoring"><i class="fas fa-chart-line"></i> <span>Monitoring</span></a></li>
                     </ul>
                 </nav>
             </div>
@@ -72,8 +81,8 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
-    <script src="{{ url_for('static', path='/js/main.js') }}"></script>
+    <!-- Custom JS (relative path strategy; see note above) -->
+    <script src="static/js/main.js"></script>
     
     <!-- Mobile Navigation Script -->
     <script>

@@ -589,6 +589,51 @@ G_ID_engine_production/
 └── README.md           # This file
 ```
 
+## ⚙️ Nginx /gid/ Rewrite Compatibility & Static Assets
+
+This deployment runs behind an Nginx rule that rewrites `/gid/<path>` to `/<path>` before the request reaches FastAPI:
+
+```
+location /gid/ {
+  rewrite ^/gid(/.*)$ $1 break;
+  proxy_pass http://localhost:8001;
+  ...
+}
+```
+
+Implications:
+1. The FastAPI app never sees the original `/gid` prefix (a browser request to `/gid/static/css/style.css` arrives as `/static/css/style.css`).
+2. Server-side `request.url.path` cannot be trusted to detect the user-facing prefix.
+3. Using `url_for('static', ...)` produced absolute `/static/...` URLs which, when rendered under `/gid/`, pointed the browser to `https://domain/static/...` (wrong upstream) instead of `https://domain/gid/static/...`.
+
+Solution Implemented (Oct 2025):
+* Templates now use **relative static asset paths**: `static/css/style.css`, `static/js/main.js`.
+* Navigation links are relative (`database-explorer`, `upload`, etc.) rather than absolute.
+* Browser resolution rules turn these into the correct prefixed URLs when the page is under `/gid/`.
+* The JS API client auto-detects whether the current path is under `/gid/` and prepends `/gid/api/v1` for calls (which Nginx rewrites correctly) or falls back to `/api/v1` when served at the root.
+
+Benefits:
+* Single codebase works locally at `/`, locally at `/gid/`, and in production at `/gid/` without changing Nginx.
+* Eliminates mixed-content or missing CSS/JS due to incorrect absolute paths.
+
+If you later add new templates or scripts, follow these guidelines:
+* Prefer relative links for in-app navigation: `href="sync"` instead of `/sync` or `/gid/sync`.
+* Prefer relative static references: `src="static/js/feature.js"`.
+* For API access in new JS files, either import the existing `GIDSystemAPI` or replicate the prefix auto-detection logic.
+
+Rollback Option:
+If in a future environment the app is always served at the root without rewrite, the relative paths still function (they resolve to `/static/...`). No changes required.
+
+Health Check Reminder:
+Verify after deployment:
+```
+curl -I https://wecare.techconnect.co.id/gid/
+curl -I https://wecare.techconnect.co.id/gid/static/css/style.css
+curl -I https://wecare.techconnect.co.id/gid/api/v1/health
+```
+All three should return 200 (or 301 for the first followed by 200 after redirect) indicating successful static + API routing.
+
+
 ---
 
 **Global ID Management System** - Centralized, High-Performance, Production-Ready

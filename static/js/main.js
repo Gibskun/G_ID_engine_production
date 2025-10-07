@@ -1,8 +1,22 @@
 // Global JavaScript utilities for G_ID Management System
 
 class GIDSystemAPI {
-    constructor(baseURL = '/gid/api/v1') {
-        this.baseURL = baseURL;
+    constructor(baseURL) {
+        // Auto-detect base URL so the same bundle works:
+        // 1. Behind nginx where user sees /gid/... but nginx rewrites /gid away before FastAPI
+        // 2. Direct local root access (http://localhost:8000/)
+        // 3. Local sub-app access at /gid/
+        if (!baseURL) {
+            const path = window.location.pathname || '';
+            // Treat /gid or /gid/... as prefixed deployment (user-facing)
+            if (path === '/gid' || path.startsWith('/gid/')) {
+                this.baseURL = '/gid/api/v1'; // Browser will request /gid/api/v1/* which nginx rewrites -> /api/v1/*
+            } else {
+                this.baseURL = '/api/v1';
+            }
+        } else {
+            this.baseURL = baseURL;
+        }
     }
 
     async request(endpoint, options = {}) {
