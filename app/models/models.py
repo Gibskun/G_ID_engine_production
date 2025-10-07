@@ -12,7 +12,7 @@ from datetime import datetime
 class GlobalID(Base):
     """Main Global_ID table model"""
     __tablename__ = "global_id"
-    __table_args__ = {'schema': 'dbo'}
+    # __table_args__ = {'schema': 'dbo'}  # Disabled for local testing
 
     g_id = Column(String(10), primary_key=True, nullable=False, name="g_id")
     name = Column(String(255), nullable=False)
@@ -31,7 +31,7 @@ class GlobalID(Base):
 class GlobalIDNonDatabase(Base):
     """Global_ID_NON_Database table model - copy of Excel data"""
     __tablename__ = "global_id_non_database"
-    __table_args__ = {'schema': 'dbo'}
+    # __table_args__ = {'schema': 'dbo'}  # Disabled for local testing
 
     g_id = Column(String(10), primary_key=True, nullable=False, name="g_id")
     name = Column(String(255), nullable=False)
@@ -55,7 +55,7 @@ class GIDSequence(Base):
         CheckConstraint("current_alpha_1 >= 'A' AND current_alpha_1 <= 'Z'", name='check_alpha_1'),
         CheckConstraint("current_alpha_2 >= 'A' AND current_alpha_2 <= 'Z'", name='check_alpha_2'),
         CheckConstraint("current_number >= 0 AND current_number <= 99", name='check_number_range'),
-        {'schema': 'dbo'}
+        # {'schema': 'dbo'}  # Disabled for local testing
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -74,7 +74,7 @@ class GIDSequence(Base):
 class Pegawai(Base):
     """Source employee (pegawai) table model"""
     __tablename__ = "pegawai"
-    __table_args__ = {'schema': 'dbo'}
+    # __table_args__ = {'schema': 'dbo'}  # Disabled for local testing
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
@@ -95,7 +95,7 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
     __table_args__ = (
         CheckConstraint("action IN ('INSERT', 'UPDATE', 'DELETE', 'SYNC')", name='check_action'),
-        {'schema': 'dbo'}
+        # {'schema': 'dbo'}  # Disabled for local testing
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)

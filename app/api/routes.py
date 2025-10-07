@@ -76,6 +76,7 @@ class PegawaiResponse(BaseModel):
 
 
 class DashboardSummary(BaseModel):
+    # Keep existing fields for backward compatibility
     total_records: int
     active_records: int
     inactive_records: int
@@ -83,6 +84,11 @@ class DashboardSummary(BaseModel):
     excel_source_records: int
     sync_status: Dict[str, Any]
     recent_activities: List[Dict[str, Any]]
+    
+    # New fields for three-category dashboard
+    global_id_stats: Dict[str, int]
+    global_id_non_database_stats: Dict[str, int]
+    pegawai_stats: Dict[str, int]
 
 
 class SyncResponse(BaseModel):
@@ -114,11 +120,10 @@ async def root():
 
 @router.get("/dashboard", response_model=DashboardSummary)
 async def get_dashboard(db: Session = Depends(get_db)):
-    """Get dashboard summary data with optimized queries"""
+    """Get dashboard summary data with optimized queries for three-category display"""
     try:
-        # OPTIMIZED: Use single aggregation query instead of multiple COUNT queries
-        # This reduces query time from 10-40 seconds to under 5 seconds
-        stats_query = text("""
+        # OPTIMIZED: Get Global_ID table statistics
+        global_id_stats_query = text("""
             SELECT 
                 COUNT(*) as total_records,
                 COALESCE(SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END), 0) as active_records,
@@ -128,14 +133,46 @@ async def get_dashboard(db: Session = Depends(get_db)):
             FROM dbo.global_id
         """)
         
-        result = db.execute(stats_query).fetchone()
+        global_id_result = db.execute(global_id_stats_query).fetchone()
         
-        # Extract aggregated results with NULL safety
-        total_records = result.total_records or 0
-        active_records = result.active_records or 0
-        inactive_records = result.inactive_records or 0
-        database_source = result.database_source or 0
-        excel_source = result.excel_source or 0
+        # OPTIMIZED: Get Global_ID_Non_Database table statistics
+        global_id_non_db_stats_query = text("""
+            SELECT 
+                COUNT(*) as total_records,
+                COALESCE(SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END), 0) as active_records,
+                COALESCE(SUM(CASE WHEN status = 'Non Active' THEN 1 ELSE 0 END), 0) as inactive_records
+            FROM dbo.global_id_non_database
+        """)
+        
+        global_id_non_db_result = db.execute(global_id_non_db_stats_query).fetchone()
+        
+        # OPTIMIZED: Get Pegawai table statistics
+        pegawai_stats_query = text("""
+            SELECT 
+                COUNT(*) as total_records,
+                COALESCE(SUM(CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END), 0) as active_records,
+                COALESCE(SUM(CASE WHEN deleted_at IS NOT NULL THEN 1 ELSE 0 END), 0) as inactive_records
+            FROM dbo.pegawai
+        """)
+        
+        pegawai_result = db.execute(pegawai_stats_query).fetchone()
+        
+        # Extract Global_ID results
+        global_id_total = global_id_result.total_records or 0
+        global_id_active = global_id_result.active_records or 0
+        global_id_inactive = global_id_result.inactive_records or 0
+        database_source = global_id_result.database_source or 0
+        excel_source = global_id_result.excel_source or 0
+        
+        # Extract Global_ID_Non_Database results
+        global_id_non_db_total = global_id_non_db_result.total_records or 0
+        global_id_non_db_active = global_id_non_db_result.active_records or 0
+        global_id_non_db_inactive = global_id_non_db_result.inactive_records or 0
+        
+        # Extract Pegawai results
+        pegawai_total = pegawai_result.total_records or 0
+        pegawai_active = pegawai_result.active_records or 0
+        pegawai_inactive = pegawai_result.inactive_records or 0
         
         # OPTIMIZED: Fast sync status with real database counts
         # Get actual pegawai table statistics quickly
@@ -153,9 +190,9 @@ async def get_dashboard(db: Session = Depends(get_db)):
         
         sync_status = {
             "global_id_table": {
-                "total_records": total_records,
-                "active_records": active_records,
-                "inactive_records": inactive_records,
+                "total_records": global_id_total,
+                "active_records": global_id_active,
+                "inactive_records": global_id_inactive,
                 "database_source": database_source,
                 "excel_source": excel_source
             },
@@ -186,14 +223,38 @@ async def get_dashboard(db: Session = Depends(get_db)):
                 "status": record.status
             })
         
+        # Prepare new category statistics
+        global_id_stats = {
+            "total": global_id_total,
+            "active": global_id_active,
+            "inactive": global_id_inactive
+        }
+        
+        global_id_non_database_stats = {
+            "total": global_id_non_db_total,
+            "active": global_id_non_db_active,
+            "inactive": global_id_non_db_inactive
+        }
+        
+        pegawai_category_stats = {
+            "total": pegawai_total,
+            "active": pegawai_active,
+            "inactive": pegawai_inactive
+        }
+        
         return DashboardSummary(
-            total_records=total_records,
-            active_records=active_records,
-            inactive_records=inactive_records,
+            # Keep backward compatibility
+            total_records=global_id_total,
+            active_records=global_id_active,
+            inactive_records=global_id_inactive,
             database_source_records=database_source,
             excel_source_records=excel_source,
             sync_status=sync_status,
-            recent_activities=recent_activities
+            recent_activities=recent_activities,
+            # New category stats
+            global_id_stats=global_id_stats,
+            global_id_non_database_stats=global_id_non_database_stats,
+            pegawai_stats=pegawai_category_stats
         )
         
     except Exception as e:
@@ -926,14 +987,18 @@ async def get_excel_sync_status(db: Session = Depends(get_db)) -> Dict[str, Any]
 # Database Explorer Endpoints
 @router.get("/database/explorer")
 async def get_all_database_info(
+    page: int = Query(1, ge=1, description="Page number"),
+    size: int = Query(50, ge=1, le=100, description="Records per page"),
+    table: Optional[str] = Query(None, description="Specific table to view"),
+    status: Optional[str] = Query(None, description="Filter by status (Active/Non Active)"),
     db: Session = Depends(get_db),
     source_db: Session = Depends(get_source_db)
 ):
-    """Get all tables and their data from both databases"""
+    """Get global_id table data with pagination for faster loading"""
     try:
         result = {
             "dbvendor": {
-                "database_name": "Consolidated SQL Server Database",
+                "database_name": "Global ID Management System - Primary Database",
                 "connection_url": "mssql+pyodbc://sqlvendor1:***@localhost:1435/dbvendor",
                 "tables": {}
             }
@@ -941,13 +1006,26 @@ async def get_all_database_info(
         
         # Get all tables from consolidated dbvendor database
         try:
-            # Get only the main user tables: global_id, global_id_non_database, and pegawai
-            table_query = text("""
+            # Get requested table(s) based on filter
+            if table:
+                # Map table names for API compatibility
+                table_map = {
+                    'global_id': 'global_id',
+                    'global_id_non_database': 'global_id_non_database', 
+                    'pegawai': 'pegawai'
+                }
+                actual_table = table_map.get(table, 'global_id')
+                table_condition = f"AND table_name = '{actual_table}'"
+            else:
+                # Default to global_id table
+                table_condition = "AND table_name = 'global_id'"
+                
+            table_query = text(f"""
                 SELECT table_name 
                 FROM information_schema.tables 
                 WHERE table_schema = 'dbo' 
                 AND table_type = 'BASE TABLE'
-                AND table_name IN ('global_id', 'global_id_non_database', 'pegawai')
+                {table_condition}
                 ORDER BY table_name
             """)
             tables_result = db.execute(table_query).fetchall()
@@ -983,11 +1061,38 @@ async def get_all_database_info(
                         elif order_column is None:
                             order_column = col["name"]  # fallback to first column
                     
-                    # Get table data with appropriate ordering (NO LIMIT - show all data)
+                    # Build WHERE clause for status filtering
+                    where_clause = ""
+                    if status:
+                        # Check if table has status column
+                        has_status = any(col["name"].lower() == "status" for col in columns)
+                        if has_status:
+                            where_clause = f"WHERE status = '{status}'"
+                    
+                    # Get total count for pagination
+                    count_query = text(f"SELECT COUNT(*) as total FROM dbo.{table_name} {where_clause}")
+                    total_count = db.execute(count_query).fetchone().total
+                    
+                    # Calculate pagination parameters
+                    offset = (page - 1) * size
+                    total_pages = (total_count + size - 1) // size  # Math.ceil equivalent
+                    
+                    # Get paginated table data with appropriate ordering
                     if order_column:
-                        data_query = text(f"SELECT * FROM dbo.{table_name} ORDER BY {order_column}")
+                        data_query = text(f"""
+                            SELECT * FROM dbo.{table_name} 
+                            {where_clause}
+                            ORDER BY {order_column}
+                            OFFSET {offset} ROWS
+                            FETCH NEXT {size} ROWS ONLY
+                        """)
                     else:
-                        data_query = text(f"SELECT * FROM dbo.{table_name}")
+                        data_query = text(f"""
+                            SELECT * FROM dbo.{table_name}
+                            {where_clause}
+                            OFFSET {offset} ROWS
+                            FETCH NEXT {size} ROWS ONLY
+                        """)
                     
                     data_result = db.execute(data_query).fetchall()
                     
@@ -1006,7 +1111,16 @@ async def get_all_database_info(
                     result["dbvendor"]["tables"][table_name] = {
                         "columns": columns,
                         "data": data_list,
-                        "row_count": len(data_list)
+                        "row_count": len(data_list),
+                        "total_count": total_count,
+                        "pagination": {
+                            "current_page": page,
+                            "page_size": size,
+                            "total_pages": total_pages,
+                            "total_records": total_count,
+                            "has_next": page < total_pages,
+                            "has_previous": page > 1
+                        }
                     }
                     
                 except Exception as table_error:
@@ -1014,7 +1128,16 @@ async def get_all_database_info(
                         "error": f"Error fetching data: {str(table_error)}",
                         "columns": [],
                         "data": [],
-                        "row_count": 0
+                        "row_count": 0,
+                        "total_count": 0,
+                        "pagination": {
+                            "current_page": page,
+                            "page_size": size,
+                            "total_pages": 0,
+                            "total_records": 0,
+                            "has_next": False,
+                            "has_previous": False
+                        }
                     }
                     
         except Exception as db_error:

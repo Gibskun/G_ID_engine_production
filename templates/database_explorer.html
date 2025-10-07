@@ -1,3 +1,6 @@
+// ...existing code...
+window.showAddGlobalIDModal = showAddGlobalIDModal;
+window.showDeleteGlobalIDModal = showDeleteGlobalIDModal;
 {% extends "base.html" %}
 
 {% block title %}Database Explorer - Global ID Management System{% endblock %}
@@ -7,7 +10,69 @@
 .database-explorer-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 2rem 0;
+   .crud-controls .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Pagination Controls - Minimalist Design */
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #f8f9fa;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.page-info {
+    font-weight: 500;
+    color: #495057;
+    padding: 0.4rem 0.8rem;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    min-width: 120px;
+    text-align: center;
+}
+
+.pagination-controls .btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    border: 1px solid #dee2e6;
+    background: white;
+    color: #495057;
+    min-width: 80px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+}
+
+.pagination-controls .btn:hover:not(:disabled) {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    transform: none;
+    box-shadow: none;
+}
+
+.pagination-controls .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: #f8f9fa;
+    color: #6c757d;
+    transform: none;
+}
+
+.pagination-controls .btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
+    background: #f8f9fa;
+}
     margin-bottom: 2rem;
     border-radius: 10px;
 }
@@ -233,26 +298,34 @@
 }
 
 /* CRUD Controls Styling */
+/* CRUD Controls Styling - Minimalist */
 .crud-controls {
     background: #f8f9fa;
-    padding: 1rem 1.5rem;
+    padding: 0.75rem 1.5rem;
     border-bottom: 1px solid #dee2e6;
     display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
+    justify-content: space-between;
     align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    min-height: 60px;
 }
 
 .crud-controls .btn {
     padding: 0.5rem 1rem;
     border: none;
     border-radius: 6px;
-    font-size: 0.9rem;
+        font-size: 0.85rem;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+        min-width: 100px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
-    align-items: center;
     gap: 0.5rem;
     text-decoration: none;
 }
@@ -515,8 +588,33 @@
     }
     
     .crud-controls {
-        flex-direction: column;
-        align-items: stretch;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .pagination-controls {
+        justify-content: center;
+        gap: 0.3rem;
+        padding: 0.4rem 0.8rem;
+        min-height: auto;
+    }
+    
+    .page-info {
+        text-align: center;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.85rem;
+        min-width: 100px;
+    }
+    
+    .pagination-controls .btn {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+        min-width: 70px;
+        height: 30px;
     }
     
     .modal-content {
@@ -534,7 +632,8 @@
 {% block content %}
 <div class="database-explorer-header text-center">
     <div class="container">
-        <h1><i class="fas fa-database"></i> Database Explorer</h1>
+        <h1><i class="fas fa-id-card"></i> Global ID Explorer</h1>
+        <p class="header-subtitle">View all Global ID records from the primary database</p>
     </div>
 </div>
 
@@ -542,39 +641,39 @@
     <div class="text-center mb-4">
         <div class="alert alert-info mb-3">
             <i class="fas fa-info-circle"></i> 
-            <strong>Notice:</strong> This page will load ALL data from each table. Large tables may take time to load and display.
+            <strong>Global ID Explorer:</strong> This page displays all Global ID records from the primary database table. Large datasets may take time to load.
         </div>
-        <button class="refresh-btn" onclick="loadAllDatabaseData()">
-            <i class="fas fa-sync-alt"></i> Load All Database Data
+        <button class="refresh-btn" onclick="loadAllDatabaseData(1)">
+            <i class="fas fa-sync-alt"></i> Load Global ID Data
         </button>
     </div>
     
     <div id="loading" class="loading-spinner">
         <div class="spinner"></div>
-        <p>Loading complete database contents...</p>
-        <small>This may take a moment for large tables</small>
+        <p>Loading Global ID database contents...</p>
+        <small>This may take a moment for large datasets</small>
     </div>
     
     <div id="database-content" style="display: none;">
-        <!-- Consolidated SQL Server Database Section -->
+        <!-- Global ID Database Section -->
         <div class="database-section">
             <div class="database-header">
-                <h2><i class="fas fa-database"></i> Consolidated SQL Server Database (dbvendor)</h2>
+                <h2><i class="fas fa-id-card"></i> Global ID Management Database</h2>
             </div>
             <div class="database-info">
                 <p><strong>Connection:</strong> <code id="global-db-url">Loading...</code></p>
-                <p><strong>Tables:</strong> <span id="global-db-table-count">0</span> | <strong>Total Records:</strong> <span id="global-db-record-count">0</span></p>
-                <p><strong>Description:</strong> Migrated from PostgreSQL dual-database to consolidated SQL Server database</p>
+                <p><strong>Table:</strong> global_id | <strong>Total Records:</strong> <span id="global-db-record-count">0</span></p>
+                <p><strong>Description:</strong> Primary Global ID records with status tracking and source management</p>
             </div>
             <div id="global-db-tables">
-                <!-- Tables will be loaded here -->
+                <!-- Global ID table will be loaded here -->
             </div>
         </div>
     </div>
 </div>
 
 <script>
-async function loadAllDatabaseData() {
+async function loadAllDatabaseData(page = 1) {
     const loading = document.getElementById('loading');
     const content = document.getElementById('database-content');
     
@@ -582,11 +681,11 @@ async function loadAllDatabaseData() {
     content.style.display = 'none';
     
     try {
-        console.log('Fetching database information...');
-        const data = await api.request('/database/explorer');
+        console.log(`Fetching database information for page ${page}...`);
+        const data = await api.request(`/database/explorer?page=${page}&size=50`);
         console.log('Database data received:', data);
         
-        // Update consolidated database (dbvendor contains all tables now)
+        // Update consolidated database (dbvendor contains global_id table)
         updateDatabaseSection('dbvendor', data.dbvendor, 'global');
         
         loading.style.display = 'none';
@@ -598,7 +697,75 @@ async function loadAllDatabaseData() {
             <div class="error-message">
                 <h4><i class="fas fa-exclamation-triangle"></i> Error Loading Database</h4>
                 <p>Failed to load database information: ${error.message}</p>
-                <button class="refresh-btn" onclick="loadAllDatabaseData()">
+                <button class="refresh-btn" onclick="loadAllDatabaseData(1)">
+                    <i class="fas fa-retry"></i> Try Again
+                </button>
+            </div>
+        `;
+    }
+}
+
+// Wrapper function for pagination
+async function loadDatabasePage(page) {
+    if (page < 1) return;
+    
+    // Check if we have active filters
+    const urlParams = new URLSearchParams(window.location.search);
+    const table = urlParams.get('table');
+    const status = urlParams.get('status');
+    
+    if (table || status) {
+        await loadFilteredDatabaseData(page, table, status);
+    } else {
+        await loadAllDatabaseData(page);
+    }
+}
+
+// Function to load filtered database data
+async function loadFilteredDatabaseData(page = 1, table = null, status = null) {
+    const loading = document.getElementById('loading');
+    const content = document.getElementById('database-content');
+    
+    loading.style.display = 'flex';
+    content.style.display = 'none';
+    
+    try {
+        // Build query parameters
+        let queryParams = `page=${page}&size=50`;
+        if (table) queryParams += `&table=${encodeURIComponent(table)}`;
+        if (status) queryParams += `&status=${encodeURIComponent(status)}`;
+        
+        console.log(`Fetching filtered database data: ${queryParams}`);
+        const data = await api.request(`/database/explorer?${queryParams}`);
+        console.log('Filtered database data received:', data);
+        
+        // Update consolidated database section
+        updateDatabaseSection('dbvendor', data.dbvendor, 'global');
+        
+        // Show filter info in the header
+        const headerInfo = document.querySelector('.database-explorer-header p');
+        if (headerInfo) {
+            let filterText = '';
+            if (table && status) {
+                filterText = ` - Showing ${status} records from ${table.replace('_', ' ')} table`;
+            } else if (table) {
+                filterText = ` - Showing all records from ${table.replace('_', ' ')} table`;
+            } else if (status) {
+                filterText = ` - Showing ${status} records`;
+            }
+            headerInfo.innerHTML = `Advanced database exploration and analytics interface${filterText}`;
+        }
+        
+        loading.style.display = 'none';
+        content.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading filtered database data:', error);
+        loading.innerHTML = `
+            <div class="error-message">
+                <h4><i class="fas fa-exclamation-triangle"></i> Error Loading Filtered Database</h4>
+                <p>Failed to load filtered database information: ${error.message}</p>
+                <button class="refresh-btn" onclick="loadFilteredDatabaseData(1, '${table}', '${status}')">
                     <i class="fas fa-retry"></i> Try Again
                 </button>
             </div>
@@ -611,15 +778,13 @@ function updateDatabaseSection(dbKey, dbData, prefix) {
     document.getElementById(`${prefix}-db-url`).textContent = dbData.connection_url || 'Not available';
     
     const tables = dbData.tables || {};
-    const tableCount = Object.keys(tables).length;
     let totalRecords = 0;
     
-    // Calculate total records
+    // Calculate total records from global_id table (use total_count for pagination)
     Object.values(tables).forEach(table => {
-        totalRecords += table.row_count || 0;
+        totalRecords += table.total_count || table.row_count || 0;
     });
     
-    document.getElementById(`${prefix}-db-table-count`).textContent = tableCount;
     document.getElementById(`${prefix}-db-record-count`).textContent = totalRecords;
     
     // Generate tables HTML
@@ -635,11 +800,11 @@ function updateDatabaseSection(dbKey, dbData, prefix) {
         return;
     }
     
-    if (tableCount === 0) {
+    if (Object.keys(tables).length === 0) {
         tablesContainer.innerHTML = `
             <div class="no-data-message">
-                <h4><i class="fas fa-info-circle"></i> No Tables Found</h4>
-                <p>No tables were found in this database.</p>
+                <h4><i class="fas fa-info-circle"></i> No Global ID Table Found</h4>
+                <p>The global_id table was not found in this database.</p>
             </div>
         `;
         return;
@@ -674,29 +839,49 @@ function generateTableHtml(tableName, tableData) {
     const columns = tableData.columns || [];
     const data = tableData.data || [];
     const rowCount = tableData.row_count || 0;
+    const pagination = tableData.pagination || {};
+    const totalRecords = pagination.total_records || rowCount;
     
     let tableHtml = `
         <div class="table-section">
             <div class="table-header">
-                <h3><i class="fas fa-table"></i> ${tableName}</h3>
+                <h3><i class="fas fa-id-card"></i> ${tableName === 'global_id' ? 'Global ID Records' : tableName}</h3>
                 <div class="table-meta">
-                    ${columns.length} columns • ${rowCount} rows (ALL DATA)
+                    ${columns.length} columns • Showing ${rowCount} of ${totalRecords} records
+                    ${pagination.current_page ? ` • Page ${pagination.current_page} of ${pagination.total_pages}` : ''}
                 </div>
             </div>
     `;
     
-    // Add CRUD controls for pegawai table
-    if (tableName === 'pegawai') {
+    // Global ID table - add CRUD controls for add/delete
+    if (tableName === 'global_id') {
         tableHtml += `
             <div class="crud-controls">
-                <button class="btn btn-success" onclick="showCreatePegawaiModal()">
-                    <i class="fas fa-plus"></i> Create New Data
+                <div class="pagination-controls">
+                    <button class="btn btn-sm btn-secondary" 
+                            onclick="loadDatabasePage(${pagination.current_page - 1})" 
+                            ${!pagination.has_previous ? 'disabled' : ''}>
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <span class="page-info">
+                        Page ${pagination.current_page || 1} of ${pagination.total_pages || 1}
+                    </span>
+                    <button class="btn btn-sm btn-secondary" 
+                            onclick="loadDatabasePage(${pagination.current_page + 1})" 
+                            ${!pagination.has_next ? 'disabled' : ''}>
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+                <button class="btn btn-info" onclick="loadDatabasePage(${pagination.current_page || 1})">
+                    <i class="fas fa-refresh"></i> Refresh
                 </button>
-                <button class="btn btn-info" onclick="refreshPegawaiData()">
-                    <i class="fas fa-refresh"></i> Refresh Data
-                </button>
+                ${window.userPermissions && window.userPermissions.can_add ? 
+                    `<button class="btn btn-success" onclick="showAddGlobalIDModal()">
+                        <i class="fas fa-plus"></i> Add Data
+                    </button>` : ''
+                }
                 <div style="margin-left: auto; color: #6c757d; font-size: 0.9rem;">
-                    <i class="fas fa-info-circle"></i> CRUD operations available for this table
+                    <i class="fas fa-eye"></i> ${totalRecords} total records (paginated view)
                 </div>
             </div>
         `;
@@ -712,7 +897,7 @@ function generateTableHtml(tableName, tableData) {
             </div>
         `;
     } else {
-        // Column information
+        // Column information with pagination stats
         tableHtml += `
             <div class="stats-row">
                 <div class="stat-card">
@@ -721,7 +906,15 @@ function generateTableHtml(tableName, tableData) {
                 </div>
                 <div class="stat-card">
                     <div class="stat-number">${rowCount}</div>
-                    <div class="stat-label">Records</div>
+                    <div class="stat-label">Showing</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${totalRecords}</div>
+                    <div class="stat-label">Total Records</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${pagination.total_pages || 1}</div>
+                    <div class="stat-label">Total Pages</div>
                 </div>
             </div>
         `;
@@ -743,14 +936,12 @@ function generateTableHtml(tableName, tableData) {
             `;
         });
         
-        // Add action column for pegawai table
-        if (tableName === 'pegawai') {
-            tableHtml += `
-                <th>
-                    Actions
-                    <br><span class="column-type">Operations</span>
-                </th>
-            `;
+        // Add actions column for delete (only if user has delete permissions)
+        if (tableName === 'global_id' && window.userPermissions && window.userPermissions.can_delete) {
+            tableHtml += `<th>Actions</th>`;
+        } else if (tableName === 'global_id') {
+            // Add empty header to maintain structure
+            tableHtml += `<th></th>`;
         }
         
         tableHtml += `
@@ -770,31 +961,17 @@ function generateTableHtml(tableName, tableData) {
                         String(value);
                 tableHtml += `<td>${displayValue}</td>`;
             });
-            
-            // Add action buttons for pegawai table
-            if (tableName === 'pegawai') {
-                const isDeleted = row.deleted_at !== null && row.deleted_at !== undefined;
-                const pegawaiId = row.id;
-                const gId = row.g_id || 'N/A';
-                
-                tableHtml += `
-                    <td class="actions-cell">
-                        ${!isDeleted ? `
-                            <button class="btn btn-sm btn-danger" 
-                                    onclick="deletePegawai(${pegawaiId}, '${gId}')" 
-                                    title="Soft Delete Record"
-                                    data-pegawai-id="${pegawaiId}">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        ` : `
-                            <span class="badge badge-secondary" title="Soft Deleted">
-                                <i class="fas fa-trash"></i> Deleted
-                            </span>
-                        `}
-                    </td>
-                `;
+            // Add delete button for global_id (only if user has delete permissions)
+            if (tableName === 'global_id' && window.userPermissions && window.userPermissions.can_delete) {
+                tableHtml += `<td class="actions-cell">
+                    <button class="btn btn-danger btn-sm" onclick="showDeleteGlobalIDModal('${row.g_id}', '${row.name}', '${row.no_ktp}')">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </td>`;
+            } else if (tableName === 'global_id') {
+                // Add empty cell to maintain table structure
+                tableHtml += `<td class="actions-cell"></td>`;
             }
-            
             tableHtml += '</tr>';
         });
         
@@ -813,151 +990,128 @@ function generateTableHtml(tableName, tableData) {
     return tableHtml;
 }
 
-// CRUD Functions for Pegawai Table
-
-function showCreatePegawaiModal() {
-    document.getElementById('createPegawaiModal').style.display = 'block';
-    // Clear form
-    document.getElementById('createPegawaiForm').reset();
+// Modal functions - defined outside of template strings
+function showAddGlobalIDModal() {
+    const modalHtml = `
+    <div class="modal" id="addGlobalIDModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-plus"></i> Add Global ID Data</h3>
+                <button class="close" onclick="closeModal('addGlobalIDModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addGlobalIDForm">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" name="name" required />
+                    </div>
+                    <div class="form-group">
+                        <label>NIK (No KTP)</label>
+                        <input type="text" name="no_ktp" required />
+                    </div>
+                    <div class="form-group">
+                        <label>BOD (Birthdate)</label>
+                        <input type="date" name="bod" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Personal Number</label>
+                        <input type="text" name="personal_number" />
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" onclick="submitAddGlobalID()">Add</button>
+                <button class="btn btn-secondary" onclick="closeModal('addGlobalIDModal')">Cancel</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    document.getElementById('addGlobalIDModal').style.display = 'block';
 }
 
-function closeCreateModal() {
-    document.getElementById('createPegawaiModal').style.display = 'none';
-}
-
-async function createPegawai() {
-    const form = document.getElementById('createPegawaiForm');
-    const submitBtn = document.getElementById('submitCreateBtn');
+function submitAddGlobalID() {
+    const form = document.getElementById('addGlobalIDForm');
     const formData = new FormData(form);
-    
-    // Validate required fields
-    const name = formData.get('name').trim();
-    const noKtp = formData.get('no_ktp').trim();
-    
-    if (!name || !noKtp) {
-        showNotification('Please fill in all required fields (Name and No KTP).', 'error');
-        return;
-    }
-    
-    if (noKtp.length !== 16 || !/^\d{16}$/.test(noKtp)) {
-        showNotification('No KTP must be exactly 16 digits.', 'error');
-        return;
-    }
-    
-    // Show loading state
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="loading-spinner-inline"></span>Creating...';
-    
-    try {
-        const payload = {
-            name: name,
-            personal_number: formData.get('personal_number')?.trim() || null,
-            no_ktp: noKtp,
-            bod: formData.get('bod') || null
-        };
-        
-        console.log('Creating pegawai with payload:', payload);
-        
-        const result = await api.request('/data/pegawai', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-        console.log('Create response:', result);
-        
-        if (result.success) {
-            // Success notification with performance info
-            const performanceInfo = result.execution_time ? 
-                ` (${result.execution_time}s - ${result.performance_status})` : '';
-            
-            const message = result.reactivated ? 
-                `Record reactivated successfully! G_ID: ${result.g_id}. Previous record with matching data was found and reactivated.${performanceInfo}` : 
-                `New record created successfully! G_ID: ${result.g_id}. A new Global ID has been generated.${performanceInfo}`;
-            
-            showNotification(message, 'success');
-            
-            // Close modal and refresh data
-            closeCreateModal();
-            await refreshPegawaiData();
+    const payload = {
+        name: formData.get('name'),
+        no_ktp: formData.get('no_ktp'),
+        bod: formData.get('bod'),
+        personal_number: formData.get('personal_number')
+    };
+    fetch('/api/v1/data/pegawai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        closeModal('addGlobalIDModal');
+        showNotification(data.message || 'Data added', data.success ? 'success' : 'error');
+        loadAllDatabaseData();
+    })
+    .catch(err => {
+        showNotification('Failed to add data: ' + err, 'error');
+    });
+}
+
+// Modal for Delete Data
+function showDeleteGlobalIDModal(g_id, name, no_ktp) {
+    const modalHtml = `
+    <div class="modal" id="deleteGlobalIDModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-trash"></i> Delete Global ID Data</h3>
+                <button class="close" onclick="closeModal('deleteGlobalIDModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong>${name}</strong> (NIK: ${no_ktp})?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="submitDeleteGlobalID('${g_id}')">Delete</button>
+                <button class="btn btn-secondary" onclick="closeModal('deleteGlobalIDModal')">Cancel</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    document.getElementById('deleteGlobalIDModal').style.display = 'block';
+}
+
+function submitDeleteGlobalID(g_id) {
+    // Find pegawai_id by g_id (API expects pegawai_id)
+    fetch(`/api/v1/data/pegawai?page=1&page_size=1&search=${g_id}`)
+    .then(res => res.json())
+    .then(data => {
+        if (data.data && data.data.length > 0) {
+            const pegawai_id = data.data[0].id;
+            fetch(`/api/v1/data/pegawai/${pegawai_id}`, {
+                method: 'DELETE'
+            })
+            .then(res => res.json())
+            .then(result => {
+                closeModal('deleteGlobalIDModal');
+                showNotification(result.message || 'Data deleted', result.success ? 'success' : 'error');
+                loadAllDatabaseData();
+            })
+            .catch(err => {
+                showNotification('Failed to delete data: ' + err, 'error');
+            });
         } else {
-            throw new Error(result.detail || result.error || 'Failed to create record');
+            showNotification('Pegawai record not found for G_ID', 'error');
         }
-    } catch (error) {
-        console.error('Create error:', error);
-        showNotification(`Error creating record: ${error.message}`, 'error');
-    } finally {
-        // Reset button state
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fas fa-save"></i> Create Record';
+    })
+    .catch(err => {
+        showNotification('Failed to find pegawai record: ' + err, 'error');
+    });
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.parentNode.removeChild(modal);
     }
 }
 
-async function deletePegawai(pegawaiId, gId) {
-    const confirmMessage = `Are you sure you want to delete this record?\n\n` +
-        `Pegawai ID: ${pegawaiId}\n` +
-        `G_ID: ${gId}\n\n` +
-        `This action will:\n` +
-        `• Soft delete the pegawai record\n` +
-        `• Mark the G_ID status as "Non Active" in global_id table\n` +
-        `• Preserve all data for potential reactivation`;
-    
-    if (!confirm(confirmMessage)) {
-        return;
-    }
-    
-    try {
-        // Find and disable the delete button
-        const deleteBtn = document.querySelector(`[data-pegawai-id="${pegawaiId}"]`);
-        if (deleteBtn) {
-            deleteBtn.disabled = true;
-            deleteBtn.innerHTML = '<span class="loading-spinner-inline"></span>';
-        }
-        
-        console.log(`Deleting pegawai ID: ${pegawaiId}, G_ID: ${gId}`);
-        
-        const result = await api.request(`/data/pegawai/${pegawaiId}`, {
-            method: 'DELETE'
-        });
-        console.log('Delete response:', result);
-        
-        if (result.success) {
-            const performanceInfo = result.execution_time ? 
-                ` (${result.execution_time}s - ${result.performance_status})` : '';
-            
-            showNotification(
-                `Record deleted successfully! G_ID ${result.g_id} has been marked as "Non Active". ` +
-                `The record can be reactivated by creating a new entry with identical data.${performanceInfo}`, 
-                'success'
-            );
-            await refreshPegawaiData();
-        } else {
-            throw new Error(result.detail || result.error || 'Failed to delete record');
-        }
-    } catch (error) {
-        console.error('Delete error:', error);
-        showNotification(`Error deleting record: ${error.message}`, 'error');
-        
-        // Re-enable button on error
-        const deleteBtn = document.querySelector(`[data-pegawai-id="${pegawaiId}"]`);
-        if (deleteBtn) {
-            deleteBtn.disabled = false;
-            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-        }
-    }
-}
-
-async function refreshPegawaiData() {
-    // Show loading notification
-    showNotification('Refreshing pegawai data...', 'info');
-    
-    try {
-        // Reload all database data to get fresh pegawai data
-        await loadAllDatabaseData();
-        showNotification('Data refreshed successfully!', 'success');
-    } catch (error) {
-        console.error('Refresh error:', error);
-        showNotification('Error refreshing data. Please try again.', 'error');
-    }
-}
+// Global ID Table Display Functions - Read Only
 
 function showNotification(message, type = 'info') {
     // Remove any existing notifications
@@ -996,81 +1150,27 @@ function showNotification(message, type = 'info') {
     }, displayTime);
 }
 
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const modal = document.getElementById('createPegawaiModal');
-    if (event.target == modal) {
-        closeCreateModal();
-    }
-}
+// No modal functionality needed for read-only display
 
 // Load data when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    loadAllDatabaseData();
+    // Check for URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const table = urlParams.get('table');
+    const status = urlParams.get('status');
+    
+    if (table || status) {
+        loadFilteredDatabaseData(1, table, status);
+    } else {
+        loadAllDatabaseData();
+    }
 });
+
+// Expose modal functions globally for onclick handlers
+window.showAddGlobalIDModal = showAddGlobalIDModal;
+window.showDeleteGlobalIDModal = showDeleteGlobalIDModal;
 </script>
 
-<!-- Create Pegawai Modal -->
-<div id="createPegawaiModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3><i class="fas fa-plus"></i> Create New Pegawai Record</h3>
-            <button class="close" onclick="closeCreateModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="alert alert-info" style="background: #e7f3ff; border: 1px solid #b3d9ff; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
-                <i class="fas fa-info-circle"></i> 
-                <strong>Smart Logic Enabled:</strong>
-                <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
-                    <li>If matching data exists with "Non Active" status → <strong>Reactivates existing G_ID</strong></li>
-                    <li>If no match found → <strong>Generates new G_ID</strong></li>
-                    <li>Process completes within 1-5 seconds for optimal performance</li>
-                </ul>
-            </div>
-            
-            <form id="createPegawaiForm">
-                <div class="form-group">
-                    <label for="name">
-                        <i class="fas fa-user"></i> Full Name <span style="color: red;">*</span>
-                    </label>
-                    <input type="text" id="name" name="name" required 
-                           placeholder="Enter full name" maxlength="255">
-                </div>
-                
-                <div class="form-group">
-                    <label for="personal_number">
-                        <i class="fas fa-id-badge"></i> Personal Number
-                    </label>
-                    <input type="text" id="personal_number" name="personal_number" 
-                           placeholder="e.g., EMP-2025-0001 (optional)" maxlength="15">
-                </div>
-                
-                <div class="form-group">
-                    <label for="no_ktp">
-                        <i class="fas fa-id-card"></i> No KTP <span style="color: red;">*</span>
-                    </label>
-                    <input type="text" id="no_ktp" name="no_ktp" required 
-                           placeholder="Enter 16-digit KTP number" maxlength="16" 
-                           pattern="[0-9]{16}" title="Must be exactly 16 digits">
-                </div>
-                
-                <div class="form-group">
-                    <label for="bod">
-                        <i class="fas fa-calendar"></i> Birth Date
-                    </label>
-                    <input type="date" id="bod" name="bod">
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">
-                <i class="fas fa-times"></i> Cancel
-            </button>
-            <button type="button" class="btn btn-primary" id="submitCreateBtn" onclick="createPegawai()">
-                <i class="fas fa-save"></i> Create Record
-            </button>
-        </div>
-    </div>
-</div>
+<!-- No modals needed for read-only Global ID display -->
 
 {% endblock %}

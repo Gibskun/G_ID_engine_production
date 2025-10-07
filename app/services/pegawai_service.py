@@ -10,7 +10,7 @@ from typing import Optional, List, Tuple
 from datetime import datetime
 import logging
 
-from app.models.models import Pegawai, GlobalID
+from app.models.models import Pegawai, GlobalID, GlobalIDNonDatabase
 from app.api.pegawai_models import (
     PegawaiCreateRequest, 
     PegawaiUpdateRequest,
@@ -129,65 +129,91 @@ class PegawaiService:
     @staticmethod
     def create_employee(db: Session, employee_data: PegawaiCreateRequest) -> PegawaiResponse:
         """
-        Create a new employee
-        
-        Args:
-            db: Database session
-            employee_data: Employee creation data
-            
-        Returns:
-            PegawaiResponse of created employee
-            
-        Raises:
-            ValueError: If validation fails or employee already exists
+        Create a new employee according to new business rules:
+        - Uniqueness: (name, no_ktp, bod)
+        - personal_number is NOT part of uniqueness
+        - Add to pegawai, global_id, global_id_non_database
+        - Reactivate if (name, no_ktp, bod) matches a non-active record
+        - Generate new G_ID only if not found
         """
         try:
-            # Check if employee with same KTP already exists
-            existing_employee = (
-                db.query(Pegawai)
-                .filter(and_(
-                    Pegawai.no_ktp == employee_data.no_ktp,
-                    Pegawai.deleted_at.is_(None)
-                ))
-                .first()
-            )
-            
-            if existing_employee:
-                raise ValueError(f"Employee with KTP number {employee_data.no_ktp} already exists")
-            
-            # Check personal number uniqueness if provided
-            if employee_data.personal_number:
-                existing_personal_number = (
-                    db.query(Pegawai)
-                    .filter(and_(
-                        Pegawai.personal_number == employee_data.personal_number,
-                        Pegawai.deleted_at.is_(None)
-                    ))
-                    .first()
+            # 1. Check for existing record by (name, no_ktp, bod) in global_id
+            existing_global = db.query(GlobalID).filter(
+                and_(
+                    GlobalID.name == employee_data.name,
+                    GlobalID.no_ktp == employee_data.no_ktp,
+                    GlobalID.bod == employee_data.bod
                 )
-                
-                if existing_personal_number:
-                    raise ValueError(f"Employee with personal number {employee_data.personal_number} already exists")
-            
-            # Generate G_ID for the new employee
-            gid_generator = GIDGenerator(db)
-            g_id = gid_generator.generate_next_gid()
-            
-            # Create new employee with G_ID
+            ).first()
+
             now = datetime.utcnow()
+
+            if existing_global:
+                # If found, check status
+                if existing_global.status == "Non Active":
+                    # Reactivate: set status to Active, update updated_at
+                    existing_global.status = "Active"
+                    existing_global.updated_at = now
+                    # Reactivate in pegawai (soft-deleted)
+                    existing_pegawai = db.query(Pegawai).filter(
+                        and_(
+                            Pegawai.name == employee_data.name,
+                            Pegawai.no_ktp == employee_data.no_ktp,
+                            Pegawai.bod == employee_data.bod,
+                            Pegawai.deleted_at.isnot(None)
+                        )
+                    ).first()
+                    if existing_pegawai:
+                        existing_pegawai.deleted_at = None
+                        existing_pegawai.updated_at = now
+                        existing_pegawai.personal_number = employee_data.personal_number
+                    # Reactivate in global_id_non_database
+                    existing_non_db = db.query(GlobalIDNonDatabase).filter(
+                        and_(
+                            GlobalIDNonDatabase.name == employee_data.name,
+                            GlobalIDNonDatabase.no_ktp == employee_data.no_ktp,
+                            GlobalIDNonDatabase.bod == employee_data.bod
+                        )
+                    ).first()
+                    if existing_non_db:
+                        existing_non_db.status = "Active"
+                        existing_non_db.updated_at = now
+                        existing_non_db.personal_number = employee_data.personal_number
+                    db.commit()
+                    logger.info(f"Reactivated employee and G_ID: {existing_global.g_id}")
+                    # Return the active pegawai record (reuse original G_ID)
+                    pegawai = db.query(Pegawai).filter(
+                        and_(
+                            Pegawai.name == employee_data.name,
+                            Pegawai.no_ktp == employee_data.no_ktp,
+                            Pegawai.bod == employee_data.bod,
+                            Pegawai.deleted_at.is_(None)
+                        )
+                    ).first()
+                    return PegawaiResponse.from_orm(pegawai)
+                else:
+                    # Already active, always block duplicates regardless of personal_number
+                    raise ValueError("Employee with this (name, NIK, BOD) already exists and is active")
+
+            # 2. Not found: create new G_ID and add to all tables
+            gid_generator = GIDGenerator(db)
+            new_gid = gid_generator.generate_next_gid()
+
+            # Pegawai
             new_employee = Pegawai(
                 name=employee_data.name,
                 personal_number=employee_data.personal_number,
                 no_ktp=employee_data.no_ktp,
                 bod=employee_data.bod,
-                g_id=g_id,
+                g_id=new_gid,
                 created_at=now,
                 updated_at=now
             )
-            
-            # Create corresponding Global_ID record
+            db.add(new_employee)
+
+            # Global_ID
             global_id_record = GlobalID(
-                g_id=g_id,
+                g_id=new_gid,
                 name=employee_data.name,
                 personal_number=employee_data.personal_number,
                 no_ktp=employee_data.no_ktp,
@@ -197,15 +223,27 @@ class PegawaiService:
                 created_at=now,
                 updated_at=now
             )
-            
-            db.add(new_employee)
             db.add(global_id_record)
+
+            # Global_ID_NON_Database
+            global_id_non_db_record = GlobalIDNonDatabase(
+                g_id=new_gid,
+                name=employee_data.name,
+                personal_number=employee_data.personal_number,
+                no_ktp=employee_data.no_ktp,
+                bod=employee_data.bod,
+                status="Active",
+                source="database_pegawai",
+                created_at=now,
+                updated_at=now
+            )
+            db.add(global_id_non_db_record)
+
             db.commit()
             db.refresh(new_employee)
-            
-            logger.info(f"Created new employee: {new_employee.id} - {new_employee.name}")
+            logger.info(f"Created new employee and G_ID: {new_gid}")
             return PegawaiResponse.from_orm(new_employee)
-            
+
         except IntegrityError as e:
             db.rollback()
             logger.error(f"Database integrity error creating employee: {str(e)}")
@@ -311,17 +349,7 @@ class PegawaiService:
     @staticmethod
     def soft_delete_employee(db: Session, employee_id: int) -> bool:
         """
-        Soft delete an employee (set deleted_at timestamp)
-        
-        Args:
-            db: Database session
-            employee_id: Employee ID to delete
-            
-        Returns:
-            True if employee was deleted, False if not found
-            
-        Raises:
-            ValueError: If deletion fails
+        Soft delete an employee (set deleted_at timestamp) and set status to 'Non Active' in global_id/global_id_non_database
         """
         try:
             employee = (
@@ -332,16 +360,25 @@ class PegawaiService:
                 ))
                 .first()
             )
-            
             if not employee:
                 return False
-            
-            employee.deleted_at = datetime.utcnow()
-            employee.updated_at = datetime.utcnow()
-            
+            now = datetime.utcnow()
+            employee.deleted_at = now
+            employee.updated_at = now
+
+            # Also set status to 'Non Active' in global_id
+            if employee.g_id:
+                global_id = db.query(GlobalID).filter(GlobalID.g_id == employee.g_id).first()
+                if global_id:
+                    global_id.status = "Non Active"
+                    global_id.updated_at = now
+                global_id_non_db = db.query(GlobalIDNonDatabase).filter(GlobalIDNonDatabase.g_id == employee.g_id).first()
+                if global_id_non_db:
+                    global_id_non_db.status = "Non Active"
+                    global_id_non_db.updated_at = now
+
             db.commit()
-            
-            logger.info(f"Soft deleted employee: {employee.id} - {employee.name}")
+            logger.info(f"Soft deleted employee and set G_ID status to Non Active: {employee.id} - {employee.name}")
             return True
             
         except Exception as e:

@@ -12,6 +12,7 @@ from io import BytesIO, StringIO
 
 from app.models.models import GlobalID, GlobalIDNonDatabase, AuditLog
 from app.services.gid_generator import GIDGenerator
+from sqlalchemy import and_
 
 logger = logging.getLogger(__name__)
 
@@ -201,65 +202,80 @@ class ExcelIngestionService:
                 'created_gids': []
             }
             
-            # BATCH OPTIMIZATION: Pre-process all rows and get existing No_KTPs
+            # NEW LOGIC: Use (name, No_KTP, BOD) for uniqueness, ignore personal_number
             logger.info("🚀 Starting batch processing optimization...")
-            
-            # Get all existing No_KTPs in one query
-            existing_no_ktps = set(
-                row[0] for row in self.db.query(GlobalID.no_ktp).all()
-            )
-            
-            # First pass: validate and filter valid records
             valid_records = []
+            reactivated_records = []
             for row_idx in range(len(df)):
                 row = df.iloc[row_idx]
                 row_num = row_idx + 2
                 processing_summary['processed'] += 1
-                
                 try:
-                    # Validate and clean row data
                     row_data = self._validate_and_clean_row(row, row_num)
                     if not row_data['valid']:
                         processing_summary['skipped'] += 1
                         processing_summary['errors'].append(row_data['error'])
                         continue
-                    
-                    # Check for existing No_KTP (in-memory check, much faster)
-                    if row_data['No_KTP'] in existing_no_ktps:
-                        processing_summary['skipped'] += 1
-                        processing_summary['errors'].append(
-                            f"Row {row_num}: No_KTP {row_data['No_KTP']} already exists"
+                    # Check for existing record by (name, No_KTP, BOD)
+                    existing_global = self.db.query(GlobalID).filter(
+                        and_(
+                            GlobalID.name == row_data['name'],
+                            GlobalID.no_ktp == row_data['No_KTP'],
+                            GlobalID.bod == row_data.get('BOD')
                         )
-                        logger.warning(f"Skipping duplicate No_KTP: {row_data['No_KTP']}")
-                        continue
-                    
+                    ).first()
+                    if existing_global:
+                        if existing_global.status == "Non Active":
+                            # Reactivate
+                            existing_global.status = "Active"
+                            existing_global.updated_at = datetime.now()
+                            # Reactivate in global_id_non_database
+                            existing_non_db = self.db.query(GlobalIDNonDatabase).filter(
+                                and_(
+                                    GlobalIDNonDatabase.name == row_data['name'],
+                                    GlobalIDNonDatabase.no_ktp == row_data['No_KTP'],
+                                    GlobalIDNonDatabase.bod == row_data.get('BOD')
+                                )
+                            ).first()
+                            if existing_non_db:
+                                existing_non_db.status = "Active"
+                                existing_non_db.updated_at = datetime.now()
+                            self.db.commit()
+                            reactivated_records.append({
+                                'gid': existing_global.g_id,
+                                'name': row_data['name'],
+                                'no_ktp': row_data['No_KTP'],
+                                'reactivated': True
+                            })
+                            processing_summary['successful'] += 1
+                            continue
+                        else:
+                            # Already active, skip
+                            processing_summary['skipped'] += 1
+                            processing_summary['errors'].append(
+                                f"Row {row_num}: (name, No_KTP, BOD) already exists and is active"
+                            )
+                            continue
                     valid_records.append((row_num, row_data))
-                    existing_no_ktps.add(row_data['No_KTP'])  # Prevent duplicates within this batch
-                    
                 except Exception as e:
                     processing_summary['errors'].append(f"Row {row_num}: {str(e)}")
                     logger.error(f"Error validating row {row_num}: {str(e)}")
                     processing_summary['skipped'] += 1
-            
-            # BATCH G_ID GENERATION: Generate all G_IDs at once
+            # BATCH G_ID GENERATION: Generate all G_IDs at once for new records
             if valid_records:
                 logger.info(f"🚀 Generating {len(valid_records)} G_IDs in batch...")
                 batch_gids = self.gid_generator.generate_batch_gids(len(valid_records))
-                
-                # Batch process all valid records
                 result = self._batch_create_excel_records(valid_records, batch_gids, filename)
-                processing_summary['successful'] = result['successful']
-                processing_summary['created_gids'] = result['created_gids']
+                processing_summary['successful'] += result['successful']
+                processing_summary['created_gids'] = result['created_gids'] + reactivated_records
                 if result['errors']:
                     processing_summary['errors'].extend(result['errors'])
             else:
-                logger.info("No valid records to process")
-            
-            # Update success status based on results
+                processing_summary['created_gids'] = reactivated_records
+                logger.info("No valid new records to process")
             if processing_summary['successful'] == 0 and processing_summary['errors']:
                 processing_summary['success'] = False
                 processing_summary['error'] = "No records were successfully processed"
-            
             return processing_summary
             
         except Exception as e:

@@ -144,16 +144,25 @@ class AutomationService:
         """
         try:
             # PERFORMANCE OPTIMIZATION: Query global_id table directly for Non Active records
-            # Uses indexes: idx_global_id_no_ktp, idx_global_id_status
+            # First check for exact match (name, no_ktp, BOD) - the core uniqueness criteria
             existing_global_record = self.main_db.query(GlobalID).filter(
                 and_(
                     GlobalID.name == pegawai_data["name"],
-                    GlobalID.personal_number == pegawai_data.get("personal_number"),
                     GlobalID.no_ktp == pegawai_data["no_ktp"],
                     GlobalID.bod == pegawai_data.get("bod"),
                     GlobalID.status == 'Non Active'  # Use indexed status field
                 )
             ).first()
+            
+            # If no exact match, check if there's any inactive record with same no_ktp 
+            # (to prevent UNIQUE constraint violation)
+            if not existing_global_record:
+                existing_global_record = self.main_db.query(GlobalID).filter(
+                    and_(
+                        GlobalID.no_ktp == pegawai_data["no_ktp"],
+                        GlobalID.status == 'Non Active'
+                    )
+                ).first()
             
             if existing_global_record:
                 existing_g_id = getattr(existing_global_record, 'g_id', None)
@@ -168,12 +177,20 @@ class AutomationService:
                 
                 if existing_pegawai:
                     # SCENARIO A: REACTIVATE EXISTING RECORD
-                    # 1. Reactivate pegawai record
+                    # 1. Update and reactivate pegawai record with new data
+                    setattr(existing_pegawai, 'name', pegawai_data["name"])
+                    setattr(existing_pegawai, 'personal_number', pegawai_data.get("personal_number"))
+                    setattr(existing_pegawai, 'no_ktp', pegawai_data["no_ktp"])
+                    setattr(existing_pegawai, 'bod', pegawai_data.get("bod"))
                     setattr(existing_pegawai, 'deleted_at', None)
                     setattr(existing_pegawai, 'updated_at', datetime.now())
                     
-                    # 2. Update global_id status to 'Active'
+                    # 2. Update global_id record with new data and set status to 'Active'
                     old_status = getattr(existing_global_record, 'status', '')
+                    setattr(existing_global_record, 'name', pegawai_data["name"])
+                    setattr(existing_global_record, 'personal_number', pegawai_data.get("personal_number"))
+                    setattr(existing_global_record, 'no_ktp', pegawai_data["no_ktp"])
+                    setattr(existing_global_record, 'bod', pegawai_data.get("bod"))
                     setattr(existing_global_record, 'status', 'Active')
                     setattr(existing_global_record, 'updated_at', datetime.now())
                     
@@ -182,6 +199,10 @@ class AutomationService:
                         GlobalIDNonDatabase.g_id == existing_g_id
                     ).first()
                     if non_db_record:
+                        setattr(non_db_record, 'name', pegawai_data["name"])
+                        setattr(non_db_record, 'personal_number', pegawai_data.get("personal_number"))
+                        setattr(non_db_record, 'no_ktp', pegawai_data["no_ktp"])
+                        setattr(non_db_record, 'bod', pegawai_data.get("bod"))
                         setattr(non_db_record, 'status', 'Active')
                         setattr(non_db_record, 'updated_at', datetime.now())
                         
@@ -338,9 +359,9 @@ async def get_global_id_data(
         # Get total count
         total = query.count()
         
-        # Apply pagination
+        # Apply pagination with ORDER BY (required for MSSQL OFFSET)
         offset = (page - 1) * page_size
-        records = query.offset(offset).limit(page_size).all()
+        records = query.order_by(GlobalID.g_id).offset(offset).limit(page_size).all()
         
         # Convert to dict format safely
         data = [record_to_dict(record, "global_id") for record in records]
@@ -394,9 +415,9 @@ async def get_global_id_non_database_data(
         # Get total count
         total = query.count()
         
-        # Apply pagination
+        # Apply pagination with ORDER BY (required for MSSQL OFFSET)
         offset = (page - 1) * page_size
-        records = query.offset(offset).limit(page_size).all()
+        records = query.order_by(GlobalIDNonDatabase.g_id).offset(offset).limit(page_size).all()
         
         # Convert to dict format safely
         data = [record_to_dict(record, "global_id_non_database") for record in records]
@@ -448,9 +469,9 @@ async def get_pegawai_data(
         # Get total count
         total = query.count()
         
-        # Apply pagination
+        # Apply pagination with ORDER BY (required for MSSQL OFFSET)
         offset = (page - 1) * page_size
-        records = query.offset(offset).limit(page_size).all()
+        records = query.order_by(Pegawai.id).offset(offset).limit(page_size).all()
         
         # Convert to dict format safely
         data = [record_to_dict(record, "pegawai") for record in records]

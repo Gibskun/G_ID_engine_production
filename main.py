@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from app.api.routes import api_router
 from app.api.ultra_endpoints import ultra_router
 from app.models.database import create_tables
+from app.auth.routes import auth_router
 
 # Import environment configuration for automatic detection
 try:
@@ -87,6 +88,7 @@ templates = Jinja2Templates(directory="templates")
 
 # Include API routes
 app.include_router(api_router)
+app.include_router(auth_router, prefix="/api/v1")
 
 # Include ultra-performance routes for million-record processing
 app.include_router(ultra_router, prefix="/api/v1/ultra", tags=["Ultra Performance"])
@@ -116,6 +118,7 @@ gid_app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Include same routes in sub-application
 gid_app.include_router(api_router)
+gid_app.include_router(auth_router, prefix="/api/v1")
 gid_app.include_router(ultra_router, prefix="/api/v1/ultra", tags=["Ultra Performance"])
 
 # Add frontend routes to sub-application for /gid/ prefix compatibility
@@ -144,8 +147,54 @@ async def gid_monitoring_page(request: Request):
     """Monitoring page (GID prefix version)"""
     return templates.TemplateResponse("monitoring.html", {"request": request})
 
+@gid_app.get("/login", response_class=HTMLResponse)
+async def gid_login_page(request: Request):
+    """Login page (GID prefix version)"""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@gid_app.get("/unauthorized", response_class=HTMLResponse)
+async def gid_unauthorized_page(request: Request):
+    """Unauthorized page (GID prefix version)"""
+    return templates.TemplateResponse("unauthorized.html", {"request": request})
+
 # Mount the sub-application at /gid/ path
 app.mount("/gid", gid_app)
+
+# Add frontend routes to main application (for direct access without /gid/ prefix)
+@app.get("/", response_class=HTMLResponse)
+async def main_dashboard(request: Request):
+    """Main dashboard page"""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
+@app.get("/database-explorer", response_class=HTMLResponse)
+async def main_database_explorer(request: Request):
+    """Database explorer page"""
+    return templates.TemplateResponse("database_explorer.html", {"request": request})
+
+@app.get("/upload", response_class=HTMLResponse)
+async def main_excel_upload(request: Request):
+    """Excel upload page"""
+    return templates.TemplateResponse("excel_upload.html", {"request": request})
+
+@app.get("/sync", response_class=HTMLResponse)
+async def main_sync_management(request: Request):
+    """Sync management page"""
+    return templates.TemplateResponse("sync_management.html", {"request": request})
+
+@app.get("/monitoring", response_class=HTMLResponse)
+async def main_monitoring_page(request: Request):
+    """Monitoring page"""
+    return templates.TemplateResponse("monitoring.html", {"request": request})
+
+@app.get("/login", response_class=HTMLResponse)
+async def main_login_page(request: Request):
+    """Login page"""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.get("/unauthorized", response_class=HTMLResponse)
+async def main_unauthorized_page(request: Request):
+    """Unauthorized page"""
+    return templates.TemplateResponse("unauthorized.html", {"request": request})
 
 
 # Frontend routes

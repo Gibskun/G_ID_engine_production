@@ -264,18 +264,19 @@ async def delete_employee(
 ):
     """
     Soft delete an employee
-    
+
     **Parameters:**
     - **employee_id**: Unique employee identifier
-    
+
     **Returns:**
     - Success message
-    
+
     **Raises:**
     - 404: Employee not found
-    
+
     **Note:**
     This performs a soft delete by setting the deleted_at timestamp.
+    Additionally, sets status to 'Non Active' in global_id and global_id_non_database for the corresponding G_ID.
     The employee record remains in the database but is excluded from normal queries.
     """
     try:

@@ -33,10 +33,42 @@
 <div class="card">
     <h3>Quick Actions</h3>
     <div class="text-center">
-        <a href="/sync" class="btn btn-primary">Manage Sync</a>
-        <a href="/upload" class="btn btn-success">Upload Excel</a>
-        <a href="/data" class="btn btn-secondary">View Data</a>
+        <a href="sync" class="btn btn-primary">Manage Sync</a>
+        <a href="upload" class="btn btn-success">Upload Excel</a>
+        <a href="database-explorer" class="btn btn-secondary">Database Explorer</a>
         <button class="btn btn-warning" onclick="runHealthCheck()">Health Check</button>
+    </div>
+</div>
+
+<!-- Data View Modal -->
+<div class="modal fade" id="dataViewModal" tabindex="-1" aria-labelledby="dataViewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dataViewModalLabel">Data View</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modal-loading" class="text-center" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading data...</p>
+                </div>
+                <div id="modal-content">
+                    <!-- Data will be loaded here -->
+                </div>
+                <div id="modal-pagination" class="d-flex justify-content-between align-items-center mt-3" style="display: none;">
+                    <div>
+                        <span id="modal-page-info">Page 1 of 1</span>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary" id="modal-prev-btn" disabled>Previous</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="modal-next-btn" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -67,27 +99,74 @@ async function loadDashboard() {
 }
 
 function updateStatistics(data) {
+    console.log('Dashboard data received:', data); // Debug logging
+    
     const statsGrid = document.getElementById('stats-grid');
+    
+    // Ensure we have the required data structures
+    const globalIdStats = data.global_id_stats || { total: 0, active: 0, inactive: 0 };
+    const globalIdNonDbStats = data.global_id_non_database_stats || { total: 0, active: 0, inactive: 0 };
+    const pegawaiStats = data.pegawai_stats || { total: 0, active: 0, inactive: 0 };
+    
     statsGrid.innerHTML = `
-        <div class="stat-card">
-            <div class="stat-number primary">${UIUtils.formatNumber(data.total_records)}</div>
-            <div class="stat-label">Total Records</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number success">${UIUtils.formatNumber(data.active_records)}</div>
-            <div class="stat-label">Active Records</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number warning">${UIUtils.formatNumber(data.inactive_records)}</div>
-            <div class="stat-label">Inactive Records</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number info">${UIUtils.formatNumber(data.database_source_records)}</div>
-            <div class="stat-label">Database Source</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number danger">${UIUtils.formatNumber(data.excel_source_records)}</div>
-            <div class="stat-label">Excel Source</div>
+        <div class="dashboard-table-container">
+            <table class="dashboard-stats-table">
+                <thead>
+                    <tr>
+                        <th>CATEGORY</th>
+                        <th>TOTAL RECORDS</th>
+                        <th>ACTIVE RECORDS</th>
+                        <th>INACTIVE RECORDS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="category-name">Global_ID</td>
+                        <td>
+                            <span class="stat-number primary">${UIUtils.formatNumber(globalIdStats.total)}</span>
+                            <br><button class="btn btn-sm btn-outline-primary view-btn" onclick="viewGlobalIdData('all')">View</button>
+                        </td>
+                        <td>
+                            <span class="stat-number success">${UIUtils.formatNumber(globalIdStats.active)}</span>
+                            <br><button class="btn btn-sm btn-outline-success view-btn" onclick="viewGlobalIdData('Active')">View</button>
+                        </td>
+                        <td>
+                            <span class="stat-number warning">${UIUtils.formatNumber(globalIdStats.inactive)}</span>
+                            <br><button class="btn btn-sm btn-outline-warning view-btn" onclick="viewGlobalIdData('Non Active')">View</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="category-name">Global_ID_Non_Database</td>
+                        <td>
+                            <span class="stat-number primary">${UIUtils.formatNumber(globalIdNonDbStats.total)}</span>
+                            <br><button class="btn btn-sm btn-outline-primary view-btn" onclick="viewGlobalIdNonDbData('all')">View</button>
+                        </td>
+                        <td>
+                            <span class="stat-number success">${UIUtils.formatNumber(globalIdNonDbStats.active)}</span>
+                            <br><button class="btn btn-sm btn-outline-success view-btn" onclick="viewGlobalIdNonDbData('Active')">View</button>
+                        </td>
+                        <td>
+                            <span class="stat-number warning">${UIUtils.formatNumber(globalIdNonDbStats.inactive)}</span>
+                            <br><button class="btn btn-sm btn-outline-warning view-btn" onclick="viewGlobalIdNonDbData('Non Active')">View</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="category-name">Employees</td>
+                        <td>
+                            <span class="stat-number primary">${UIUtils.formatNumber(pegawaiStats.total)}</span>
+                            <br><button class="btn btn-sm btn-outline-primary view-btn" onclick="viewEmployeeData('all')">View</button>
+                        </td>
+                        <td>
+                            <span class="stat-number success">${UIUtils.formatNumber(pegawaiStats.active)}</span>
+                            <br><button class="btn btn-sm btn-outline-success view-btn" onclick="viewEmployeeData('active')">View</button>
+                        </td>
+                        <td>
+                            <span class="stat-number warning">${UIUtils.formatNumber(pegawaiStats.inactive)}</span>
+                            <br><button class="btn btn-sm btn-outline-warning view-btn" onclick="viewEmployeeData('inactive')">View</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     `;
 }
@@ -193,6 +272,151 @@ function stopAutoRefresh() {
         clearInterval(refreshInterval);
         refreshInterval = null;
     }
+}
+
+// Modal functions for View buttons
+let currentModalPage = 1;
+let currentModalTable = '';
+let currentModalStatus = '';
+
+function viewGlobalIdData(status) {
+    showDataModal('global_id', status, 'Global ID Records');
+}
+
+function viewGlobalIdNonDbData(status) {
+    showDataModal('global_id_non_database', status, 'Global ID Non-Database Records');
+}
+
+function viewEmployeeData(status) {
+    showDataModal('pegawai', status, 'Employee Records');
+}
+
+async function showDataModal(table, status, title) {
+    currentModalTable = table;
+    currentModalStatus = status;
+    currentModalPage = 1;
+    
+    // Update modal title
+    document.getElementById('dataViewModalLabel').textContent = `${title} - ${status === 'all' ? 'All Records' : status}`;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('dataViewModal'));
+    modal.show();
+    
+    // Load data
+    await loadModalData();
+}
+
+async function loadModalData() {
+    const loading = document.getElementById('modal-loading');
+    const content = document.getElementById('modal-content');
+    const pagination = document.getElementById('modal-pagination');
+    
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    pagination.style.display = 'none';
+    
+    try {
+        const params = new URLSearchParams({
+            page: currentModalPage,
+            size: 50
+        });
+        
+        if (currentModalTable) {
+            params.append('table', currentModalTable);
+        }
+        
+        if (currentModalStatus && currentModalStatus !== 'all') {
+            params.append('status', currentModalStatus);
+        }
+        
+        const response = await api.request(`/database/explorer?${params.toString()}`);
+        
+        // Get table data
+        const tableData = response.dbvendor.tables[currentModalTable];
+        if (tableData && tableData.data) {
+            displayModalData(tableData);
+            updateModalPagination(tableData.pagination);
+        } else {
+            content.innerHTML = '<p class="text-muted">No data available</p>';
+        }
+        
+    } catch (error) {
+        content.innerHTML = `<div class="alert alert-danger">Error loading data: ${error.message}</div>`;
+    } finally {
+        loading.style.display = 'none';
+        content.style.display = 'block';
+        pagination.style.display = 'flex';
+    }
+}
+
+function displayModalData(tableData) {
+    const content = document.getElementById('modal-content');
+    
+    if (!tableData.data || tableData.data.length === 0) {
+        content.innerHTML = '<p class="text-muted">No records found</p>';
+        return;
+    }
+    
+    // Create table
+    let html = '<div class="table-responsive"><table class="table table-striped table-hover">';
+    
+    // Table header
+    html += '<thead class="table-dark"><tr>';
+    const columns = tableData.columns;
+    columns.forEach(col => {
+        html += `<th>${col.name}</th>`;
+    });
+    html += '</tr></thead>';
+    
+    // Table body
+    html += '<tbody>';
+    tableData.data.forEach(record => {
+        html += '<tr>';
+        columns.forEach(col => {
+            let value = record[col.name];
+            if (value === null || value === undefined) {
+                value = '-';
+            } else if (typeof value === 'string' && value.includes('T')) {
+                // Format datetime
+                try {
+                    value = new Date(value).toLocaleString();
+                } catch (e) {
+                    // Keep original value if parsing fails
+                }
+            }
+            html += `<td>${value}</td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    
+    content.innerHTML = html;
+}
+
+function updateModalPagination(pagination) {
+    const pageInfo = document.getElementById('modal-page-info');
+    const prevBtn = document.getElementById('modal-prev-btn');
+    const nextBtn = document.getElementById('modal-next-btn');
+    
+    pageInfo.textContent = `Page ${pagination.current_page} of ${pagination.total_pages} (${pagination.total_records} records)`;
+    
+    prevBtn.disabled = !pagination.has_previous;
+    nextBtn.disabled = !pagination.has_next;
+    
+    prevBtn.onclick = () => {
+        if (pagination.has_previous) {
+            currentModalPage--;
+            loadModalData();
+        }
+    };
+    
+    nextBtn.onclick = () => {
+        if (pagination.has_next) {
+            currentModalPage++;
+            loadModalData();
+        }
+    };
 }
 
 // Initialize dashboard
