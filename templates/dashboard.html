@@ -41,8 +41,8 @@
 </div>
 
 <!-- Data View Modal -->
-<div class="modal fade" id="dataViewModal" tabindex="-1" aria-labelledby="dataViewModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
+<div class="modal fade" id="dataViewModal" tabindex="-1" aria-labelledby="dataViewModalLabel" aria-hidden="true" role="dialog">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="dataViewModalLabel">Data View</h5>
@@ -300,11 +300,29 @@ async function showDataModal(table, status, title) {
     document.getElementById('dataViewModalLabel').textContent = `${title} - ${status === 'all' ? 'All Records' : status}`;
     
     // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('dataViewModal'));
-    modal.show();
+    const modalElement = document.getElementById('dataViewModal');
+    const modal = new bootstrap.Modal(modalElement);
     
-    // Load data
-    await loadModalData();
+    // Handle modal events for proper accessibility
+    modalElement.addEventListener('shown.bs.modal', function () {
+        // Modal is fully shown, aria-hidden is now false
+        // Focus management is now safe
+        loadModalData();
+    }, { once: true });
+    
+    // Ensure proper cleanup when modal is hidden
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        // Clear any lingering content and reset state
+        const content = document.getElementById('modal-content');
+        const loading = document.getElementById('modal-loading');
+        const pagination = document.getElementById('modal-pagination');
+        
+        if (content) content.innerHTML = '';
+        if (loading) loading.style.display = 'none';
+        if (pagination) pagination.style.display = 'none';
+    }, { once: true });
+    
+    modal.show();
 }
 
 async function loadModalData() {

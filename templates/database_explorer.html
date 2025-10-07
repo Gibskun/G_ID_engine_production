@@ -398,6 +398,15 @@ window.showDeleteGlobalIDModal = showDeleteGlobalIDModal;
     animation: fadeIn 0.3s ease-in-out;
 }
 
+/* Accessibility fix: prevent focus when modal is hidden */
+.modal[aria-hidden="true"] * {
+    visibility: hidden;
+}
+
+.modal[aria-hidden="false"] * {
+    visibility: visible;
+}
+
 .modal-content {
     background-color: #fefefe;
     margin: 3% auto;
@@ -1004,11 +1013,11 @@ function generateTableHtml(tableName, tableData) {
 // Modal functions - defined outside of template strings
 function showAddGlobalIDModal() {
     const modalHtml = `
-    <div class="modal" id="addGlobalIDModal">
-        <div class="modal-content">
+    <div class="modal" id="addGlobalIDModal" role="dialog" aria-labelledby="addModalTitle" aria-hidden="false">
+        <div class="modal-content" role="document">
             <div class="modal-header">
-                <h3><i class="fas fa-plus"></i> Add Global ID Data</h3>
-                <button class="close" onclick="closeModal('addGlobalIDModal')">&times;</button>
+                <h3 id="addModalTitle"><i class="fas fa-plus"></i> Add Global ID Data</h3>
+                <button class="close" onclick="closeModal('addGlobalIDModal')" aria-label="Close modal">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="addGlobalIDForm">
@@ -1037,7 +1046,30 @@ function showAddGlobalIDModal() {
         </div>
     </div>`;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
-    document.getElementById('addGlobalIDModal').style.display = 'block';
+    const modal = document.getElementById('addGlobalIDModal');
+    modal.style.display = 'block';
+    
+    // Focus management and keyboard handling
+    setTimeout(() => {
+        const firstInput = modal.querySelector('input, button, select, textarea');
+        if (firstInput) {
+            firstInput.focus();
+        }
+        
+        // Add escape key handler
+        modal.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal('addGlobalIDModal');
+            }
+        });
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeModal('addGlobalIDModal');
+            }
+        });
+    }, 100);
 }
 
 function submitAddGlobalID() {
@@ -1068,11 +1100,11 @@ function submitAddGlobalID() {
 // Modal for Delete Data
 function showDeleteGlobalIDModal(g_id, name, no_ktp) {
     const modalHtml = `
-    <div class="modal" id="deleteGlobalIDModal">
-        <div class="modal-content">
+    <div class="modal" id="deleteGlobalIDModal" role="dialog" aria-labelledby="deleteModalTitle" aria-hidden="false">
+        <div class="modal-content" role="document">
             <div class="modal-header">
-                <h3><i class="fas fa-trash"></i> Delete Global ID Data</h3>
-                <button class="close" onclick="closeModal('deleteGlobalIDModal')">&times;</button>
+                <h3 id="deleteModalTitle"><i class="fas fa-trash"></i> Delete Global ID Data</h3>
+                <button class="close" onclick="closeModal('deleteGlobalIDModal')" aria-label="Close modal">&times;</button>
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to delete <strong>${name}</strong> (NIK: ${no_ktp})?</p>
@@ -1084,7 +1116,30 @@ function showDeleteGlobalIDModal(g_id, name, no_ktp) {
         </div>
     </div>`;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
-    document.getElementById('deleteGlobalIDModal').style.display = 'block';
+    const modal = document.getElementById('deleteGlobalIDModal');
+    modal.style.display = 'block';
+    
+    // Focus management and keyboard handling
+    setTimeout(() => {
+        const deleteButton = modal.querySelector('.btn-danger');
+        if (deleteButton) {
+            deleteButton.focus();
+        }
+        
+        // Add escape key handler
+        modal.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal('deleteGlobalIDModal');
+            }
+        });
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeModal('deleteGlobalIDModal');
+            }
+        });
+    }, 100);
 }
 
 function submitDeleteGlobalID(g_id) {
@@ -1118,7 +1173,25 @@ function submitDeleteGlobalID(g_id) {
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
-        modal.parentNode.removeChild(modal);
+        // Properly set aria-hidden before removing
+        modal.setAttribute('aria-hidden', 'true');
+        
+        // Add fade out animation
+        modal.style.opacity = '0';
+        modal.style.transition = 'opacity 0.3s ease';
+        
+        // Remove after animation
+        setTimeout(() => {
+            if (modal.parentNode) {
+                modal.parentNode.removeChild(modal);
+            }
+        }, 300);
+        
+        // Return focus to the trigger element if possible
+        const triggerElement = document.activeElement;
+        if (triggerElement && triggerElement.blur) {
+            triggerElement.blur();
+        }
     }
 }
 
