@@ -673,6 +673,17 @@ window.showDeleteGlobalIDModal = showDeleteGlobalIDModal;
 </div>
 
 <script>
+// API Base URL Detection - Same logic as main.js
+function getApiBaseUrl() {
+    const path = window.location.pathname || '';
+    // Treat /gid or /gid/... as prefixed deployment (user-facing)
+    if (path === '/gid' || path.startsWith('/gid/')) {
+        return '/gid/api/v1'; // Browser will request /gid/api/v1/* which nginx rewrites -> /api/v1/*
+    } else {
+        return '/api/v1';
+    }
+}
+
 async function loadAllDatabaseData(page = 1) {
     const loading = document.getElementById('loading');
     const content = document.getElementById('database-content');
@@ -1038,7 +1049,7 @@ function submitAddGlobalID() {
         bod: formData.get('bod'),
         personal_number: formData.get('personal_number')
     };
-    fetch('/api/v1/data/pegawai', {
+    fetch(`${getApiBaseUrl()}/data/pegawai`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1078,12 +1089,12 @@ function showDeleteGlobalIDModal(g_id, name, no_ktp) {
 
 function submitDeleteGlobalID(g_id) {
     // Find pegawai_id by g_id (API expects pegawai_id)
-    fetch(`/api/v1/data/pegawai?page=1&page_size=1&search=${g_id}`)
+    fetch(`${getApiBaseUrl()}/data/pegawai?page=1&page_size=1&search=${g_id}`)
     .then(res => res.json())
     .then(data => {
         if (data.data && data.data.length > 0) {
             const pegawai_id = data.data[0].id;
-            fetch(`/api/v1/data/pegawai/${pegawai_id}`, {
+            fetch(`${getApiBaseUrl()}/data/pegawai/${pegawai_id}`, {
                 method: 'DELETE'
             })
             .then(res => res.json())
