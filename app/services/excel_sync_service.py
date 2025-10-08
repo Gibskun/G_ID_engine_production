@@ -32,7 +32,8 @@ class ExcelSyncService:
             'new_created': 0,
             'obsolete_deactivated': 0,
             'errors': 0,
-            'total_processed': 0
+            'total_processed': 0,
+            'skipped': 0
         }
     
     def translate_database_error(self, error_str: str) -> str:
@@ -63,7 +64,7 @@ class ExcelSyncService:
         
         # Handle data truncation errors
         if 'string or binary data would be truncated' in error_lower:
-            return "❌ Upload failed: Some data in your file is too long for the database fields. Please check that KTP numbers are exactly 16 digits and Passport IDs are 8-9 characters."
+            return "❌ Upload partially completed: Some records had data that was too long for the database fields and were automatically skipped. The remaining valid records have been processed successfully. Please check that KTP numbers are 16 digits or less and Passport IDs are 8-9 characters."
         
         # Handle connection errors
         if 'connection' in error_lower or 'timeout' in error_lower:
@@ -153,7 +154,7 @@ class ExcelSyncService:
                 return potential_passport
     
     def validate_and_clean_data(self, df: pd.DataFrame) -> List[Dict]:
-        """Validate and clean input data with detailed error reporting"""
+        """Validate and clean input data with partial processing - process valid records, skip invalid ones"""
         required_columns = ['name', 'personal_number', 'no_ktp', 'bod']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
@@ -161,7 +162,8 @@ class ExcelSyncService:
         
         records = df.to_dict('records')
         cleaned_records = []
-        validation_errors = []
+        skipped_records = []  # Track records that were skipped due to validation errors
+        processing_warnings = []  # Track non-critical warnings
         
         # Check for duplicates within the file itself
         seen_passport_ids = {}
@@ -174,6 +176,8 @@ class ExcelSyncService:
                     continue
                 
                 row_num = i + 2  # Excel row number (accounting for header)
+                skip_record = False
+                record_errors = []
                 
                 cleaned_record = {
                     'name': str(record.get('name', '')).strip(),
@@ -181,90 +185,158 @@ class ExcelSyncService:
                     'no_ktp': str(record.get('no_ktp', '')).strip(),
                     'bod': self.parse_date(record.get('bod')),
                     'status': self.normalize_status(record.get('status', 'Active')),
-                    'passport_id': str(record.get('passport_id', '')).strip() if record.get('passport_id') else ''
+                    'passport_id': str(record.get('passport_id', '')).strip() if record.get('passport_id') else '',
+                    'process': record.get('process', 0)  # Default to 0 if not present
                 }
                 
                 # Validate required fields
                 if not cleaned_record['name']:
-                    validation_errors.append(f"Row {row_num}: Missing employee name")
-                    continue
+                    record_errors.append(f"Missing employee name")
+                    skip_record = True
                     
                 if not cleaned_record['no_ktp']:
-                    validation_errors.append(f"Row {row_num}: Missing KTP number for employee '{cleaned_record['name']}'")
-                    continue
+                    record_errors.append(f"Missing KTP number")
+                    skip_record = True
+                
+                # KTP length validation with process override and database constraints
+                if not skip_record:
+                    ktp_length = len(cleaned_record['no_ktp'])
+                    process_value = cleaned_record['process']
                     
-                if not cleaned_record['passport_id']:
+                    # Convert process value to int if possible
+                    try:
+                        process_int = int(process_value) if pd.notna(process_value) and str(process_value).strip() != '' else 0
+                    except (ValueError, TypeError):
+                        process_int = 0
+                    
+                    # Hard database constraint: KTP cannot exceed 16 characters (database field limit)
+                    if ktp_length > 16:
+                        record_errors.append(f"KTP '{cleaned_record['no_ktp']}' has {ktp_length} digits (exceeds database limit of 16 characters)")
+                        skip_record = True
+                    # Standard validation: KTP should be exactly 16 digits
+                    elif ktp_length != 16:
+                        if process_int == 1:
+                            # Process override: allow invalid KTP length (but still within database limits)
+                            processing_warnings.append(f"Row {row_num}: Employee '{cleaned_record['name']}' - KTP '{cleaned_record['no_ktp']}' has {ktp_length} digits (not 16) but ALLOWED due to process override (process=1)")
+                        else:
+                            # No override: skip this record
+                            record_errors.append(f"KTP '{cleaned_record['no_ktp']}' has {ktp_length} digits (must be exactly 16, or set process=1 to override)")
+                            skip_record = True
+                
+                # Handle missing passport_id
+                if not skip_record and not cleaned_record['passport_id']:
                     # Auto-generate passport_id but warn user
                     cleaned_record['passport_id'] = self.generate_passport_id(cleaned_record)
-                    validation_errors.append(f"Row {row_num}: Missing Passport ID for employee '{cleaned_record['name']}' - AUTO-GENERATED: {cleaned_record['passport_id']} (please verify this is correct)")
-                    # Don't continue, allow processing with generated passport_id
+                    processing_warnings.append(f"Row {row_num}: Employee '{cleaned_record['name']}' - Missing Passport ID, AUTO-GENERATED: {cleaned_record['passport_id']} (please verify)")
+                
+                # Validate passport_id length (database constraint: 9 characters max)
+                if not skip_record and cleaned_record['passport_id']:
+                    passport_length = len(cleaned_record['passport_id'])
+                    if passport_length > 9:
+                        record_errors.append(f"Passport ID '{cleaned_record['passport_id']}' has {passport_length} characters (exceeds database limit of 9 characters)")
+                        skip_record = True
+                    elif passport_length < 8:
+                        record_errors.append(f"Passport ID '{cleaned_record['passport_id']}' has {passport_length} characters (minimum 8 characters required)")
+                        skip_record = True
                 
                 # Check for duplicates within the file
-                if cleaned_record['passport_id'] in seen_passport_ids:
-                    other_row = seen_passport_ids[cleaned_record['passport_id']]
-                    validation_errors.append(f"Row {row_num}: Duplicate Passport ID '{cleaned_record['passport_id']}' - also found in row {other_row} for employee '{cleaned_record['name']}'")
-                    continue
-                else:
-                    seen_passport_ids[cleaned_record['passport_id']] = row_num
+                if not skip_record:
+                    if cleaned_record['passport_id'] in seen_passport_ids:
+                        other_row = seen_passport_ids[cleaned_record['passport_id']]
+                        record_errors.append(f"Duplicate Passport ID '{cleaned_record['passport_id']}' (also found in row {other_row})")
+                        skip_record = True
+                    else:
+                        seen_passport_ids[cleaned_record['passport_id']] = row_num
+                    
+                    if cleaned_record['no_ktp'] in seen_ktp_numbers:
+                        other_row = seen_ktp_numbers[cleaned_record['no_ktp']]
+                        record_errors.append(f"Duplicate KTP number '{cleaned_record['no_ktp']}' (also found in row {other_row})")
+                        skip_record = True
+                    else:
+                        seen_ktp_numbers[cleaned_record['no_ktp']] = row_num
+                    
+                    if cleaned_record['personal_number'] in seen_personal_numbers:
+                        other_row = seen_personal_numbers[cleaned_record['personal_number']]
+                        record_errors.append(f"Duplicate Personal Number '{cleaned_record['personal_number']}' (also found in row {other_row})")
+                        skip_record = True
+                    else:
+                        seen_personal_numbers[cleaned_record['personal_number']] = row_num
                 
-                if cleaned_record['no_ktp'] in seen_ktp_numbers:
-                    other_row = seen_ktp_numbers[cleaned_record['no_ktp']]
-                    validation_errors.append(f"Row {row_num}: Duplicate KTP number '{cleaned_record['no_ktp']}' - also found in row {other_row} for employee '{cleaned_record['name']}'")
-                    continue
+                # Decide whether to include or skip this record
+                if skip_record:
+                    error_details = "; ".join(record_errors)
+                    skipped_records.append({
+                        'row': row_num,
+                        'name': cleaned_record['name'],
+                        'ktp': cleaned_record['no_ktp'],
+                        'errors': error_details
+                    })
                 else:
-                    seen_ktp_numbers[cleaned_record['no_ktp']] = row_num
-                
-                if cleaned_record['personal_number'] in seen_personal_numbers:
-                    other_row = seen_personal_numbers[cleaned_record['personal_number']]
-                    validation_errors.append(f"Row {row_num}: Duplicate Personal Number '{cleaned_record['personal_number']}' - also found in row {other_row} for employee '{cleaned_record['name']}'")
-                    continue
-                else:
-                    seen_personal_numbers[cleaned_record['personal_number']] = row_num
-                
-                cleaned_records.append(cleaned_record)
+                    cleaned_records.append(cleaned_record)
                 
             except Exception as e:
-                validation_errors.append(f"Row {i+2}: Error processing data - {str(e)}")
+                skipped_records.append({
+                    'row': i + 2,
+                    'name': record.get('name', 'Unknown'),
+                    'ktp': record.get('no_ktp', 'Unknown'),
+                    'errors': f"Processing error: {str(e)}"
+                })
                 self.stats['errors'] += 1
         
-        # Check for duplicates against existing database records
+        # Check for duplicates against existing database records (only for valid records)
         if cleaned_records:
-            db_errors = self.check_database_duplicates(cleaned_records)
-            validation_errors.extend(db_errors)
+            db_conflicts = self.check_database_duplicates_detailed(cleaned_records)
+            # Remove conflicted records from cleaned_records and add to skipped_records
+            if db_conflicts:
+                cleaned_records_final = []
+                for i, record in enumerate(cleaned_records):
+                    conflict_found = False
+                    for conflict in db_conflicts:
+                        if (record['passport_id'] == conflict.get('passport_id') or 
+                            record['no_ktp'] == conflict.get('no_ktp') or 
+                            record['personal_number'] == conflict.get('personal_number')):
+                            skipped_records.append({
+                                'row': conflict.get('row', 'Unknown'),
+                                'name': record['name'],
+                                'ktp': record['no_ktp'],
+                                'errors': conflict['error']
+                            })
+                            conflict_found = True
+                            break
+                    if not conflict_found:
+                        cleaned_records_final.append(record)
+                cleaned_records = cleaned_records_final
         
-        # Separate critical errors from warnings
-        critical_errors = [error for error in validation_errors if not "AUTO-GENERATED" in error]
-        warnings = [error for error in validation_errors if "AUTO-GENERATED" in error]
+        # Store processing results for later reporting
+        if processing_warnings:
+            if not hasattr(self, '_processing_warnings'):
+                self._processing_warnings = []
+            self._processing_warnings.extend(processing_warnings)
+            
+        if skipped_records:
+            if not hasattr(self, '_skipped_records'):
+                self._skipped_records = []
+            self._skipped_records.extend(skipped_records)
         
-        # If there are critical validation errors, raise them as a detailed message
-        if critical_errors:
-            error_summary = f"❌ CRITICAL VALIDATION ERRORS ({len(critical_errors)} issues):\n\n"
-            error_summary += "\n".join(critical_errors[:10])  # Show first 10 errors
-            if len(critical_errors) > 10:
-                error_summary += f"\n... and {len(critical_errors) - 10} more errors."
-            error_summary += "\n\nPlease fix these issues and try uploading again."
-            raise ValueError(error_summary)
-        
-        # Store warnings for later reporting
-        if warnings:
-            if not hasattr(self, '_validation_warnings'):
-                self._validation_warnings = []
-            self._validation_warnings.extend(warnings)
-        
+        # Always return the valid records, even if some were skipped
         return cleaned_records
     
-    def check_database_duplicates(self, records: List[Dict]) -> List[str]:
-        """Check for duplicates against existing database records"""
-        errors = []
+    def check_database_duplicates_detailed(self, records: List[Dict]) -> List[Dict]:
+        """Check for duplicates against existing database records with detailed conflict info"""
+        conflicts = []
         
-        for record in records:
+        for i, record in enumerate(records):
             # Check passport_id duplicates
             existing_passport = self.db.query(GlobalIDNonDatabase).filter(
                 GlobalIDNonDatabase.passport_id == record['passport_id']
             ).first()
             
             if existing_passport:
-                errors.append(f"❌ Passport ID '{record['passport_id']}' for employee '{record['name']}' already exists in database for employee '{existing_passport.name}' (G_ID: {existing_passport.g_id})")
+                conflicts.append({
+                    'row': i + 2,  # Approximate row number
+                    'passport_id': record['passport_id'],
+                    'error': f"Passport ID '{record['passport_id']}' already exists in database for employee '{existing_passport.name}' (G_ID: {existing_passport.g_id})"
+                })
             
             # Check KTP duplicates
             existing_ktp = self.db.query(GlobalIDNonDatabase).filter(
@@ -272,7 +344,11 @@ class ExcelSyncService:
             ).first()
             
             if existing_ktp:
-                errors.append(f"❌ KTP number '{record['no_ktp']}' for employee '{record['name']}' already exists in database for employee '{existing_ktp.name}' (G_ID: {existing_ktp.g_id})")
+                conflicts.append({
+                    'row': i + 2,
+                    'no_ktp': record['no_ktp'],
+                    'error': f"KTP number '{record['no_ktp']}' already exists in database for employee '{existing_ktp.name}' (G_ID: {existing_ktp.g_id})"
+                })
             
             # Check personal number duplicates
             existing_personal = self.db.query(GlobalIDNonDatabase).filter(
@@ -280,9 +356,13 @@ class ExcelSyncService:
             ).first()
             
             if existing_personal:
-                errors.append(f"❌ Personal Number '{record['personal_number']}' for employee '{record['name']}' already exists in database for employee '{existing_personal.name}' (G_ID: {existing_personal.g_id})")
+                conflicts.append({
+                    'row': i + 2,
+                    'personal_number': record['personal_number'],
+                    'error': f"Personal Number '{record['personal_number']}' already exists in database for employee '{existing_personal.name}' (G_ID: {existing_personal.g_id})"
+                })
         
-        return errors
+        return conflicts
     
     def get_existing_records_map(self) -> Dict[Tuple, GlobalIDNonDatabase]:
         """Get existing records mapped by their unique key"""
@@ -647,8 +727,10 @@ class ExcelSyncService:
             
             # Reset stats and warnings
             self.stats = {key: 0 for key in self.stats.keys()}
-            if hasattr(self, '_validation_warnings'):
-                delattr(self, '_validation_warnings')
+            if hasattr(self, '_processing_warnings'):
+                delattr(self, '_processing_warnings')
+            if hasattr(self, '_skipped_records'):
+                delattr(self, '_skipped_records')
             
             # Load and validate data
             if file_path.lower().endswith('.csv'):
@@ -719,18 +801,25 @@ class ExcelSyncService:
             
             logger.info(f"Excel sync completed. Stats: {self.stats}")
             
-            # Prepare success message with any warnings
+            # Prepare success message with warnings and skipped records details
             success_message = 'Excel synchronization completed successfully'
             warnings = []
+            skipped_details = []
             
-            if hasattr(self, '_validation_warnings') and self._validation_warnings:
-                warnings.extend(self._validation_warnings)
+            if hasattr(self, '_processing_warnings') and self._processing_warnings:
+                warnings.extend(self._processing_warnings)
+            
+            if hasattr(self, '_skipped_records') and self._skipped_records:
+                skipped_details = self._skipped_records
+                # Update stats to reflect skipped records
+                self.stats['skipped'] = len(skipped_details)
             
             return {
                 'success': True,
                 'stats': self.stats,
                 'message': success_message,
-                'warnings': warnings if warnings else None
+                'warnings': warnings if warnings else None,
+                'skipped_records': skipped_details if skipped_details else None
             }
             
         except Exception as e:

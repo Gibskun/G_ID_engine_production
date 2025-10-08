@@ -81,41 +81,59 @@ class DummyDataGenerator:
                 used_passport_ids.add(passport_id)
                 return passport_id
         
-    def generate_dummy_data(self, num_records: int = 100) -> pd.DataFrame:
+    def generate_dummy_data(self, num_records: int = 100, include_invalid_ktp: bool = False, invalid_ktp_ratio: float = 0.2) -> pd.DataFrame:
         """
         Generate dummy data matching the Excel upload format
         
-        Required columns: name, personal_number, no_ktp, passport_id, bod
+        Required columns: name, personal_number, no_ktp, passport_id, bod, process
+        
+        Args:
+            num_records: Number of records to generate
+            include_invalid_ktp: Whether to include some records with invalid KTP lengths
+            invalid_ktp_ratio: Ratio of records with invalid KTP (0.0-1.0)
         """
         data = []
         used_ktps = set()  # Track used KTP numbers to ensure uniqueness
         used_personal_numbers = set()  # Track used personal numbers to ensure uniqueness
         used_passport_ids = set()  # Track used passport IDs to ensure uniqueness
         
+        # Calculate how many records should have invalid KTP
+        invalid_ktp_count = int(num_records * invalid_ktp_ratio) if include_invalid_ktp else 0
+        invalid_ktp_indices = set(random.sample(range(num_records), invalid_ktp_count))
+        
         for i in range(num_records):
-            # Generate unique KTP number (16 digits)
+            # Determine if this record should have invalid KTP
+            should_have_invalid_ktp = i in invalid_ktp_indices
+            
+            # Generate KTP number (16 digits for valid, other lengths for invalid)
             while True:
-                # Indonesian KTP format: PPKKSSDDMMYYXXXX
-                # PP = Province (32 = Jakarta, 35 = Jabar, 33 = Jateng, etc.)
-                province_codes = ['32', '33', '34', '35', '36', '61', '73', '74', '75', '76']
-                province = random.choice(province_codes)
-                
-                # KK = Kabupaten/Kota (01-99)
-                kabupaten = f"{random.randint(1, 99):02d}"
-                
-                # SS = Kecamatan (01-99)
-                kecamatan = f"{random.randint(1, 99):02d}"
-                
-                # DDMMYY = Birth date
-                birth_date = self._generate_random_birth_date()
-                dd = f"{birth_date.day:02d}"
-                mm = f"{birth_date.month:02d}"
-                yy = f"{birth_date.year % 100:02d}"
-                
-                # XXXX = Sequential number (0001-9999)
-                seq = f"{random.randint(1, 9999):04d}"
-                
-                ktp_number = f"{province}{kabupaten}{kecamatan}{dd}{mm}{yy}{seq}"
+                if should_have_invalid_ktp:
+                    # Generate invalid KTP with random length (12-15 digits only - respect database limit of 16)
+                    invalid_lengths = list(range(12, 16))  # 12-15 digits only
+                    target_length = random.choice(invalid_lengths)
+                    ktp_number = ''.join(random.choices('0123456789', k=target_length))
+                else:
+                    # Generate valid KTP number (exactly 16 digits)
+                    # Indonesian KTP format: PPKKSSDDMMYYXXXX
+                    province_codes = ['32', '33', '34', '35', '36', '61', '73', '74', '75', '76']
+                    province = random.choice(province_codes)
+                    
+                    # KK = Kabupaten/Kota (01-99)
+                    kabupaten = f"{random.randint(1, 99):02d}"
+                    
+                    # SS = Kecamatan (01-99)
+                    kecamatan = f"{random.randint(1, 99):02d}"
+                    
+                    # DDMMYY = Birth date
+                    birth_date = self._generate_random_birth_date()
+                    dd = f"{birth_date.day:02d}"
+                    mm = f"{birth_date.month:02d}"
+                    yy = f"{birth_date.year % 100:02d}"
+                    
+                    # XXXX = Sequential number (0001-9999)
+                    seq = f"{random.randint(1, 9999):04d}"
+                    
+                    ktp_number = f"{province}{kabupaten}{kecamatan}{dd}{mm}{yy}{seq}"
                 
                 if ktp_number not in used_ktps:
                     used_ktps.add(ktp_number)
@@ -135,6 +153,7 @@ class DummyDataGenerator:
             passport_id = self._generate_passport_id(used_passport_ids)
             
             # Generate birth date (BOD format: YYYY-MM-DD)
+            birth_date = self._generate_random_birth_date() if should_have_invalid_ktp else birth_date
             bod = birth_date.strftime('%Y-%m-%d')
             
             # Generate Indonesian-style name
@@ -142,17 +161,29 @@ class DummyDataGenerator:
             last_name = random.choice(self.last_names)
             name = f"{first_name} {last_name}"
             
+            # Determine process field value
+            if len(ktp_number) == 16:
+                # Valid KTP length - process field is ignored (can be 0, 1, or empty)
+                process = random.choice([0, 1, ''])
+            else:
+                # Invalid KTP length - determine if should be allowed or rejected
+                if should_have_invalid_ktp and random.random() < 0.7:  # 70% of invalid KTPs get process=1
+                    process = 1  # Allow processing despite invalid KTP
+                else:
+                    process = random.choice([0, '', 2, 3])  # Reject processing
+            
             data.append({
                 'name': name,
                 'personal_number': personal_number,
                 'no_ktp': ktp_number,
                 'passport_id': passport_id,
-                'bod': bod
+                'bod': bod,
+                'process': process
             })
         
         return pd.DataFrame(data)
     
-    def create_excel_file(self, num_records: int = 100, filename: Optional[str] = None) -> str:
+    def create_excel_file(self, num_records: int = 100, filename: Optional[str] = None, include_invalid_ktp: bool = False, invalid_ktp_ratio: float = 0.2) -> str:
         """
         Create Excel (.xlsx) file with dummy data
         Each field is properly separated into individual columns
@@ -160,20 +191,23 @@ class DummyDataGenerator:
         Args:
             num_records: Number of records to generate
             filename: Output filename (optional)
+            include_invalid_ktp: Whether to include records with invalid KTP lengths
+            invalid_ktp_ratio: Ratio of records with invalid KTP (0.0-1.0)
             
         Returns:
             Path to the created Excel file
         """
         if filename is None:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"dummy_data_{num_records}records_{timestamp}.xlsx"
+            suffix = "_with_invalid_ktp" if include_invalid_ktp else ""
+            filename = f"dummy_data_{num_records}records{suffix}_{timestamp}.xlsx"
         
         # Ensure .xlsx extension
         if not filename.endswith('.xlsx'):
             filename += '.xlsx'
         
         # Generate data with proper column separation
-        df = self.generate_dummy_data(num_records)
+        df = self.generate_dummy_data(num_records, include_invalid_ktp, invalid_ktp_ratio)
         
         if EXCEL_SUPPORT:
             # Create proper Excel file with openpyxl
@@ -247,27 +281,30 @@ class DummyDataGenerator:
                 print("   XLS format has compatibility issues with current pandas version")
                 return os.path.abspath(csv_filename)
     
-    def create_csv_file(self, num_records: int = 100, filename: Optional[str] = None) -> str:
+    def create_csv_file(self, num_records: int = 100, filename: Optional[str] = None, include_invalid_ktp: bool = False, invalid_ktp_ratio: float = 0.2) -> str:
         """
         Create CSV file with dummy data
         
         Args:
             num_records: Number of records to generate
             filename: Output filename (optional)
+            include_invalid_ktp: Whether to include records with invalid KTP lengths
+            invalid_ktp_ratio: Ratio of records with invalid KTP (0.0-1.0)
             
         Returns:
             Path to the created CSV file
         """
         if filename is None:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"dummy_data_{num_records}records_{timestamp}.csv"
+            suffix = "_with_invalid_ktp" if include_invalid_ktp else ""
+            filename = f"dummy_data_{num_records}records{suffix}_{timestamp}.csv"
         
         # Ensure .csv extension
         if not filename.endswith('.csv'):
             filename += '.csv'
         
         # Generate data
-        df = self.generate_dummy_data(num_records)
+        df = self.generate_dummy_data(num_records, include_invalid_ktp, invalid_ktp_ratio)
         
         # Save as CSV
         df.to_csv(filename, index=False)
@@ -306,12 +343,12 @@ class DummyDataGenerator:
         
         return files_created
     
-    def verify_data_structure(self, num_records: int = 5) -> None:
+    def verify_data_structure(self, num_records: int = 5, include_invalid_ktp: bool = True) -> None:
         """
         Verify that data is properly structured with separate columns
         """
         print("🔍 Verifying Data Structure:")
-        df = self.generate_dummy_data(num_records)
+        df = self.generate_dummy_data(num_records, include_invalid_ktp, 0.4)  # 40% invalid for testing
         
         print(f"  📊 Columns: {list(df.columns)}")
         print(f"  📏 Shape: {df.shape} (rows, columns)")
@@ -322,8 +359,37 @@ class DummyDataGenerator:
         print("\n📋 Sample Data Preview:")
         print(df.head(3).to_string(index=False))
         
+        # Verify KTP length distribution
+        print(f"\n📏 KTP Length Analysis:")
+        ktp_lengths = df['no_ktp'].str.len().value_counts().sort_index()
+        for length, count in ktp_lengths.items():
+            status = "✅ Valid" if length == 16 else "❌ Invalid"
+            print(f"    - {length} digits: {count} records ({status})")
+        
+        # Verify process field distribution
+        print(f"\n🔄 Process Field Analysis:")
+        process_counts = df['process'].value_counts()
+        for value, count in process_counts.items():
+            if value == 1:
+                print(f"    - process = 1: {count} records (✅ Override - allows invalid KTP)")
+            elif value == 0:
+                print(f"    - process = 0: {count} records (❌ No override)")
+            elif value == '':
+                print(f"    - process = empty: {count} records (❌ No override)")
+            else:
+                print(f"    - process = {value}: {count} records (❌ No override)")
+        
+        # Verify logic: invalid KTP with process=1 should be allowed
+        invalid_ktp_with_override = df[(df['no_ktp'].str.len() != 16) & (df['process'] == 1)]
+        invalid_ktp_without_override = df[(df['no_ktp'].str.len() != 16) & (df['process'] != 1)]
+        
+        print(f"\n🎯 Validation Logic Summary:")
+        print(f"    - Invalid KTP with process=1 (should be allowed): {len(invalid_ktp_with_override)} records")
+        print(f"    - Invalid KTP without process=1 (should fail): {len(invalid_ktp_without_override)} records")
+        print(f"    - Valid KTP (process field ignored): {len(df[df['no_ktp'].str.len() == 16])} records")
+        
         # Verify each field is in separate column
-        expected_columns = ['name', 'personal_number', 'no_ktp', 'bod']
+        expected_columns = ['name', 'personal_number', 'no_ktp', 'passport_id', 'bod', 'process']
         missing_columns = set(expected_columns) - set(df.columns)
         extra_columns = set(df.columns) - set(expected_columns)
         
@@ -341,25 +407,34 @@ class DummyDataGenerator:
         print("📊 Creating sample files in multiple formats...")
         
         # Create small sample (10 records) - all formats
-        print("  📄 Small dataset (10 records)...")
+        print("  📄 Small dataset (10 records) - Normal data...")
         csv_small = self.create_csv_file(10, "sample_data_small.csv")
         xlsx_small = self.create_excel_file(10, "sample_data_small.xlsx")
-        xls_small = self.create_xls_file(10, "sample_data_small.xls")
-        files_created.extend([csv_small, xlsx_small, xls_small])
+        files_created.extend([csv_small, xlsx_small])
+        
+        # Create small sample with invalid KTP for testing
+        print("  📄 Small dataset (10 records) - With invalid KTP testing...")
+        csv_small_test = self.create_csv_file(10, "sample_data_small_ktp_test.csv", include_invalid_ktp=True, invalid_ktp_ratio=0.4)
+        xlsx_small_test = self.create_excel_file(10, "sample_data_small_ktp_test.xlsx", include_invalid_ktp=True, invalid_ktp_ratio=0.4)
+        files_created.extend([csv_small_test, xlsx_small_test])
         
         # Create medium sample (100 records) - all formats
-        print("  📄 Medium dataset (100 records)...")
+        print("  📄 Medium dataset (100 records) - Normal data...")
         csv_medium = self.create_csv_file(100, "sample_data_medium.csv")
         xlsx_medium = self.create_excel_file(100, "sample_data_medium.xlsx")
-        xls_medium = self.create_xls_file(100, "sample_data_medium.xls")
-        files_created.extend([csv_medium, xlsx_medium, xls_medium])
+        files_created.extend([csv_medium, xlsx_medium])
+        
+        # Create medium sample with invalid KTP for testing
+        print("  📄 Medium dataset (100 records) - With invalid KTP testing...")
+        csv_medium_test = self.create_csv_file(100, "sample_data_medium_ktp_test.csv", include_invalid_ktp=True, invalid_ktp_ratio=0.2)
+        xlsx_medium_test = self.create_excel_file(100, "sample_data_medium_ktp_test.xlsx", include_invalid_ktp=True, invalid_ktp_ratio=0.2)
+        files_created.extend([csv_medium_test, xlsx_medium_test])
         
         # Create large sample (1000 records) - all formats
-        print("  📄 Large dataset (1000 records)...")
+        print("  📄 Large dataset (1000 records) - Normal data...")
         csv_large = self.create_csv_file(1000, "sample_data_large.csv")
         xlsx_large = self.create_excel_file(1000, "sample_data_large.xlsx")
-        xls_large = self.create_xls_file(1000, "sample_data_large.xls")
-        files_created.extend([csv_large, xlsx_large, xls_large])
+        files_created.extend([csv_large, xlsx_large])
         
         return files_created
 
@@ -422,17 +497,27 @@ def main():
     print(sample_df.to_string(index=False))
     
     print(f"\n📊 Column Details:")
-    for i, col in enumerate(['name', 'personal_number', 'no_ktp', 'bod'], 1):
+    for i, col in enumerate(['name', 'personal_number', 'no_ktp', 'passport_id', 'bod', 'process'], 1):
         print(f"  Column {i}: {col}")
     
     print("\n🎯 Usage Tips:")
     print("- Each field is properly separated into individual columns")
-    print("- Support for CSV, XLSX, and XLS formats")
+    print("- Support for CSV and XLSX formats")
     print("- Files contain realistic Indonesian names and KTP numbers")
     print("- All KTP numbers and personal numbers are unique within each file")
     print("- Personal numbers follow employee ID format (EMP-YYYY-NNNN)")
     print("- Birth dates are realistic (18-65 years old)")
-    print("- Ready for upload to test Excel/CSV upload functionality")
+    print("- Passport IDs follow the required format (8-9 characters, letter first, numbers dominate)")
+    print("- NEW: Process column for KTP validation override:")
+    print("  * process = 1: Allows invalid KTP lengths (not 16 characters) to be processed")
+    print("  * process = 0 or empty: Invalid KTP lengths will be rejected")
+    print("  * For valid KTP (16 characters): process field is ignored")
+    print("- Ready for upload to test Excel/CSV upload functionality with KTP validation")
+    
+    print("\n🧪 Test Files Created:")
+    print("- Normal files: All KTP numbers are exactly 16 characters")
+    print("- KTP test files: Include invalid KTP lengths with process override column")
+    print("- Use KTP test files to verify the validation override functionality")
 
 
 if __name__ == "__main__":

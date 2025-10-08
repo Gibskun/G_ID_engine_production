@@ -472,30 +472,61 @@ async def upload_excel_file(
             if result['success']:
                 stats = result['stats']
                 warnings = result.get('warnings', [])
+                skipped_records = result.get('skipped_records', [])
                 
-                # Create comprehensive success message
-                message_parts = [f"Synchronization successful. File '{filename}' has been processed."]
+                # Create comprehensive success message with better formatting
+                message_parts = []
                 
+                # Header with success status and filename
+                header = f"✅ **Synchronization Successful!**\n📁 **File:** {filename}\n"
+                message_parts.append(header)
+                
+                # Processing summary section
+                summary_parts = []
                 if stats['total_processed'] > 0:
-                    message_parts.append(f"{stats['total_processed']} records were processed from the file.")
-                
-                if stats['existing_updated'] > 0:
-                    message_parts.append(f"{stats['existing_updated']} existing records were updated/reactivated.")
+                    summary_parts.append(f"**{stats['total_processed']} records** processed from file")
                 
                 if stats['new_created'] > 0:
-                    message_parts.append(f"{stats['new_created']} new records were created.")
+                    summary_parts.append(f"**{stats['new_created']} new records** created")
+                
+                if stats['existing_updated'] > 0:
+                    summary_parts.append(f"**{stats['existing_updated']} existing records** updated/reactivated")
                 
                 if stats['obsolete_deactivated'] > 0:
-                    message_parts.append(f"{stats['obsolete_deactivated']} records were deactivated because they were not found in the uploaded file.")
+                    summary_parts.append(f"**{stats['obsolete_deactivated']} records** deactivated (not found in uploaded file)")
                 
-                if stats['errors'] > 0:
-                    message_parts.append(f"Warning: {stats['errors']} errors occurred during processing.")
+                if summary_parts:
+                    message_parts.append("📊 **Processing Summary:**\n• " + "\n• ".join(summary_parts) + "\n")
                 
-                # Add warnings about auto-generated passport IDs
+                # Skipped records section (if any)
+                if stats.get('skipped', 0) > 0:
+                    skipped_count = stats['skipped']
+                    records_text = "record" if skipped_count == 1 else "records"
+                    message_parts.append(f"⚠️ **{skipped_count} {records_text} were skipped** due to validation errors:\n")
+                
+                # Processing notices section
                 if warnings:
-                    message_parts.append(f"\n\n⚠️ IMPORTANT NOTICES:\n" + "\n".join(warnings))
+                    message_parts.append("📋 **Processing Notices:**\n• " + "\n• ".join(warnings) + "\n")
                 
-                success_message = " ".join(message_parts)
+                # Detailed skipped records section
+                if skipped_records:
+                    message_parts.append(f"❌ **Skipped Records Details** ({len(skipped_records)} records):\n")
+                    for i, skipped in enumerate(skipped_records[:10], 1):  # Show first 10 skipped records
+                        message_parts.append(f"   {i}. **Row {skipped['row']}:** {skipped['name']} (KTP: {skipped['ktp']})\n      ↳ *{skipped['errors']}*")
+                    
+                    if len(skipped_records) > 10:
+                        message_parts.append(f"\n   ... and {len(skipped_records) - 10} more skipped records.")
+                    
+                    message_parts.append("\n💡 **Next Steps:** Please fix these issues in your file and upload again to process the skipped records.")
+                
+                # Error warning (if any)
+                if stats['errors'] > 0:
+                    message_parts.append(f"\n⚠️ **Warning:** {stats['errors']} processing errors occurred during synchronization.")
+                
+                # Footer note
+                message_parts.append("\n---\n💡 *Full data synchronization includes automatic activation/deactivation based on uploaded file content.*")
+                
+                success_message = "\n".join(message_parts)
                 
                 return ExcelUploadResponse(
                     success=True,
@@ -504,7 +535,8 @@ async def upload_excel_file(
                     processing_summary={
                         'sync_stats': stats,
                         'warnings': warnings,
-                        'operation_type': 'full_synchronization',
+                        'skipped_records': skipped_records,
+                        'operation_type': 'partial_synchronization' if skipped_records else 'full_synchronization',
                         'file_processed': filename,
                         'timestamp': datetime.utcnow().isoformat()
                     }
