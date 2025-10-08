@@ -101,6 +101,44 @@
         .loading .btn-text {
             display: none;
         }
+        
+        /* Password toggle button */
+        #togglePassword {
+            color: #6c757d;
+            padding: 0.375rem;
+            line-height: 1;
+        }
+        
+        #togglePassword:hover {
+            color: #495057;
+        }
+        
+        #togglePassword:focus {
+            box-shadow: none;
+            outline: none;
+        }
+        
+        /* Remember me checkbox */
+        .form-check {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .form-check-input {
+            margin-top: 0;
+        }
+        
+        .form-check-label {
+            color: #666;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+        
+        .form-check-label i {
+            margin-right: 0.5rem;
+            color: #764ba2;
+        }
     </style>
 </head>
 <body>
@@ -118,9 +156,20 @@
                 <label for="username"><i class="fas fa-user"></i> Username</label>
             </div>
             
-            <div class="form-floating mb-4">
+            <div class="form-floating mb-3 position-relative">
                 <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
                 <label for="password"><i class="fas fa-lock"></i> Password</label>
+                <button type="button" class="btn btn-link position-absolute end-0 top-50 translate-middle-y me-3" 
+                        id="togglePassword" style="border: none; background: none; z-index: 10;">
+                    <i class="fas fa-eye" id="togglePasswordIcon"></i>
+                </button>
+            </div>
+            
+            <div class="form-check mb-4">
+                <input class="form-check-input" type="checkbox" value="" id="rememberMe" name="rememberMe">
+                <label class="form-check-label" for="rememberMe">
+                    <i class="fas fa-user-clock"></i> Remember me
+                </label>
             </div>
             
             <button type="submit" class="btn btn-login" id="loginBtn">
@@ -164,12 +213,43 @@
             }
         }
         
+        // Password visibility toggle
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+        const togglePasswordIcon = document.getElementById('togglePasswordIcon');
+        
+        togglePassword.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            // Toggle icon
+            if (type === 'password') {
+                togglePasswordIcon.classList.remove('fa-eye-slash');
+                togglePasswordIcon.classList.add('fa-eye');
+            } else {
+                togglePasswordIcon.classList.remove('fa-eye');
+                togglePasswordIcon.classList.add('fa-eye-slash');
+            }
+        });
+        
+        // Load remembered credentials
+        window.addEventListener('DOMContentLoaded', () => {
+            const rememberedUsername = localStorage.getItem('rememberedUsername');
+            const rememberMeChecked = localStorage.getItem('rememberMe') === 'true';
+            
+            if (rememberedUsername && rememberMeChecked) {
+                document.getElementById('username').value = rememberedUsername;
+                document.getElementById('rememberMe').checked = true;
+            }
+        });
+        
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const formData = new FormData(loginForm);
             const username = formData.get('username');
             const password = formData.get('password');
+            const rememberMe = formData.get('rememberMe') === 'on';
             
             setLoading(true);
             alertContainer.innerHTML = '';
@@ -180,14 +260,25 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, password, remember_me: rememberMe })
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    // Set session cookie
-                    document.cookie = `session_token=${result.session_token}; path=/; max-age=86400; SameSite=Lax`;
+                    // Handle remember me functionality
+                    if (rememberMe) {
+                        localStorage.setItem('rememberedUsername', username);
+                        localStorage.setItem('rememberMe', 'true');
+                        // Set longer session cookie (30 days)
+                        const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
+                        document.cookie = `session_token=${result.session_token}; path=/; max-age=${maxAge}; SameSite=Lax`;
+                    } else {
+                        localStorage.removeItem('rememberedUsername');
+                        localStorage.removeItem('rememberMe');
+                        // Set shorter session cookie (1 day)
+                        document.cookie = `session_token=${result.session_token}; path=/; max-age=86400; SameSite=Lax`;
+                    }
                     
                     showAlert('Login successful! Redirecting...', 'success');
                     

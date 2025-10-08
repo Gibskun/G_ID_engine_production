@@ -28,6 +28,7 @@ class User:
 class LoginRequest(BaseModel):
     username: str
     password: str
+    remember_me: Optional[bool] = False
 
 class LoginResponse(BaseModel):
     success: bool
@@ -90,15 +91,22 @@ def create_session_token() -> str:
     """Create a secure session token"""
     return secrets.token_urlsafe(32)
 
-def create_session(user: User) -> str:
+def create_session(user: User, remember_me: bool = False) -> str:
     """Create a new session for user"""
     token = create_session_token()
+    
+    # Set session duration based on remember_me
+    if remember_me:
+        expires_at = datetime.now() + timedelta(days=30)  # 30 days for remember me
+    else:
+        expires_at = datetime.now() + timedelta(hours=24)  # 24 hours for regular session
+    
     session_data = SessionData(
         username=user.username,
         role=user.role,
         full_name=user.full_name,
         created_at=datetime.now(),
-        expires_at=datetime.now() + timedelta(hours=24)  # 24 hour sessions
+        expires_at=expires_at
     )
     active_sessions[token] = session_data
     return token

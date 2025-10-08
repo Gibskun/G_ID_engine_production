@@ -38,8 +38,8 @@ async def login_api(login_data: LoginRequest):
                 message="Account is disabled"
             )
         
-        # Create session
-        session_token = create_session(user)
+        # Create session with remember_me option
+        session_token = create_session(user, login_data.remember_me)
         
         # Get user permissions
         permissions = get_user_permissions(user.role)

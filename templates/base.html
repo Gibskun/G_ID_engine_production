@@ -173,14 +173,26 @@
                     currentUser = data.user;
                     updateUserInterface();
                 } else {
-                    // Redirect to login if not authenticated
-                    const loginUrl = isGidPath ? '/gid/login' : '/login';
-                    window.location.href = loginUrl;
+                    // Check if remember me is enabled
+                    const rememberedUsername = localStorage.getItem('rememberedUsername');
+                    const rememberMe = localStorage.getItem('rememberMe') === 'true';
+                    
+                    if (rememberedUsername && rememberMe && !window.location.pathname.includes('/login')) {
+                        // Session expired but remember me is enabled - redirect to login with pre-filled username
+                        const loginUrl = isGidPath ? '/gid/login' : '/login';
+                        window.location.href = loginUrl;
+                    } else if (!window.location.pathname.includes('/login')) {
+                        // No remember me or already on login page - redirect to login
+                        const loginUrl = isGidPath ? '/gid/login' : '/login';
+                        window.location.href = loginUrl;
+                    }
                 }
             } catch (error) {
                 console.error('Auth check error:', error);
-                const loginUrl = isGidPath ? '/gid/login' : '/login';
-                window.location.href = loginUrl;
+                if (!window.location.pathname.includes('/login')) {
+                    const loginUrl = isGidPath ? '/gid/login' : '/login';
+                    window.location.href = loginUrl;
+                }
             }
         }
         
@@ -234,6 +246,10 @@
             } catch (error) {
                 console.error('Logout error:', error);
             }
+            
+            // Clear remember me data
+            localStorage.removeItem('rememberedUsername');
+            localStorage.removeItem('rememberMe');
             
             // Clear session cookie
             document.cookie = 'session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';

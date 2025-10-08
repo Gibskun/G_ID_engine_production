@@ -908,6 +908,23 @@
     opacity: 0.7;
 }
 
+/* Name input formatting - displays uppercase while typing */
+#add-name {
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+#add-name::placeholder {
+    text-transform: none !important;
+    font-weight: normal;
+    letter-spacing: normal;
+}
+
+/* Visual indicator that name is being formatted */
+#add-name:focus {
+    background-color: #f8f9fa;
+}
+
 /* Loading button state */
 .btn:disabled {
     opacity: 0.6;
@@ -1855,6 +1872,9 @@ function showAddGlobalIDModal() {
                     <div class="form-group">
                         <label>Name <span class="required-asterisk">*</span></label>
                         <input type="text" name="name" id="add-name" class="form-control" placeholder="Enter full name" required />
+                        <small class="form-text text-muted">
+                            <i class="fas fa-info-circle"></i> Text displays in uppercase while typing, but saves in proper case format
+                        </small>
                         <div class="field-error" id="name-error" style="display: none;"></div>
                     </div>
                     <div class="form-group">
@@ -1918,8 +1938,10 @@ async function submitAddGlobalID() {
     // Clear previous validation errors
     clearValidationErrors();
     
-    // Get form values
-    const name = document.getElementById('add-name').value.trim();
+    // Get form values - use proper case for name
+    const nameInput = document.getElementById('add-name');
+    const rawName = nameInput.value.trim();
+    const name = nameInput.getProperCaseValue ? nameInput.getProperCaseValue() : toProperCase(rawName);
     const no_ktp = document.getElementById('add-no-ktp').value.trim();
     const bod = document.getElementById('add-bod').value;
     const personal_number = document.getElementById('add-personal-number').value.trim();
@@ -2850,10 +2872,31 @@ function displayValidationErrors(errors) {
     }
 }
 
+// Name formatting utilities
+function toProperCase(str) {
+    return str.replace(/\w\S*/g, (txt) => 
+        txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+    );
+}
+
 function addRealTimeValidation() {
-    // Real-time validation for name
+    // Real-time validation and formatting for name
     const nameInput = document.getElementById('add-name');
     if (nameInput) {
+        // Style the input to show uppercase while typing
+        nameInput.style.textTransform = 'uppercase';
+        
+        // Store the actual proper case value
+        let properCaseValue = '';
+        
+        nameInput.addEventListener('input', function() {
+            // Store the proper case version
+            const rawValue = this.value;
+            properCaseValue = toProperCase(rawValue);
+            
+            // The display remains uppercase due to CSS textTransform
+        });
+        
         nameInput.addEventListener('blur', function() {
             const value = this.value.trim();
             const errorElement = document.getElementById('name-error');
@@ -2867,6 +2910,11 @@ function addRealTimeValidation() {
                 this.classList.remove('is-invalid');
             }
         });
+        
+        // Store proper case value for form submission
+        nameInput.getProperCaseValue = function() {
+            return toProperCase(this.value.trim());
+        };
     }
     
     // Real-time validation for NIK

@@ -477,6 +477,79 @@ class FileUploader {
     }
 }
 
+// Session Management Utilities
+class SessionManager {
+    constructor() {
+        this.baseURL = this.detectBaseURL();
+    }
+    
+    detectBaseURL() {
+        const path = window.location.pathname || '';
+        if (path === '/gid' || path.startsWith('/gid/')) {
+            return '/gid/api/v1';
+        } else {
+            return '/api/v1';
+        }
+    }
+    
+    async checkSession() {
+        try {
+            const response = await fetch(`${this.baseURL}/auth/session`);
+            return await response.json();
+        } catch (error) {
+            console.error('Session check failed:', error);
+            return { authenticated: false };
+        }
+    }
+    
+    async logout() {
+        try {
+            const response = await fetch(`${this.baseURL}/auth/logout`, {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                // Clear remember me data
+                localStorage.removeItem('rememberedUsername');
+                localStorage.removeItem('rememberMe');
+                
+                // Clear session cookie
+                document.cookie = 'session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+                
+                // Redirect to login
+                const loginUrl = window.location.pathname.startsWith('/gid/') ? '/gid/login' : '/login';
+                window.location.href = loginUrl;
+            }
+        } catch (error) {
+            console.error('Logout failed:', error);
+        }
+    }
+    
+    // Auto session check and refresh for remember me functionality
+    async autoRefreshSession() {
+        const sessionData = await this.checkSession();
+        if (!sessionData.authenticated) {
+            // Check if we have remember me data to attempt auto-login
+            const rememberedUsername = localStorage.getItem('rememberedUsername');
+            const rememberMe = localStorage.getItem('rememberMe') === 'true';
+            
+            if (rememberedUsername && rememberMe) {
+                console.log('Session expired but remember me is enabled');
+                // Don't auto-redirect, let user re-enter password
+            } else {
+                // No remember me, redirect to login
+                const loginUrl = window.location.pathname.startsWith('/gid/') ? '/gid/login' : '/login';
+                if (!window.location.pathname.includes('/login')) {
+                    window.location.href = loginUrl;
+                }
+            }
+        }
+    }
+}
+
+// Global session manager instance
+window.sessionManager = new SessionManager();
+
 // Initialize common functionality when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Highlight current page in navigation
@@ -494,6 +567,20 @@ document.addEventListener('DOMContentLoaded', function() {
     tooltips.forEach(element => {
         element.title = element.dataset.tooltip;
     });
+
+    // Add logout handler to logout buttons
+    const logoutButtons = document.querySelectorAll('[data-action="logout"]');
+    logoutButtons.forEach(button => {
+        button.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await window.sessionManager.logout();
+        });
+    });
+    
+    // Check session on page load for remember me functionality
+    if (!window.location.pathname.includes('/login')) {
+        window.sessionManager.autoRefreshSession();
+    }
 });
 
 // Export utilities for use in other files
@@ -501,4 +588,5 @@ window.GIDSystemAPI = GIDSystemAPI;
 window.UIUtils = UIUtils;
 window.Pagination = Pagination;
 window.FileUploader = FileUploader;
+window.SessionManager = SessionManager;
 window.api = api;
