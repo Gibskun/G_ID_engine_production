@@ -28,6 +28,7 @@ class PegawaiCreateRequest(BaseModel):
     name: str
     personal_number: Optional[str] = None
     no_ktp: str
+    passport_id: str
     bod: Optional[date] = None
 
 class PegawaiUpdateRequest(BaseModel):
@@ -519,6 +520,7 @@ async def create_pegawai_record(
             "name": request.name,
             "personal_number": request.personal_number,
             "no_ktp": request.no_ktp,
+            "passport_id": request.passport_id,
             "bod": request.bod
         })
         
@@ -548,6 +550,7 @@ async def create_pegawai_record(
             name=request.name,
             personal_number=request.personal_number,
             no_ktp=request.no_ktp,
+            passport_id=request.passport_id,
             bod=request.bod,
             g_id=new_gid,
             created_at=datetime.now(),
@@ -564,6 +567,7 @@ async def create_pegawai_record(
             name=request.name,
             personal_number=request.personal_number,
             no_ktp=request.no_ktp,
+            passport_id=request.passport_id,
             bod=request.bod,
             status='Active',
             source='database_pegawai',

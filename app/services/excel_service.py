@@ -349,7 +349,7 @@ class ExcelIngestionService:
                     'error': f"Row {row_number}: No_KTP must be exactly 16 digits"
                 }
             
-            # Validate passport_id format (8-9 characters, letters first then numbers)
+            # Validate passport_id format (8-9 characters, first letter, numbers must dominate)
             passport_id = cleaned_data['passport_id']
             if len(passport_id) < 8 or len(passport_id) > 9:
                 return {
@@ -358,18 +358,28 @@ class ExcelIngestionService:
                 }
             
             # Check if passport_id starts with letters and has numbers
-            if not (passport_id[:2].isalpha() or passport_id[:3].isalpha()):
+            if not passport_id[0].isalpha():
                 return {
                     'valid': False,
-                    'error': f"Row {row_number}: Passport_ID must start with 2-3 letters"
+                    'error': f"Row {row_number}: Passport_ID must start with a letter"
                 }
             
-            # Check if the rest are numbers
-            numbers_part = passport_id[2:] if passport_id[:2].isalpha() else passport_id[3:]
-            if not numbers_part.isdigit():
+            # Check if all characters are alphanumeric
+            if not passport_id.isalnum():
                 return {
                     'valid': False,
-                    'error': f"Row {row_number}: Passport_ID must end with numbers"
+                    'error': f"Row {row_number}: Passport_ID can only contain letters and numbers"
+                }
+            
+            # Count letters and numbers
+            letter_count = sum(1 for c in passport_id if c.isalpha())
+            number_count = sum(1 for c in passport_id if c.isdigit())
+            
+            # Numbers must dominate (be more than letters)
+            if number_count <= letter_count:
+                return {
+                    'valid': False,
+                    'error': f"Row {row_number}: Passport_ID must have more numbers than letters"
                 }
             
             return {
@@ -661,11 +671,11 @@ class ExcelIngestionService:
                 },
                 {
                     'name': 'passport_id',
-                    'description': 'Passport ID (8-9 characters, letters first then numbers)',
+                    'description': 'Passport ID (8-9 characters, first letter, numbers dominate)',
                     'type': 'Text (8-9 chars)',
                     'required': True,
-                    'format': '2-3 letters followed by 5-6 numbers',
-                    'example': 'AB123456 or EFG345678'
+                    'format': 'First letter, then letters/numbers (more numbers than letters)',
+                    'example': 'A12345678 or B789A1234'
                 },
                 {
                     'name': 'BOD',

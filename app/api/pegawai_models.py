@@ -25,7 +25,7 @@ class PegawaiCreateRequest(BaseModel):
     
     @validator('passport_id')
     def validate_passport_id(cls, v):
-        """Validate passport ID format - 8-9 characters, letters first then numbers"""
+        """Validate passport ID format - 8-9 characters, first character letter, numbers must dominate"""
         if not v or not v.strip():
             raise ValueError('Passport ID cannot be empty')
         
@@ -34,14 +34,21 @@ class PegawaiCreateRequest(BaseModel):
         if len(v) < 8 or len(v) > 9:
             raise ValueError('Passport ID must be 8-9 characters long')
         
-        # Check if it starts with 2-3 letters
-        if not (v[:2].isalpha() or v[:3].isalpha()):
-            raise ValueError('Passport ID must start with 2-3 letters')
+        # Check if first character is a letter
+        if not v[0].isalpha():
+            raise ValueError('Passport ID must start with a letter')
         
-        # Check if the rest are numbers
-        numbers_part = v[2:] if v[:2].isalpha() else v[3:]
-        if not numbers_part.isdigit():
-            raise ValueError('Passport ID must end with numbers')
+        # Check if all characters are alphanumeric
+        if not v.isalnum():
+            raise ValueError('Passport ID can only contain letters and numbers')
+        
+        # Count letters and numbers
+        letter_count = sum(1 for c in v if c.isalpha())
+        number_count = sum(1 for c in v if c.isdigit())
+        
+        # Numbers must dominate (be more than letters)
+        if number_count <= letter_count:
+            raise ValueError('Passport ID must have more numbers than letters')
         
         return v
     
@@ -98,14 +105,21 @@ class PegawaiUpdateRequest(BaseModel):
             if len(v) < 8 or len(v) > 9:
                 raise ValueError('Passport ID must be 8-9 characters long')
             
-            # Check if it starts with 2-3 letters
-            if not (v[:2].isalpha() or v[:3].isalpha()):
-                raise ValueError('Passport ID must start with 2-3 letters')
+            # Check if first character is a letter
+            if not v[0].isalpha():
+                raise ValueError('Passport ID must start with a letter')
             
-            # Check if the rest are numbers
-            numbers_part = v[2:] if v[:2].isalpha() else v[3:]
-            if not numbers_part.isdigit():
-                raise ValueError('Passport ID must end with numbers')
+            # Check if all characters are alphanumeric
+            if not v.isalnum():
+                raise ValueError('Passport ID can only contain letters and numbers')
+            
+            # Count letters and numbers
+            letter_count = sum(1 for c in v if c.isalpha())
+            number_count = sum(1 for c in v if c.isdigit())
+            
+            # Numbers must dominate (be more than letters)
+            if number_count <= letter_count:
+                raise ValueError('Passport ID must have more numbers than letters')
         
         return v
     

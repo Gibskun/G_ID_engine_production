@@ -188,9 +188,9 @@ GO
 
 -- Sample employee records
 INSERT INTO dbo.pegawai (name, personal_number, no_ktp, passport_id, bod) VALUES
-('Ahmad Budi Santoso', 'EMP-2025-0001', '3201234567890001', 'AB123456', '1985-05-15'),
-('Siti Aminah', 'EMP-2025-0002', '3201234567890002', 'CD789012', '1987-08-20'),
-('Rudi Hartono', 'EMP-2025-0003', '3201234567890003', 'EF345678', '1990-12-10');
+('Ahmad Budi Santoso', 'EMP-2025-0001', '3201234567890001', 'A12345678', '1985-05-15'),
+('Siti Aminah', 'EMP-2025-0002', '3201234567890002', 'B789A1234', '1987-08-20'),
+('Rudi Hartono', 'EMP-2025-0003', '3201234567890003', 'C12D34567', '1990-12-10');
 GO
 
 PRINT 'Database schema created successfully!';
