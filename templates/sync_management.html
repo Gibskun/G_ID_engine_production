@@ -49,6 +49,9 @@
 <div class="card">
     <h3>Database Management</h3>
     <div class="text-center">
+        <button class="btn btn-success" onclick="showGenerateDummyDataModal()">
+            <i class="fas fa-database"></i> Generate Dummy Data
+        </button>
         <button class="btn btn-danger" onclick="confirmClearAllData()">
             <i class="fas fa-trash"></i> Clear All Data
         </button>
@@ -60,6 +63,7 @@
     <div class="mt-3">
         <h4>Database Management Descriptions:</h4>
         <ul>
+            <li><strong>Generate Dummy Data:</strong> Populates the database with realistic test data for development and testing purposes. Supports both valid and invalid KTP records for testing validation logic.</li>
             <li><strong>Clear All Data:</strong> Deletes all records from global_id, global_id_non_database, and pegawai tables. Table structure remains intact.</li>
             <li><strong>Reinitialize Tables:</strong> Executes the SQL schema file (create_schema_sqlserver.sql) to create/recreate the g_id database and all tables with proper structure including passport_id fields.</li>
         </ul>
@@ -572,6 +576,132 @@ async function confirmReinitializeDatabase() {
         console.error('Initialize database error:', error);
     } finally {
         UIUtils.hideLoading(event.target);
+    }
+}
+
+// Generate Dummy Data Functions
+function showGenerateDummyDataModal() {
+    const modalHtml = `
+        <div class="modal fade" id="generateDummyDataModal" tabindex="-1" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Generate Dummy Data</h5>
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="dummyDataForm">
+                            <div class="form-group">
+                                <label for="recordCount">Number of Records</label>
+                                <input type="number" class="form-control" id="recordCount" value="1000" min="1" max="10000">
+                                <small class="form-text text-muted">Generate between 1 and 10,000 test records</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="includeInvalidKtp">
+                                    <label class="form-check-label" for="includeInvalidKtp">
+                                        Include Invalid KTP Records for Testing
+                                    </label>
+                                </div>
+                                <small class="form-text text-muted">Generate some records with invalid KTP lengths to test validation logic</small>
+                            </div>
+                            
+                            <div class="form-group" id="invalidRatioGroup" style="display: none;">
+                                <label for="invalidRatio">Invalid KTP Ratio</label>
+                                <input type="range" class="form-control-range" id="invalidRatio" min="0.1" max="0.5" step="0.1" value="0.2">
+                                <small class="form-text text-muted">Percentage of records with invalid KTP: <span id="ratioValue">20%</span></small>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-success" onclick="generateDummyData()">Generate Data</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if present
+    const existingModal = document.getElementById('generateDummyDataModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Set up event listeners
+    const invalidKtpCheckbox = document.getElementById('includeInvalidKtp');
+    const invalidRatioGroup = document.getElementById('invalidRatioGroup');
+    const invalidRatioSlider = document.getElementById('invalidRatio');
+    const ratioValueSpan = document.getElementById('ratioValue');
+    
+    invalidKtpCheckbox.addEventListener('change', function() {
+        invalidRatioGroup.style.display = this.checked ? 'block' : 'none';
+    });
+    
+    invalidRatioSlider.addEventListener('input', function() {
+        ratioValueSpan.textContent = Math.round(this.value * 100) + '%';
+    });
+    
+    // Show modal
+    $('#generateDummyDataModal').modal('show');
+}
+
+async function generateDummyData() {
+    const recordCount = document.getElementById('recordCount').value;
+    const includeInvalidKtp = document.getElementById('includeInvalidKtp').checked;
+    const invalidRatio = document.getElementById('invalidRatio').value;
+    
+    // Validate inputs
+    if (!recordCount || recordCount < 1 || recordCount > 10000) {
+        UIUtils.showAlert('Please enter a valid number of records (1-10,000)', 'warning');
+        return;
+    }
+    
+    const generateButton = event.target;
+    
+    try {
+        UIUtils.showLoading(generateButton);
+        
+        // Build query parameters
+        const params = new URLSearchParams({
+            count: recordCount,
+            include_invalid_ktp: includeInvalidKtp
+        });
+        
+        if (includeInvalidKtp) {
+            params.append('invalid_ktp_ratio', invalidRatio);
+        }
+        
+        const response = await fetch(`/api/v1/generate-dummy-data?${params}`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            UIUtils.showAlert(result.message, 'success');
+            
+            // Close modal
+            $('#generateDummyDataModal').modal('hide');
+            
+            // Refresh statistics
+            await loadSyncStatus();
+            
+        } else {
+            UIUtils.showAlert('Failed to generate dummy data: ' + result.message, 'danger');
+        }
+        
+    } catch (error) {
+        UIUtils.showAlert('Error generating dummy data: ' + error.message, 'danger');
+        console.error('Generate dummy data error:', error);
+    } finally {
+        UIUtils.hideLoading(generateButton);
     }
 }
 

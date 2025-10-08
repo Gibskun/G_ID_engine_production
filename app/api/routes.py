@@ -1447,6 +1447,117 @@ async def repair_gid_sequence(
         raise HTTPException(status_code=500, detail=f"Error during G_ID sequence repair: {str(e)}")
 
 
+@router.post("/generate-dummy-data")
+async def generate_dummy_data(
+    count: int = Query(default=1000, ge=1, le=10000, description="Number of records to generate"),
+    include_invalid_ktp: bool = Query(default=False, description="Include records with invalid KTP lengths for testing"),
+    invalid_ktp_ratio: float = Query(default=0.2, ge=0.0, le=1.0, description="Ratio of invalid KTP records (0.0-1.0)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate dummy data for testing purposes
+    
+    This endpoint runs the dummy data generator to populate the database with test records.
+    Supports generating both valid and invalid KTP records for testing validation logic.
+    """
+    try:
+        import sys
+        import os
+        import random
+        from datetime import datetime, timedelta
+        from faker import Faker
+        
+        # Add scripts to path
+        scripts_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'scripts')
+        if scripts_path not in sys.path:
+            sys.path.append(scripts_path)
+        
+        # Import the dummy data functions
+        from generate_dummy_data import create_dummy_data, generate_indonesian_name, generate_no_ktp, generate_passport_id, generate_personal_number, generate_birth_date
+        
+        # Check if data already exists
+        from app.models.models import Pegawai
+        existing_count = db.query(Pegawai).count()
+        
+        # Generate dummy data
+        dummy_data = create_dummy_data(count, include_invalid_ktp=include_invalid_ktp, invalid_ktp_ratio=invalid_ktp_ratio)
+        
+        # Insert data
+        inserted_count = 0
+        invalid_ktp_count = 0
+        process_override_count = 0
+        errors = []
+        
+        for i, data in enumerate(dummy_data):
+            try:
+                # Count statistics
+                if len(data['no_ktp']) != 16:
+                    invalid_ktp_count += 1
+                if data.get('process') == 1:
+                    process_override_count += 1
+                
+                pegawai = Pegawai(
+                    name=data['name'],
+                    personal_number=data['personal_number'],
+                    no_ktp=data['no_ktp'],
+                    passport_id=data['passport_id'],
+                    bod=data['bod']
+                )
+                
+                db.add(pegawai)
+                db.commit()
+                inserted_count += 1
+                
+            except Exception as e:
+                db.rollback()
+                errors.append(f"Record {i+1}: {str(e)}")
+                if len(errors) > 10:  # Limit error reporting
+                    errors.append(f"... and {len(dummy_data) - i - 1} more errors")
+                    break
+        
+        # Prepare response
+        message_parts = [
+            f"✅ **Dummy Data Generation Completed!**",
+            f"📊 **Summary:**",
+            f"• **{inserted_count}** records successfully inserted",
+            f"• **{db.query(Pegawai).count()}** total records now in database"
+        ]
+        
+        if include_invalid_ktp:
+            message_parts.extend([
+                f"\n📋 **Test Data Statistics:**",
+                f"• Records with invalid KTP length: **{invalid_ktp_count}**",
+                f"• Records with process override (process=1): **{process_override_count}**",
+                f"• Valid KTP records: **{inserted_count - invalid_ktp_count}**"
+            ])
+        
+        if errors:
+            message_parts.extend([
+                f"\n⚠️ **Errors encountered:** {len(errors)} records failed to insert",
+                "• " + "\n• ".join(errors[:10])
+            ])
+        
+        return {
+            "success": True,
+            "message": "\n".join(message_parts),
+            "statistics": {
+                "inserted_count": inserted_count,
+                "total_records": db.query(Pegawai).count(),
+                "invalid_ktp_count": invalid_ktp_count,
+                "process_override_count": process_override_count,
+                "error_count": len(errors),
+                "generation_settings": {
+                    "requested_count": count,
+                    "include_invalid_ktp": include_invalid_ktp,
+                    "invalid_ktp_ratio": invalid_ktp_ratio
+                }
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating dummy data: {str(e)}")
+
+
 # Include router in the API
 api_router = APIRouter(prefix="/api/v1", tags=["Global ID System"])
 api_router.include_router(router)

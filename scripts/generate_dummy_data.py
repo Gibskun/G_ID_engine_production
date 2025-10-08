@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Dummy data generation script for the Global ID Management System
-Populates the pegawai table with realistic test data
+Populates the pegawai table with realistic test data matching the new validation rules
 """
 
 import sys
@@ -48,22 +48,18 @@ def generate_indonesian_name():
     ]
     
     last_names = [
-        'Suharto', 'Nurhaliza', 'Prasetyo', 'Dewi', 'Wahyudi', 'Sari', 'Santoso', 'Indira', 'Kurniawan', 'Handayani',
-        'Sutrisno', 'Lestari', 'Gunawan', 'Azizah', 'Firmansyah', 'Maharani', 'Ramadhan', 'Permata', 'Prakoso', 'Suryani',
-        'Kristanto', 'Marlina', 'Prasetyo', 'Rahayu', 'Wijaya', 'Dari', 'Setiawan', 'Lestari', 'Susilo', 'Sari',
-        'Hakim', 'Ariyani', 'Saputra', 'Sari', 'Santoso', 'Kumala', 'Budiman', 'Dewi', 'Irawan', 'Suhartini',
-        'Prakasa', 'Sari', 'Wibowo', 'Putri', 'Hartono', 'Sari', 'Suprapto', 'Amelia', 'Setiawan', 'Maharani',
-        'Hidayat', 'Ningrum', 'Wibisono', 'Anjani', 'Saputro', 'Kusuma', 'Nuraini', 'Firdaus', 'Susanto', 'Pertiwi',
-        'Sutanto', 'Purnama', 'Widodo', 'Sartika', 'Nugraha', 'Safitri', 'Surya', 'Anggraini', 'Suryadi', 'Novalina',
-        'Pranoto', 'Kartika', 'Yulianto', 'Lestari', 'Priadi', 'Fitriani', 'Subadi', 'Wulandari', 'Hermawan', 'Indrawati',
-        'Satria', 'Novita', 'Utomo', 'Arifin', 'Anwar', 'Widyanti', 'Suryana', 'Melinda', 'Kurnia', 'Pratiwi',
-        'Harahap', 'Silviana', 'Pardede', 'Mawarni', 'Sitompul', 'Andriani', 'Manurung', 'Simbolon', 'Daulay', 'Siahaan',
-        'Nasution', 'Turnip', 'Sianturi', 'Simanjuntak', 'Sidabutar', 'Simatupang', 'Panjaitan', 'Lumbantobing', 'Tampubolon', 'Sinaga',
-        'Pakpahan', 'Siburian', 'Lumban', 'Tobing', 'Rajagukguk', 'Marpaung', 'Butarbutar', 'Hasibuan', 'Pohan', 'Lubis',
-        'Nasution', 'Bangun', 'Dalimunthe', 'Rizki', 'Siregar', 'Munthe', 'Tanjung', 'Sibarani', 'Simamora', 'Nababan'
+        'Santoso', 'Pratama', 'Sari', 'Wijaya', 'Utomo', 'Kusuma', 'Wati',
+        'Rahman', 'Hidayat', 'Nurhaliza', 'Simatupang', 'Handayani', 'Setiawan',
+        'Maharani', 'Gunawan', 'Purnomo', 'Wulandari', 'Saputra', 'Anggraini',
+        'Suryanto', 'Pertiwi', 'Hermawan', 'Rahayu', 'Saputri', 'Nugroho',
+        'Lestari', 'Kurniawan', 'Dewi', 'Susanto', 'Fitriani', 'Budiman',
+        'Suharto', 'Kartini', 'Baskoro', 'Mulyani', 'Cahyono', 'Andriani',
+        'Sutrisno', 'Wahyuni', 'Prasetyo', 'Safitri', 'Hartono', 'Indrayani'
     ]
     
-    return f"{random.choice(first_names)} {random.choice(last_names)}"
+    first_name = random.choice(first_names)
+    last_name = random.choice(last_names)
+    return f"{first_name} {last_name}"
 
 def generate_personal_number():
     """Generate employee personal number (employee ID format)"""
@@ -72,8 +68,17 @@ def generate_personal_number():
     sequence = random.randint(1, 9999)
     return f"EMP-{current_year}-{sequence:04d}"
 
-def generate_no_ktp():
-    """Generate Indonesian KTP number (16 digits)"""
+def generate_no_ktp(invalid_ktp: bool = False):
+    """
+    Generate Indonesian KTP number (16 digits)
+    If invalid_ktp is True, generate 12-15 digits (respecting database constraints)
+    """
+    if invalid_ktp:
+        # Generate invalid KTP with 12-15 digits (not 16, but respecting database limit)
+        ktp_length = random.choice([12, 13, 14, 15])
+        return ''.join([str(random.randint(0, 9)) for _ in range(ktp_length)])
+    
+    # Generate valid 16-digit KTP
     # Format: XXXXXX-DDMMYY-XXXX
     # First 6 digits: area code (expanded list for more variety)
     area_codes = [
@@ -136,17 +141,30 @@ def generate_passport_id(used_passport_ids: set) -> str:
             used_passport_ids.add(passport_id)
             return passport_id
 
-def create_dummy_data(count=10000):
-    """Create dummy data records"""
+def create_dummy_data(count=10000, include_invalid_ktp=False, invalid_ktp_ratio=0.2):
+    """
+    Create dummy data records with support for invalid KTP and process override
+    
+    Args:
+        count: Number of records to generate
+        include_invalid_ktp: Whether to include some records with invalid KTP lengths
+        invalid_ktp_ratio: Ratio of records with invalid KTP (0.0-1.0)
+    """
     records = []
     used_ktps = set()
     used_personal_numbers = set()
     used_passport_ids = set()
     
+    # Calculate how many records should have invalid KTP
+    invalid_ktp_count = int(count * invalid_ktp_ratio) if include_invalid_ktp else 0
+    
     for i in range(count):
+        # Determine if this record should have invalid KTP
+        should_have_invalid_ktp = include_invalid_ktp and i < invalid_ktp_count
+        
         # Ensure unique No_KTP
         while True:
-            no_ktp = generate_no_ktp()
+            no_ktp = generate_no_ktp(invalid_ktp=should_have_invalid_ktp)
             if no_ktp not in used_ktps:
                 used_ktps.add(no_ktp)
                 break
@@ -160,21 +178,38 @@ def create_dummy_data(count=10000):
         
         # Generate unique passport_id
         passport_id = generate_passport_id(used_passport_ids)
+        
+        # Determine process field value based on KTP validity
+        if len(no_ktp) == 16:
+            # Valid KTP length - process field is ignored (can be 0, 1, or empty)
+            process = random.choice([0, 1, ''])
+        else:
+            # Invalid KTP length - determine if should be allowed or rejected
+            if should_have_invalid_ktp and random.random() < 0.7:  # 70% of invalid KTPs get process=1
+                process = 1  # Allow processing despite invalid KTP
+            else:
+                process = random.choice([0, '', 2, 3])  # Reject processing
 
         record = {
             'name': generate_indonesian_name(),
             'personal_number': personal_number,  # Every employee gets a personal number
             'no_ktp': no_ktp,
             'passport_id': passport_id,
-            'bod': generate_birth_date()
+            'bod': generate_birth_date(),
+            'process': process  # Process override field
         }
         
         records.append(record)
     
     return records
 
-def populate_database():
-    """Populate the database with dummy data"""
+def populate_database(include_invalid_ktp=False):
+    """
+    Populate the database with dummy data
+    
+    Args:
+        include_invalid_ktp: Whether to include records with invalid KTP lengths and process override
+    """
     try:
         # Create engine and session
         engine = create_engine(SOURCE_DATABASE_URL, echo=True)
@@ -196,21 +231,31 @@ def populate_database():
                 return
         
         # Generate dummy data
-        print("Generating 7500 dummy records...")
-        dummy_data = create_dummy_data(7500)
+        data_type = "mixed (valid + invalid KTPs)" if include_invalid_ktp else "valid KTPs only"
+        print(f"Generating 7500 dummy records with {data_type}...")
+        dummy_data = create_dummy_data(7500, include_invalid_ktp=include_invalid_ktp, invalid_ktp_ratio=0.2)
         
         # Insert data
         print("Inserting records into database...")
         inserted_count = 0
+        invalid_ktp_count = 0
+        process_override_count = 0
         
         for i, data in enumerate(dummy_data, 1):
             try:
+                # Count statistics for reporting
+                if len(data['no_ktp']) != 16:
+                    invalid_ktp_count += 1
+                if data.get('process') == 1:
+                    process_override_count += 1
+                    
                 pegawai = Pegawai(
                     name=data['name'],
                     personal_number=data['personal_number'],  # Use personal_number field to match schema
                     no_ktp=data['no_ktp'],
                     passport_id=data['passport_id'],
                     bod=data['bod']
+                    # Note: process field is not stored in database, it's only for Excel uploads
                 )
                 
                 session.add(pegawai)
@@ -229,6 +274,12 @@ def populate_database():
         
         print(f"\nSuccessfully inserted {inserted_count} records.")
         print(f"Total records in database: {session.query(Pegawai).count()}")
+        
+        if include_invalid_ktp:
+            print(f"\n📊 Generation Statistics:")
+            print(f"• Records with invalid KTP length: {invalid_ktp_count}")
+            print(f"• Records with process override (process=1): {process_override_count}")
+            print(f"• Valid KTP records: {inserted_count - invalid_ktp_count}")
         
         session.close()
         
@@ -307,26 +358,33 @@ def main():
     
     while True:
         print("\nOptions:")
-        print("1. Populate database with dummy data")
-        print("2. Display sample data")
-        print("3. Clear database")
-        print("4. Exit")
+        print("1. Populate database with dummy data (valid KTPs only)")
+        print("2. Populate database with mixed data (valid + invalid KTPs)")
+        print("3. Display sample data")
+        print("4. Clear database")
+        print("5. Exit")
         
-        choice = input("\nEnter your choice (1-4): ").strip()
+        choice = input("\nEnter your choice (1-5): ").strip()
         
         if choice == '1':
-            if populate_database():
+            if populate_database(include_invalid_ktp=False):
                 print("\n✓ Dummy data population completed successfully!")
             else:
                 print("\n✗ Failed to populate dummy data.")
         
         elif choice == '2':
-            display_sample_data()
+            if populate_database(include_invalid_ktp=True):
+                print("\n✓ Mixed dummy data population completed successfully!")
+            else:
+                print("\n✗ Failed to populate dummy data.")
         
         elif choice == '3':
-            clear_database()
+            display_sample_data()
         
         elif choice == '4':
+            clear_database()
+        
+        elif choice == '5':
             print("Goodbye!")
             break
         
