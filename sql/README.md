@@ -6,7 +6,7 @@ This folder contains SQL scripts for setting up and managing the Global ID Manag
 
 ### `create_schema_sqlserver.sql` 
 **🚀 MAIN SQL SERVER DATABASE SETUP SCRIPT**
-- Creates consolidated `dbvendor` database (replaces dual database architecture)
+- Creates consolidated `g_id` database (replaces dual database architecture)
 - Creates all tables with proper indexes and constraints (global_id, global_id_non_database, pegawai, audit_log, g_id_sequence)
 - Sets up triggers for automatic timestamp updates using SQL Server syntax
 - Creates audit logging system
@@ -34,7 +34,7 @@ This folder contains SQL scripts for setting up and managing the Global ID Manag
 
 ## Database Structure (Consolidated):
 
-- **dbvendor**: Single consolidated SQL Server database containing:
+- **g_id**: Single consolidated SQL Server database containing:
   - `dbo.global_id`: Main Global ID records
   - `dbo.global_id_non_database`: Excel/manual Global ID records  
   - `dbo.pegawai`: Employee records

@@ -13,6 +13,7 @@ class PegawaiCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Employee full name")
     personal_number: Optional[str] = Field(None, max_length=15, description="Employee personal number")
     no_ktp: str = Field(..., min_length=16, max_length=16, description="Employee KTP number (16 digits)")
+    passport_id: str = Field(..., min_length=8, max_length=9, description="Employee passport ID (8-9 characters)")
     bod: Optional[date] = Field(None, description="Birth date (YYYY-MM-DD)")
     
     @validator('no_ktp')
@@ -20,6 +21,28 @@ class PegawaiCreateRequest(BaseModel):
         """Validate KTP number format - must be 16 digits"""
         if not re.match(r'^\d{16}$', v):
             raise ValueError('KTP number must be exactly 16 digits')
+        return v
+    
+    @validator('passport_id')
+    def validate_passport_id(cls, v):
+        """Validate passport ID format - 8-9 characters, letters first then numbers"""
+        if not v or not v.strip():
+            raise ValueError('Passport ID cannot be empty')
+        
+        v = v.strip().upper()
+        
+        if len(v) < 8 or len(v) > 9:
+            raise ValueError('Passport ID must be 8-9 characters long')
+        
+        # Check if it starts with 2-3 letters
+        if not (v[:2].isalpha() or v[:3].isalpha()):
+            raise ValueError('Passport ID must start with 2-3 letters')
+        
+        # Check if the rest are numbers
+        numbers_part = v[2:] if v[:2].isalpha() else v[3:]
+        if not numbers_part.isdigit():
+            raise ValueError('Passport ID must end with numbers')
+        
         return v
     
     @validator('name')
@@ -56,6 +79,7 @@ class PegawaiUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255, description="Employee full name")
     personal_number: Optional[str] = Field(None, max_length=15, description="Employee personal number")
     no_ktp: Optional[str] = Field(None, min_length=16, max_length=16, description="Employee KTP number (16 digits)")
+    passport_id: Optional[str] = Field(None, min_length=8, max_length=9, description="Employee passport ID (8-9 characters)")
     bod: Optional[date] = Field(None, description="Birth date (YYYY-MM-DD)")
     
     @validator('no_ktp')
@@ -63,6 +87,26 @@ class PegawaiUpdateRequest(BaseModel):
         """Validate KTP number format - must be 16 digits"""
         if v is not None and not re.match(r'^\d{16}$', v):
             raise ValueError('KTP number must be exactly 16 digits')
+        return v
+    
+    @validator('passport_id')
+    def validate_passport_id(cls, v):
+        """Validate passport ID format if provided"""
+        if v is not None:
+            v = v.strip().upper()
+            
+            if len(v) < 8 or len(v) > 9:
+                raise ValueError('Passport ID must be 8-9 characters long')
+            
+            # Check if it starts with 2-3 letters
+            if not (v[:2].isalpha() or v[:3].isalpha()):
+                raise ValueError('Passport ID must start with 2-3 letters')
+            
+            # Check if the rest are numbers
+            numbers_part = v[2:] if v[:2].isalpha() else v[3:]
+            if not numbers_part.isdigit():
+                raise ValueError('Passport ID must end with numbers')
+        
         return v
     
     @validator('name')
@@ -102,6 +146,7 @@ class PegawaiResponse(BaseModel):
     name: str = Field(..., description="Employee full name")
     personal_number: Optional[str] = Field(None, description="Employee personal number")
     no_ktp: str = Field(..., description="Employee KTP number")
+    passport_id: str = Field(..., description="Employee passport ID")
     bod: Optional[date] = Field(None, description="Birth date")
     g_id: Optional[str] = Field(None, description="Assigned Global ID")
     created_at: datetime = Field(..., description="Record creation timestamp")

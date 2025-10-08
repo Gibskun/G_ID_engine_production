@@ -18,6 +18,7 @@ class GlobalID(Base):
     name = Column(String(255), nullable=False)
     personal_number = Column(String(15))
     no_ktp = Column(String(16), nullable=False, unique=True, name="no_ktp")
+    passport_id = Column(String(9), nullable=False, unique=True, name="passport_id")
     bod = Column(Date, name="bod")
     status = Column(String(15), nullable=False, default="Active", name="status")
     source = Column(String(20), nullable=False, default="database_pegawai")
@@ -37,6 +38,7 @@ class GlobalIDNonDatabase(Base):
     name = Column(String(255), nullable=False)
     personal_number = Column(String(15))
     no_ktp = Column(String(16), nullable=False, unique=True, name="no_ktp")
+    passport_id = Column(String(9), nullable=False, unique=True, name="passport_id")
     bod = Column(Date, name="bod")
     status = Column(String(15), nullable=False, default="Active", name="status")
     source = Column(String(20), nullable=False, default="excel")
@@ -80,6 +82,7 @@ class Pegawai(Base):
     name = Column(String(255), nullable=False)
     personal_number = Column(String(15))  # Match schema from scripts folder
     no_ktp = Column(String(16), nullable=False, unique=True, name="no_ktp")
+    passport_id = Column(String(9), nullable=False, unique=True, name="passport_id")
     bod = Column(Date, name="bod")
     g_id = Column(String(10), name="g_id")  # Will be populated by sync system
     created_at = Column(DateTime, default=datetime.utcnow)

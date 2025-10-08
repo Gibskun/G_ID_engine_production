@@ -23,6 +23,48 @@ class SyncService:
         self.source_db = source_db
         self.gid_generator = GIDGenerator(main_db)
     
+    def _check_tables_exist(self) -> Dict[str, Any]:
+        """Check if required tables exist in the database"""
+        from sqlalchemy import text
+        
+        required_tables = ['global_id', 'global_id_non_database', 'pegawai', 'g_id_sequence', 'audit_log']
+        missing_tables = []
+        
+        try:
+            # Check if tables exist
+            for table in required_tables:
+                try:
+                    # Try to query the table schema
+                    result = self.main_db.execute(text(f"""
+                        SELECT COUNT(*) 
+                        FROM information_schema.tables 
+                        WHERE table_schema = 'dbo' 
+                        AND table_name = '{table}'
+                    """))
+                    
+                    count = result.scalar()
+                    if count == 0:
+                        missing_tables.append(table)
+                        
+                except Exception as table_error:
+                    logger.warning(f"Error checking table {table}: {str(table_error)}")
+                    missing_tables.append(table)
+            
+            return {
+                'all_exist': len(missing_tables) == 0,
+                'missing_tables': missing_tables,
+                'existing_tables': [t for t in required_tables if t not in missing_tables]
+            }
+            
+        except Exception as e:
+            logger.error(f"Error checking tables existence: {str(e)}")
+            return {
+                'all_exist': False,
+                'missing_tables': required_tables,
+                'existing_tables': [],
+                'error': str(e)
+            }
+    
     def initial_sync(self) -> Dict[str, Any]:
         """
         Perform initial synchronization from pegawai table to Global_ID table (OPTIMIZED)
@@ -89,6 +131,7 @@ class SyncService:
                         name=pegawai.name,
                         personal_number=pegawai.personal_number,
                         no_ktp=pegawai.no_ktp,
+                        passport_id=pegawai.passport_id,
                         bod=pegawai.bod,
                         status='Active',
                         source='database_pegawai'
@@ -224,6 +267,7 @@ class SyncService:
                         name=pegawai.name,
                         personal_number=pegawai.personal_number,
                         no_ktp=pegawai.no_ktp,
+                        passport_id=pegawai.passport_id,
                         bod=pegawai.bod,
                         status='Active',
                         source='database_pegawai'
@@ -367,6 +411,7 @@ class SyncService:
                 name=pegawai.name,
                 personal_number=pegawai.personal_number,  # Use personal_number from pegawai table
                 no_ktp=pegawai.no_ktp,
+                passport_id=pegawai.passport_id,
                 bod=pegawai.bod,
                 status='Active',
                 source=source
@@ -441,6 +486,31 @@ class SyncService:
     def get_sync_status(self) -> Dict[str, Any]:
         """Get current synchronization status"""
         try:
+            # Check if tables exist before querying them
+            tables_exist = self._check_tables_exist()
+            
+            if not tables_exist['all_exist']:
+                return {
+                    'global_id_table': {
+                        'total_records': 0,
+                        'active_records': 0,
+                        'inactive_records': 0,
+                        'database_source': 0,
+                        'excel_source': 0
+                    },
+                    'pegawai_table': {
+                        'total_records': 0,
+                        'with_gid': 0,
+                        'without_gid': 0
+                    },
+                    'sync_status': {
+                        'sync_needed': False,
+                        'last_check': datetime.now().isoformat(),
+                        'tables_missing': tables_exist['missing_tables'],
+                        'database_not_initialized': True
+                    }
+                }
+            
             # Count records by source and status
             global_stats = self.main_db.query(GlobalID).all()
             pegawai_stats = self.source_db.query(Pegawai).all()
@@ -478,10 +548,31 @@ class SyncService:
                 },
                 'sync_status': {
                     'sync_needed': pegawai_without_gid > 0,
-                    'last_check': datetime.now().isoformat()
+                    'last_check': datetime.now().isoformat(),
+                    'database_initialized': True
                 }
             }
             
         except Exception as e:
             logger.error(f"Error getting sync status: {str(e)}")
-            raise
+            # Return safe defaults when there's an error
+            return {
+                'global_id_table': {
+                    'total_records': 0,
+                    'active_records': 0,
+                    'inactive_records': 0,
+                    'database_source': 0,
+                    'excel_source': 0
+                },
+                'pegawai_table': {
+                    'total_records': 0,
+                    'with_gid': 0,
+                    'without_gid': 0
+                },
+                'sync_status': {
+                    'sync_needed': False,
+                    'last_check': datetime.now().isoformat(),
+                    'error': str(e),
+                    'database_error': True
+                }
+            }

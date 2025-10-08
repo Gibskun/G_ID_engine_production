@@ -45,6 +45,30 @@
     </div>
 </div>
 
+<!-- Database Management Actions -->
+<div class="card">
+    <h3>Database Management</h3>
+    <div class="text-center">
+        <button class="btn btn-danger" onclick="confirmClearAllData()">
+            <i class="fas fa-trash"></i> Clear All Data
+        </button>
+        <button class="btn btn-danger" onclick="confirmReinitializeDatabase()">
+            <i class="fas fa-database"></i> Reinitialize Tables
+        </button>
+    </div>
+    
+    <div class="mt-3">
+        <h4>Database Management Descriptions:</h4>
+        <ul>
+            <li><strong>Clear All Data:</strong> Deletes all records from global_id, global_id_non_database, and pegawai tables. Table structure remains intact.</li>
+            <li><strong>Reinitialize Tables:</strong> Executes the SQL schema file (create_schema_sqlserver.sql) to create/recreate the g_id database and all tables with proper structure including passport_id fields.</li>
+        </ul>
+        <div class="alert alert-warning mt-2">
+            <strong>⚠️ Warning:</strong> Clear All Data is destructive and cannot be undone. Reinitialize Tables will create the database schema if it doesn't exist.
+        </div>
+    </div>
+</div>
+
 <!-- Sync Progress -->
 <div class="card" id="sync-progress-card" style="display: none;">
     <h3>Sync Progress</h3>
@@ -97,6 +121,27 @@ function updateSyncStatusOverview(status) {
     const pegawaiStats = status.pegawai_table;
     const syncStatus = status.sync_status;
     
+    // Check if database is not initialized
+    if (syncStatus.database_not_initialized || syncStatus.database_error) {
+        const errorMessage = syncStatus.database_not_initialized ? 
+            'Database not initialized' : 'Database connection error';
+        
+        container.innerHTML = `
+            <div class="alert alert-warning">
+                <h4><i class="fas fa-exclamation-triangle"></i> Database Not Initialized</h4>
+                <p><strong>Issue:</strong> ${errorMessage}</p>
+                ${syncStatus.tables_missing ? `<p><strong>Missing Tables:</strong> ${syncStatus.tables_missing.join(', ')}</p>` : ''}
+                ${syncStatus.error ? `<p><strong>Error:</strong> ${syncStatus.error}</p>` : ''}
+                <hr>
+                <p><strong>Solution:</strong> Click the "Reinitialize Tables" button below to create the database schema.</p>
+                <button class="btn btn-primary mt-2" onclick="confirmReinitializeDatabase()">
+                    <i class="fas fa-database"></i> Initialize Database Now
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
     const syncNeeded = syncStatus.sync_needed;
     const statusBadge = syncNeeded ? 
         '<span class="status-badge status-inactive">Sync Needed</span>' : 
@@ -130,6 +175,22 @@ function updateDetailedStatistics(status) {
     const container = document.getElementById('detailed-statistics');
     
     const globalIdStats = status.global_id_table;
+    const syncStatus = status.sync_status;
+    
+    // Check if database is not initialized
+    if (syncStatus.database_not_initialized || syncStatus.database_error) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <h4><i class="fas fa-info-circle"></i> Database Statistics Unavailable</h4>
+                <p>Detailed statistics will be available after the database is initialized.</p>
+                <p><strong>Required Action:</strong> Initialize the database schema first.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const databaseStatus = syncStatus.database_initialized ? 'Connected & Initialized' : 'Connected';
+    const gidGenerationStatus = syncStatus.database_initialized ? 'Active' : 'Inactive';
     
     container.innerHTML = `
         <div class="stats-grid">
@@ -146,8 +207,8 @@ function updateDetailedStatistics(status) {
             <div class="stat-card">
                 <h4>System Health</h4>
                 <p><strong>Total Capacity:</strong> Unlimited</p>
-                <p><strong>G_ID Generation:</strong> Active</p>
-                <p><strong>Database Status:</strong> Connected</p>
+                <p><strong>G_ID Generation:</strong> ${gidGenerationStatus}</p>
+                <p><strong>Database Status:</strong> ${databaseStatus}</p>
             </div>
         </div>
     `;
@@ -387,6 +448,131 @@ async function previewNextGID() {
 
 function copyGID(gid) {
     UIUtils.copyToClipboard(gid);
+}
+
+async function confirmClearAllData() {
+    const confirmed = confirm(
+        '⚠️ WARNING: This will permanently delete ALL data from the following tables:\n\n' +
+        '• global_id\n' +
+        '• global_id_non_database\n' +
+        '• pegawai\n\n' +
+        'This action CANNOT be undone!\n\n' +
+        'Are you absolutely sure you want to proceed?'
+    );
+    
+    if (!confirmed) return;
+    
+    const doubleConfirm = confirm(
+        'This is your final warning!\n\n' +
+        'Clicking "OK" will immediately delete ALL data.\n\n' +
+        'Type "DELETE" in the next prompt to confirm.'
+    );
+    
+    if (!doubleConfirm) return;
+    
+    const typeConfirm = prompt('Type "DELETE" (without quotes) to confirm:');
+    if (typeConfirm !== 'DELETE') {
+        UIUtils.showAlert('Operation cancelled. Confirmation text did not match.', 'info');
+        return;
+    }
+    
+    try {
+        UIUtils.showLoading(event.target, 'Deleting...');
+        
+        const result = await api.request('/data/clear-all?confirm=true', {
+            method: 'DELETE'
+        });
+        
+        if (result.success) {
+            UIUtils.showAlert(
+                `All data has been successfully deleted!\n\n` +
+                `Deleted records:\n` +
+                `• Global ID: ${result.deleted_counts.global_id}\n` +
+                `• Global ID Non-Database: ${result.deleted_counts.global_id_non_database}\n` +
+                `• Pegawai: ${result.deleted_counts.pegawai}`,
+                'success'
+            );
+            
+            // Refresh the sync status to show empty database
+            setTimeout(loadSyncStatus, 1000);
+        } else {
+            UIUtils.showAlert('Failed to clear data: ' + result.message, 'danger');
+        }
+        
+    } catch (error) {
+        UIUtils.showAlert('Error clearing data: ' + error.message, 'danger');
+        console.error('Clear data error:', error);
+    } finally {
+        UIUtils.hideLoading(event.target);
+    }
+}
+
+async function confirmReinitializeDatabase() {
+    const confirmed = confirm(
+        '⚠️ DATABASE SCHEMA INITIALIZATION\n\n' +
+        'This will execute the SQL schema creation script to:\n' +
+        '• Create the g_id database (if it doesn\'t exist)\n' +
+        '• Create all tables with proper structure\n' +
+        '• Add passport_id fields to all tables\n' +
+        '• Insert initial sample data\n' +
+        '• Set up indexes and triggers\n\n' +
+        'If tables already exist, this may recreate them.\n\n' +
+        'Are you sure you want to proceed?'
+    );
+    
+    if (!confirmed) return;
+    
+    const doubleConfirm = confirm(
+        'FINAL CONFIRMATION!\n\n' +
+        'This will run the create_schema_sqlserver.sql file.\n' +
+        'If database/tables exist, they may be recreated.\n\n' +
+        'Type "INITIALIZE" in the next prompt to confirm.'
+    );
+    
+    if (!doubleConfirm) return;
+    
+    const typeConfirm = prompt('Type "INITIALIZE" (without quotes) to confirm:');
+    if (typeConfirm !== 'INITIALIZE') {
+        UIUtils.showAlert('Operation cancelled. Confirmation text did not match.', 'info');
+        return;
+    }
+    
+    try {
+        UIUtils.showLoading(event.target, 'Initializing...');
+        
+        const result = await api.request('/database/reinitialize?confirm=true', {
+            method: 'POST'
+        });
+        
+        if (result.success) {
+            let message = `Database schema has been successfully initialized!\n\n`;
+            
+            if (result.verification?.tables_created) {
+                message += `Tables created:\n`;
+                result.verification.tables_created.forEach(table => {
+                    const count = result.verification.record_counts?.[table] || 0;
+                    message += `• ${table} (${count} records)\n`;
+                });
+            }
+            
+            message += `\nExecution summary:\n`;
+            message += `• SQL batches executed: ${result.execution_results.batches_executed}/${result.execution_results.total_batches}\n`;
+            message += `• SQL file: ${result.execution_results.sql_file_path}`;
+            
+            UIUtils.showAlert(message, 'success');
+            
+            // Refresh the sync status to show initialized database
+            setTimeout(loadSyncStatus, 1000);
+        } else {
+            UIUtils.showAlert('Failed to initialize database: ' + result.message, 'danger');
+        }
+        
+    } catch (error) {
+        UIUtils.showAlert('Error initializing database: ' + error.message, 'danger');
+        console.error('Initialize database error:', error);
+    } finally {
+        UIUtils.hideLoading(event.target);
+    }
 }
 
 // Initialize page

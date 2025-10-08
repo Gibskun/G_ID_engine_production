@@ -3,24 +3,24 @@
 -- Global ID Management System - Consolidated Database
 -- =========================================
 
--- Connect to master database to create dbvendor database
+-- Connect to master database to create g_id database
 USE master;
 GO
 
 -- Drop existing database if it exists
-IF EXISTS (SELECT name FROM sys.databases WHERE name = 'dbvendor')
+IF EXISTS (SELECT name FROM sys.databases WHERE name = 'g_id')
 BEGIN
-    ALTER DATABASE dbvendor SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE dbvendor;
+    ALTER DATABASE g_id SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE g_id;
 END
 GO
 
 -- Create new database
-CREATE DATABASE dbvendor;
+CREATE DATABASE g_id;
 GO
 
 -- Use the new database
-USE dbvendor;
+USE g_id;
 GO
 
 -- =========================================
@@ -33,6 +33,7 @@ CREATE TABLE dbo.global_id (
     name NVARCHAR(255) NOT NULL,
     personal_number NVARCHAR(15),
     no_ktp NVARCHAR(16) NOT NULL UNIQUE,
+    passport_id NVARCHAR(9) NOT NULL UNIQUE,
     bod DATE,
     status NVARCHAR(15) NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Non Active')),
     source NVARCHAR(20) NOT NULL DEFAULT 'database_pegawai' CHECK (source IN ('database_pegawai', 'excel')),
@@ -47,6 +48,7 @@ CREATE TABLE dbo.global_id_non_database (
     name NVARCHAR(255) NOT NULL,
     personal_number NVARCHAR(15),
     no_ktp NVARCHAR(16) NOT NULL UNIQUE,
+    passport_id NVARCHAR(9) NOT NULL UNIQUE,
     bod DATE,
     status NVARCHAR(15) NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Non Active')),
     source NVARCHAR(20) NOT NULL DEFAULT 'excel' CHECK (source IN ('database_pegawai', 'excel')),
@@ -74,6 +76,7 @@ CREATE TABLE dbo.pegawai (
     name NVARCHAR(255) NOT NULL,
     personal_number NVARCHAR(15),
     no_ktp NVARCHAR(16) NOT NULL UNIQUE,
+    passport_id NVARCHAR(9) NOT NULL UNIQUE,
     bod DATE,
     g_id NVARCHAR(10),
     created_at DATETIME2 DEFAULT GETDATE(),
@@ -107,15 +110,18 @@ GO
 -- Indexes for Performance
 -- =========================================
 CREATE INDEX idx_global_id_no_ktp ON dbo.global_id(no_ktp);
+CREATE INDEX idx_global_id_passport_id ON dbo.global_id(passport_id);
 CREATE INDEX idx_global_id_status ON dbo.global_id(status);
 CREATE INDEX idx_global_id_source ON dbo.global_id(source);
 CREATE INDEX idx_global_id_created_at ON dbo.global_id(created_at);
 
 CREATE INDEX idx_global_id_non_db_no_ktp ON dbo.global_id_non_database(no_ktp);
+CREATE INDEX idx_global_id_non_db_passport_id ON dbo.global_id_non_database(passport_id);
 CREATE INDEX idx_global_id_non_db_status ON dbo.global_id_non_database(status);
 CREATE INDEX idx_global_id_non_db_created_at ON dbo.global_id_non_database(created_at);
 
 CREATE INDEX idx_pegawai_no_ktp ON dbo.pegawai(no_ktp);
+CREATE INDEX idx_pegawai_passport_id ON dbo.pegawai(passport_id);
 CREATE INDEX idx_pegawai_g_id ON dbo.pegawai(g_id);
 CREATE INDEX idx_pegawai_deleted_at ON dbo.pegawai(deleted_at);
 
@@ -181,10 +187,10 @@ GO
 -- =========================================
 
 -- Sample employee records
-INSERT INTO dbo.pegawai (name, personal_number, no_ktp, bod) VALUES
-('Ahmad Budi Santoso', 'EMP-2025-0001', '3201234567890001', '1985-05-15'),
-('Siti Aminah', 'EMP-2025-0002', '3201234567890002', '1987-08-20'),
-('Rudi Hartono', 'EMP-2025-0003', '3201234567890003', '1990-12-10');
+INSERT INTO dbo.pegawai (name, personal_number, no_ktp, passport_id, bod) VALUES
+('Ahmad Budi Santoso', 'EMP-2025-0001', '3201234567890001', 'AB123456', '1985-05-15'),
+('Siti Aminah', 'EMP-2025-0002', '3201234567890002', 'CD789012', '1987-08-20'),
+('Rudi Hartono', 'EMP-2025-0003', '3201234567890003', 'EF345678', '1990-12-10');
 GO
 
 PRINT 'Database schema created successfully!';

@@ -58,16 +58,39 @@ class DummyDataGenerator:
         random_days = random.randrange(days_between)
         
         return min_age_date + timedelta(days=random_days)
+    
+    def _generate_passport_id(self, used_passport_ids: set) -> str:
+        """
+        Generate unique passport ID with 8-9 characters
+        Format: 2-3 letters at the beginning followed by 5-6 numbers
+        Example: AB123456, CD789012, EFG345678
+        """
+        while True:
+            # Generate 2-3 letters at the beginning
+            letter_count = random.choice([2, 3])
+            letters = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=letter_count))
+            
+            # Generate 5-6 numbers to complete 8-9 total characters
+            number_count = 9 - letter_count if random.choice([True, False]) else 8 - letter_count
+            numbers = ''.join(random.choices('0123456789', k=number_count))
+            
+            passport_id = letters + numbers
+            
+            # Ensure it's 8-9 characters and unique
+            if 8 <= len(passport_id) <= 9 and passport_id not in used_passport_ids:
+                used_passport_ids.add(passport_id)
+                return passport_id
         
     def generate_dummy_data(self, num_records: int = 100) -> pd.DataFrame:
         """
         Generate dummy data matching the Excel upload format
         
-        Required columns: name, personal_number, no_ktp, bod
+        Required columns: name, personal_number, no_ktp, passport_id, bod
         """
         data = []
         used_ktps = set()  # Track used KTP numbers to ensure uniqueness
         used_personal_numbers = set()  # Track used personal numbers to ensure uniqueness
+        used_passport_ids = set()  # Track used passport IDs to ensure uniqueness
         
         for i in range(num_records):
             # Generate unique KTP number (16 digits)
@@ -108,6 +131,9 @@ class DummyDataGenerator:
                     used_personal_numbers.add(personal_number)
                     break
             
+            # Generate unique passport ID
+            passport_id = self._generate_passport_id(used_passport_ids)
+            
             # Generate birth date (BOD format: YYYY-MM-DD)
             bod = birth_date.strftime('%Y-%m-%d')
             
@@ -120,6 +146,7 @@ class DummyDataGenerator:
                 'name': name,
                 'personal_number': personal_number,
                 'no_ktp': ktp_number,
+                'passport_id': passport_id,
                 'bod': bod
             })
         

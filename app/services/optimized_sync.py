@@ -105,6 +105,7 @@ class OptimizedSyncService:
                     name=pegawai.name,
                     personal_number=pegawai.personal_number,
                     no_ktp=pegawai.no_ktp,
+                    passport_id=pegawai.passport_id,
                     bod=pegawai.bod,
                     status='Active',
                     source='database_pegawai'

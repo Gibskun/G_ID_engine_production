@@ -204,6 +204,7 @@ class AdvancedWorkflowService:
                     name=clean_data['name'],
                     personal_number=clean_data['personal_number'],
                     no_ktp=clean_data['no_ktp'],
+                    passport_id=clean_data.get('passport_id', ''),
                     bod=clean_data['bod'],
                     status='Active',
                     source='excel'
@@ -215,6 +216,7 @@ class AdvancedWorkflowService:
                     name=clean_data['name'],
                     personal_number=clean_data['personal_number'],
                     no_ktp=clean_data['no_ktp'],
+                    passport_id=clean_data.get('passport_id', ''),
                     bod=clean_data['bod'],
                     status='Active',
                     source='excel'
@@ -343,7 +345,7 @@ class AdvancedWorkflowService:
     
     def pegawai_db_synchronization_workflow(self) -> Dict[str, Any]:
         """
-        Advanced synchronization workflow with consolidated dbvendor database following business rules
+        Advanced synchronization workflow with consolidated g_id database following business rules
         """
         if not self.source_db:
             return self._create_error_response("Source database connection not available")

@@ -1394,8 +1394,8 @@ async function loadAllDatabaseData(page = 1) {
         const data = await api.request(`/database/explorer?page=${page}&size=50`);
         console.log('Database data received:', data);
         
-        // Update consolidated database (dbvendor contains global_id table)
-        updateDatabaseSection('dbvendor', data.dbvendor, 'global');
+        // Update consolidated database (g_id contains global_id table)
+        updateDatabaseSection('g_id', data.g_id, 'global');
         
         loading.style.display = 'none';
         content.style.display = 'block';
@@ -1511,7 +1511,7 @@ async function loadSearchResults(page = 1, query = null) {
         console.log('Search results received:', data);
         
         // Update consolidated database section with search results (without showing loading)
-        updateDatabaseSection('dbvendor', data.dbvendor, 'global');
+        updateDatabaseSection('g_id', data.g_id, 'global');
         
     } catch (error) {
         console.error('Error performing search:', error);
@@ -1590,7 +1590,7 @@ async function loadFilteredDatabaseData(page = 1, table = null, status = null) {
         console.log('Filtered database data received:', data);
         
         // Update consolidated database section
-        updateDatabaseSection('dbvendor', data.dbvendor, 'global');
+        updateDatabaseSection('g_id', data.g_id, 'global');
         
         // Show filter info in the header
         const headerInfo = document.querySelector('.database-explorer-header p');
@@ -2040,8 +2040,8 @@ async function checkExistingData(name, no_ktp, bod, newPersonalNumber = '') {
         const nikResponse = await fetch(`${getApiBaseUrl()}/database/explorer?search=${encodeURIComponent(no_ktp)}&size=100`);
         const nikData = await nikResponse.json();
         
-        if (nikData.dbvendor?.tables?.global_id?.data) {
-            const records = nikData.dbvendor.tables.global_id.data;
+        if (nikData.g_id?.tables?.global_id?.data) {
+            const records = nikData.g_id.tables.global_id.data;
             
             // Check for exact match of all key fields (name, NIK, BOD)
             for (const record of records) {
@@ -2561,8 +2561,8 @@ async function confirmReactivation(g_id, newPersonalNumber) {
             const explorerData = await explorerResponse.json();
             
             let globalRecord = null;
-            if (explorerData.dbvendor?.tables?.global_id?.data) {
-                globalRecord = explorerData.dbvendor.tables.global_id.data.find(record => record.g_id === g_id);
+            if (explorerData.g_id?.tables?.global_id?.data) {
+                globalRecord = explorerData.g_id.tables.global_id.data.find(record => record.g_id === g_id);
             }
             
             if (globalRecord) {
@@ -2596,7 +2596,7 @@ async function confirmReactivation(g_id, newPersonalNumber) {
                     const verifyResponse = await fetch(`${getApiBaseUrl()}/database/explorer?search=${g_id}&size=10`);
                     if (verifyResponse.ok) {
                         const verifyData = await verifyResponse.json();
-                        const updatedRecord = verifyData.dbvendor?.tables?.global_id?.data?.find(r => r.g_id === g_id);
+                        const updatedRecord = verifyData.g_id?.tables?.global_id?.data?.find(r => r.g_id === g_id);
                         
                         if (updatedRecord && updatedRecord.status === 'Active') {
                             // Reactivation worked despite pegawai creation failure

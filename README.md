@@ -72,7 +72,7 @@ The system automatically detects and configures itself for both environments:
 ## 🏗️ Technology Stack
 
 - **Backend**: Python 3.9+ with FastAPI 0.104.1
-- **Database**: SQL Server 2017 (`dbvendor`) via pyodbc 4.0.39
+- **Database**: SQL Server 2017 (`g_id`) via pyodbc 4.0.39
 - **ORM**: SQLAlchemy 2.0.23 with Pydantic 2.5.0 validation
 - **Connection**: SSH tunnel (localhost:1435 → 10.182.128.3:1433)
 - **Frontend**: HTML5, CSS3, JavaScript with Jinja2 templates
@@ -607,7 +607,7 @@ python test_dashboard_fix.py
 DATABASE_URL=mssql+pyodbc://user:pass@host:port/db
 DATABASE_HOST=10.182.128.3
 DATABASE_PORT=1433
-DATABASE_NAME=dbvendor
+DATABASE_NAME=g_id
 
 # Performance Configuration
 DATABASE_POOL_SIZE=20

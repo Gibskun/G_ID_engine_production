@@ -106,7 +106,7 @@ class ExcelIngestionService:
     def _validate_file_structure(self, df: pd.DataFrame, filename: str) -> Dict[str, Any]:
         """Validate file structure and required columns"""
         try:
-            required_columns = ['name', 'no_ktp', 'bod']  # personal_number is optional
+            required_columns = ['name', 'no_ktp', 'passport_id', 'bod']  # passport_id is now required
             optional_columns = ['personal_number']
             all_columns = required_columns + optional_columns
             
@@ -121,6 +121,7 @@ class ExcelIngestionService:
                 'name': ['name', 'nama', 'full_name', 'fullname'],
                 'personal_number': ['personal_number', 'phone', 'telp', 'telepon', 'hp'],
                 'no_ktp': ['no_ktp', 'noktp', 'ktp', 'id_number', 'nik', 'no_nik'],
+                'passport_id': ['passport_id', 'passport', 'passportid', 'no_passport', 'passport_number'],
                 'bod': ['bod', 'birth_date', 'birthdate', 'date_of_birth', 'dob', 'tanggal_lahir', 'tgl_lahir']
             }
             
@@ -302,11 +303,18 @@ class ExcelIngestionService:
                     'error': f"Row {row_number}: No_KTP is required"
                 }
             
+            if pd.isna(row['passport_id']) or not str(row['passport_id']).strip():
+                return {
+                    'valid': False,
+                    'error': f"Row {row_number}: Passport_ID is required"
+                }
+            
             # Clean and validate data
             cleaned_data = {
                 'name': str(row['name']).strip()[:255],  # Limit to 255 chars
                 'personal_number': str(row['personal_number']).strip()[:15] if pd.notna(row.get('personal_number', '')) and str(row.get('personal_number', '')).strip() else None,
-                'No_KTP': str(row['no_ktp']).strip()[:16]  # Limit to 16 chars
+                'No_KTP': str(row['no_ktp']).strip()[:16],  # Limit to 16 chars
+                'passport_id': str(row['passport_id']).strip()[:9]  # Limit to 9 chars
             }
             
             # Handle BOD (Birth of Date)
@@ -339,6 +347,29 @@ class ExcelIngestionService:
                 return {
                     'valid': False,
                     'error': f"Row {row_number}: No_KTP must be exactly 16 digits"
+                }
+            
+            # Validate passport_id format (8-9 characters, letters first then numbers)
+            passport_id = cleaned_data['passport_id']
+            if len(passport_id) < 8 or len(passport_id) > 9:
+                return {
+                    'valid': False,
+                    'error': f"Row {row_number}: Passport_ID must be 8-9 characters long"
+                }
+            
+            # Check if passport_id starts with letters and has numbers
+            if not (passport_id[:2].isalpha() or passport_id[:3].isalpha()):
+                return {
+                    'valid': False,
+                    'error': f"Row {row_number}: Passport_ID must start with 2-3 letters"
+                }
+            
+            # Check if the rest are numbers
+            numbers_part = passport_id[2:] if passport_id[:2].isalpha() else passport_id[3:]
+            if not numbers_part.isdigit():
+                return {
+                    'valid': False,
+                    'error': f"Row {row_number}: Passport_ID must end with numbers"
                 }
             
             return {
@@ -389,6 +420,7 @@ class ExcelIngestionService:
                         name=row_data['name'],
                         personal_number=row_data.get('personal_number'),
                         no_ktp=row_data['No_KTP'],
+                        passport_id=row_data.get('passport_id', ''),
                         bod=row_data.get('BOD'),
                         status='Active',
                         source='excel',
@@ -464,6 +496,7 @@ class ExcelIngestionService:
                     name=row_data['name'],
                     personal_number=row_data.get('personal_number'),
                     no_ktp=row_data['No_KTP'],
+                    passport_id=row_data['passport_id'],
                     bod=row_data.get('BOD'),
                     status='Active',
                     source='excel'
@@ -490,6 +523,7 @@ class ExcelIngestionService:
                     name=row_data['name'],
                     personal_number=row_data.get('personal_number'),
                     no_ktp=row_data['No_KTP'],
+                    passport_id=row_data['passport_id'],
                     bod=row_data.get('BOD'),
                     status='Active',
                     source='excel'
@@ -624,6 +658,14 @@ class ExcelIngestionService:
                     'required': True,
                     'format': '16 digits only',
                     'example': '3201234567890001'
+                },
+                {
+                    'name': 'passport_id',
+                    'description': 'Passport ID (8-9 characters, letters first then numbers)',
+                    'type': 'Text (8-9 chars)',
+                    'required': True,
+                    'format': '2-3 letters followed by 5-6 numbers',
+                    'example': 'AB123456 or EFG345678'
                 },
                 {
                     'name': 'BOD',

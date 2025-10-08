@@ -26,7 +26,7 @@ fake = Faker('id_ID')  # Indonesian locale
 fake_en = Faker('en_US')  # English for fallback
 
 # Database connection - now using consolidated SQL Server database
-SOURCE_DATABASE_URL = os.getenv("SOURCE_DATABASE_URL", "mssql+pyodbc://sqlvendor1:password@localhost:1435/dbvendor?driver=ODBC+Driver+17+for+SQL+Server")
+SOURCE_DATABASE_URL = os.getenv("SOURCE_DATABASE_URL", "mssql+pyodbc://sqlvendor1:password@localhost:1435/g_id?driver=ODBC+Driver+17+for+SQL+Server")
 
 def generate_indonesian_name():
     """Generate realistic Indonesian names"""
@@ -114,11 +114,34 @@ def generate_birth_date():
     """Generate realistic birth date"""
     return fake.date_of_birth(minimum_age=18, maximum_age=65)
 
+def generate_passport_id(used_passport_ids: set) -> str:
+    """
+    Generate unique passport ID with 8-9 characters
+    Format: 2-3 letters at the beginning followed by 5-6 numbers
+    Example: AB123456, CD789012, EFG345678
+    """
+    while True:
+        # Generate 2-3 letters at the beginning
+        letter_count = random.choice([2, 3])
+        letters = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=letter_count))
+        
+        # Generate 5-6 numbers to complete 8-9 total characters
+        number_count = 9 - letter_count if random.choice([True, False]) else 8 - letter_count
+        numbers = ''.join(random.choices('0123456789', k=number_count))
+        
+        passport_id = letters + numbers
+        
+        # Ensure it's 8-9 characters and unique
+        if 8 <= len(passport_id) <= 9 and passport_id not in used_passport_ids:
+            used_passport_ids.add(passport_id)
+            return passport_id
+
 def create_dummy_data(count=10000):
     """Create dummy data records"""
     records = []
     used_ktps = set()
     used_personal_numbers = set()
+    used_passport_ids = set()
     
     for i in range(count):
         # Ensure unique No_KTP
@@ -135,10 +158,14 @@ def create_dummy_data(count=10000):
                 used_personal_numbers.add(personal_number)
                 break
         
+        # Generate unique passport_id
+        passport_id = generate_passport_id(used_passport_ids)
+
         record = {
             'name': generate_indonesian_name(),
             'personal_number': personal_number,  # Every employee gets a personal number
             'no_ktp': no_ktp,
+            'passport_id': passport_id,
             'bod': generate_birth_date()
         }
         
@@ -182,6 +209,7 @@ def populate_database():
                     name=data['name'],
                     personal_number=data['personal_number'],  # Use personal_number field to match schema
                     no_ktp=data['no_ktp'],
+                    passport_id=data['passport_id'],
                     bod=data['bod']
                 )
                 

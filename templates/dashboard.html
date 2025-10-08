@@ -41,7 +41,7 @@
 </div>
 
 <!-- Data View Modal -->
-<div class="modal fade" id="dataViewModal" tabindex="-1" aria-labelledby="dataViewModalLabel" aria-hidden="true" role="dialog">
+<div class="modal fade" id="dataViewModal" tabindex="-1" aria-labelledby="dataViewModalLabel" role="dialog">
     <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
         <div class="modal-content">
             <div class="modal-header">
@@ -397,8 +397,12 @@ async function showDataModal(table, status, title) {
     
     // Handle modal events for proper accessibility
     modalElement.addEventListener('shown.bs.modal', function () {
-        // Modal is fully shown, aria-hidden is now false
-        // Focus management is now safe
+        // Modal is fully shown, focus management is now safe
+        // Focus on the first focusable element in the modal
+        const firstFocusable = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (firstFocusable) {
+            firstFocusable.focus();
+        }
         loadModalData();
     }, { once: true });
     
@@ -442,17 +446,28 @@ async function loadModalData() {
         
         const response = await api.request(`/database/explorer?${params.toString()}`);
         
-        // Get table data
-        const tableData = response.dbvendor.tables[currentModalTable];
+        // Get table data - Updated to use g_id database instead of dbvendor
+        const tableData = response.g_id?.tables?.[currentModalTable] || response.tables?.[currentModalTable];
         if (tableData && tableData.data) {
             displayModalData(tableData);
             updateModalPagination(tableData.pagination);
         } else {
-            content.innerHTML = '<p class="text-muted">No data available</p>';
+            content.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> No data available for the selected table.</div>';
         }
         
     } catch (error) {
-        content.innerHTML = `<div class="alert alert-danger">Error loading data: ${error.message}</div>`;
+        console.error('Error loading modal data:', error);
+        content.innerHTML = `<div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle"></i> 
+            <strong>Error loading data:</strong><br>
+            ${error.message || 'Unable to connect to the database. Please check if the database is properly initialized.'}
+            <br><br>
+            <small class="text-muted">
+                If this is your first time using the system, please visit the 
+                <a href="/sync" class="alert-link">Sync Management</a> page and click 
+                "Reinitialize Tables" to set up the database.
+            </small>
+        </div>`;
     } finally {
         loading.style.display = 'none';
         content.style.display = 'block';

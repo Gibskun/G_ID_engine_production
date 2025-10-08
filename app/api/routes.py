@@ -618,6 +618,202 @@ async def sync_pegawai_advanced_workflow(
         raise HTTPException(status_code=500, detail=f"Error in pegawai synchronization workflow: {str(e)}")
 
 
+@router.delete("/data/clear-all", response_model=Dict[str, Any])
+async def clear_all_data(
+    confirm: bool = Query(False, description="Confirmation flag to prevent accidental deletion"),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete all data from global_id, global_id_non_database, and pegawai tables
+    
+    This is a destructive operation that will remove ALL records from the main tables.
+    Use with extreme caution!
+    """
+    if not confirm:
+        raise HTTPException(
+            status_code=400, 
+            detail="This operation requires confirmation. Add ?confirm=true to the request."
+        )
+    
+    try:
+        # Get counts before deletion for reporting
+        global_id_count = db.query(GlobalID).count()
+        global_id_non_db_count = db.query(GlobalIDNonDatabase).count()
+        pegawai_count = db.query(Pegawai).count()
+        
+        # Delete all records
+        deleted_global_id = db.query(GlobalID).delete()
+        deleted_global_id_non_db = db.query(GlobalIDNonDatabase).delete()
+        deleted_pegawai = db.query(Pegawai).delete()
+        
+        # Commit the transaction
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "All data has been successfully deleted from the database",
+            "deleted_counts": {
+                "global_id": deleted_global_id,
+                "global_id_non_database": deleted_global_id_non_db,
+                "pegawai": deleted_pegawai
+            },
+            "previous_counts": {
+                "global_id": global_id_count,
+                "global_id_non_database": global_id_non_db_count,
+                "pegawai": pegawai_count
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error clearing data: {str(e)}")
+
+
+@router.post("/database/reinitialize", response_model=Dict[str, Any])
+async def reinitialize_database_tables(
+    confirm: bool = Query(False, description="Confirmation flag to prevent accidental reinitialization"),
+    db: Session = Depends(get_db)
+):
+    """
+    Reinitialize database tables by running the SQL schema creation script
+    
+    This will execute the create_schema_sqlserver.sql file to create/recreate the g_id database
+    and all its tables with the proper structure including passport_id fields.
+    """
+    if not confirm:
+        raise HTTPException(
+            status_code=400, 
+            detail="This operation requires confirmation. Add ?confirm=true to the request."
+        )
+    
+    try:
+        import os
+        from sqlalchemy import create_engine, text
+        from app.models.database import DATABASE_URL
+        
+        # Get current record counts for reporting (if tables exist)
+        try:
+            global_id_count = db.query(GlobalID).count()
+            global_id_non_db_count = db.query(GlobalIDNonDatabase).count()
+            pegawai_count = db.query(Pegawai).count()
+        except:
+            global_id_count = 0
+            global_id_non_db_count = 0
+            pegawai_count = 0
+        
+        # Close the current session to prevent locks
+        db.close()
+        
+        # Read the SQL schema file
+        sql_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'sql', 'create_schema_sqlserver.sql')
+        
+        if not os.path.exists(sql_file_path):
+            raise HTTPException(status_code=500, detail=f"SQL schema file not found at: {sql_file_path}")
+        
+        with open(sql_file_path, 'r', encoding='utf-8') as file:
+            sql_content = file.read()
+        
+        # Split SQL content by GO statements (SQL Server batch separator)
+        sql_batches = [batch.strip() for batch in sql_content.split('GO') if batch.strip()]
+        
+        # Create a new engine connection for executing raw SQL
+        # We need to connect to master first to create the database
+        master_url = DATABASE_URL.replace('/g_id?', '/master?')
+        master_engine = create_engine(master_url)
+        
+        executed_batches = 0
+        results = []
+        
+        # Execute SQL batches
+        with master_engine.connect() as conn:
+            for i, batch in enumerate(sql_batches):
+                try:
+                    # Skip empty batches
+                    if not batch.strip():
+                        continue
+                    
+                    # Execute the batch
+                    result = conn.execute(text(batch))
+                    executed_batches += 1
+                    
+                    # Try to fetch results if available
+                    try:
+                        if result.returns_rows:
+                            rows = result.fetchall()
+                            if rows:
+                                results.extend([dict(row._mapping) for row in rows])
+                    except:
+                        pass
+                    
+                    # Commit after each batch
+                    conn.commit()
+                    
+                except Exception as batch_error:
+                    # Log the error but continue with other batches
+                    results.append(f"Error in batch {i+1}: {str(batch_error)}")
+                    # Don't break - some errors might be expected (like "database already exists")
+                    continue
+        
+        master_engine.dispose()
+        
+        # Verify that tables were created by connecting to the g_id database
+        g_id_engine = create_engine(DATABASE_URL)
+        
+        verification_results = {}
+        with g_id_engine.connect() as conn:
+            try:
+                # Check if tables exist
+                table_check_query = text("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'dbo' 
+                    AND table_type = 'BASE TABLE'
+                    ORDER BY table_name
+                """)
+                
+                tables_result = conn.execute(table_check_query)
+                tables = [row[0] for row in tables_result.fetchall()]
+                verification_results['tables_created'] = tables
+                
+                # Check record counts in each table
+                record_counts = {}
+                for table in tables:
+                    try:
+                        count_query = text(f"SELECT COUNT(*) FROM dbo.{table}")
+                        count_result = conn.execute(count_query)
+                        record_counts[table] = count_result.scalar()
+                    except:
+                        record_counts[table] = 0
+                
+                verification_results['record_counts'] = record_counts
+                
+            except Exception as verify_error:
+                verification_results['error'] = str(verify_error)
+        
+        g_id_engine.dispose()
+        
+        return {
+            "success": True,
+            "message": "Database schema has been successfully executed and tables initialized",
+            "previous_counts": {
+                "global_id": global_id_count,
+                "global_id_non_database": global_id_non_db_count,
+                "pegawai": pegawai_count
+            },
+            "execution_results": {
+                "sql_file_path": sql_file_path,
+                "batches_executed": executed_batches,
+                "total_batches": len(sql_batches)
+            },
+            "verification": verification_results,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reinitializing database: {str(e)}")
+
+
 @router.get("/workflow/status", response_model=Dict[str, Any])
 async def get_workflow_status(
     db: Session = Depends(get_db),
@@ -998,14 +1194,14 @@ async def get_all_database_info(
     """Get global_id table data with pagination for faster loading"""
     try:
         result = {
-            "dbvendor": {
+            "g_id": {
                 "database_name": "Global ID Management System - Primary Database",
-                "connection_url": "mssql+pyodbc://sqlvendor1:***@localhost:1435/dbvendor",
+                "connection_url": "mssql+pyodbc://sqlvendor1:***@localhost:1435/g_id",
                 "tables": {}
             }
         }
         
-        # Get all tables from consolidated dbvendor database
+        # Get all tables from consolidated g_id database
         try:
             # Get requested table(s) based on filter
             if table:
@@ -1145,7 +1341,7 @@ async def get_all_database_info(
                             row_dict[col["name"]] = value
                         data_list.append(row_dict)
                     
-                    result["dbvendor"]["tables"][table_name] = {
+                    result["g_id"]["tables"][table_name] = {
                         "columns": columns,
                         "data": data_list,
                         "row_count": len(data_list),
@@ -1161,7 +1357,7 @@ async def get_all_database_info(
                     }
                     
                 except Exception as table_error:
-                    result["dbvendor"]["tables"][table_name] = {
+                    result["g_id"]["tables"][table_name] = {
                         "error": f"Error fetching data: {str(table_error)}",
                         "columns": [],
                         "data": [],
@@ -1178,7 +1374,7 @@ async def get_all_database_info(
                     }
                     
         except Exception as db_error:
-            result["dbvendor"]["error"] = f"Error connecting to dbvendor: {str(db_error)}"
+            result["g_id"]["error"] = f"Error connecting to g_id: {str(db_error)}"
 
         
         return result
