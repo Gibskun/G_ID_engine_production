@@ -425,6 +425,16 @@
     white-space: nowrap;
 }
 
+.actions-cell .text-muted.small {
+    font-size: 0.75rem;
+    color: #6c757d !important;
+    background-color: #f8f9fa;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    border: 1px solid #dee2e6;
+    display: inline-block;
+}
+
 .badge {
     padding: 0.25rem 0.5rem;
     border-radius: 0.25rem;
@@ -1802,16 +1812,22 @@ function generateTableHtml(tableName, tableData) {
                 const isActive = status.toLowerCase() === 'active';
                 
                 if (window.userPermissions && (window.userPermissions.can_delete || window.userPermissions.can_edit)) {
-                    if (isActive && window.userPermissions.can_delete) {
-                        // Show Delete action for Active records
+                    const source = (row.source || '').toLowerCase();
+                    
+                    if (isActive && window.userPermissions.can_delete && source !== 'excel') {
+                        // Show Delete action for Active records, but not for Excel sources
                         tableHtml += `<td class="actions-cell">
                             <button class="btn btn-danger btn-sm" onclick="showDeleteGlobalIDModal('${row.g_id}', '${row.name}', '${row.no_ktp}', '${status}')" title="Delete this record">
                                 <i class="fas fa-trash"></i> Delete
                             </button>
                         </td>`;
+                    } else if (isActive && window.userPermissions.can_delete && source === 'excel') {
+                        // No delete button for Excel sources - show indicator
+                        tableHtml += `<td class="actions-cell">
+                            <span class="text-muted small">Excel source</span>
+                        </td>`;
                     } else if (!isActive && window.userPermissions.can_edit) {
                         // Show Refill action for Non-Active records, but not for Excel sources
-                        const source = (row.source || '').toLowerCase();
                         if (source !== 'excel') {
                             tableHtml += `<td class="actions-cell">
                                 <button class="btn btn-info btn-sm" onclick="showRefillModal('${row.g_id}', '${row.name}', '${row.no_ktp}', '${row.bod}', '${row.personal_number || ''}')" title="Refill with this data">
