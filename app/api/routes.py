@@ -471,6 +471,7 @@ async def upload_excel_file(
             
             if result['success']:
                 stats = result['stats']
+                warnings = result.get('warnings', [])
                 
                 # Create comprehensive success message
                 message_parts = [f"Synchronization successful. File '{filename}' has been processed."]
@@ -490,6 +491,10 @@ async def upload_excel_file(
                 if stats['errors'] > 0:
                     message_parts.append(f"Warning: {stats['errors']} errors occurred during processing.")
                 
+                # Add warnings about auto-generated passport IDs
+                if warnings:
+                    message_parts.append(f"\n\n⚠️ IMPORTANT NOTICES:\n" + "\n".join(warnings))
+                
                 success_message = " ".join(message_parts)
                 
                 return ExcelUploadResponse(
@@ -498,6 +503,7 @@ async def upload_excel_file(
                     filename=filename,
                     processing_summary={
                         'sync_stats': stats,
+                        'warnings': warnings,
                         'operation_type': 'full_synchronization',
                         'file_processed': filename,
                         'timestamp': datetime.utcnow().isoformat()
