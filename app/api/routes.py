@@ -1286,6 +1286,7 @@ async def get_all_database_info(
     table: Optional[str] = Query(None, description="Specific table to view"),
     status: Optional[str] = Query(None, description="Filter by status (Active/Non Active)"),
     search: Optional[str] = Query(None, description="Search by name, date of birth, ID number, or G_ID"),
+    gid_filter: Optional[str] = Query(None, description="Filter pegawai by G_ID status (has_gid/no_gid)"),
     db: Session = Depends(get_db),
     source_db: Session = Depends(get_source_db)
 ):
@@ -1366,6 +1367,13 @@ async def get_all_database_info(
                         if has_status:
                             where_conditions.append(f"status = '{status}'")
                     
+                    # G_ID filtering for pegawai table
+                    if gid_filter and table_name == 'pegawai':
+                        if gid_filter == 'has_gid':
+                            where_conditions.append("g_id IS NOT NULL AND g_id != ''")
+                        elif gid_filter == 'no_gid':
+                            where_conditions.append("(g_id IS NULL OR g_id = '')")
+                    
                     # Search filtering (for global_id table)
                     if search and table_name == 'global_id':
                         search_term = search.replace("'", "''")  # Escape single quotes
@@ -1381,6 +1389,34 @@ async def get_all_database_info(
                             # Search in text/varchar columns (names, IDs)
                             if col_type in ['varchar', 'nvarchar', 'char', 'nchar', 'text', 'ntext']:
                                 # Match actual column names from GlobalID model
+                                if col_name in ['name', 'g_id', 'no_ktp', 'personal_number', 'passport_id']:
+                                    search_conditions.append(f"LOWER({col['name']}) LIKE LOWER('%{search_term}%')")
+                            
+                            # Search in date columns (birth date)
+                            elif col_type in ['date', 'datetime', 'datetime2', 'smalldatetime']:
+                                # Match actual date column name 'bod' (birth of date)
+                                if col_name in ['bod']:
+                                    # Try to match date format (YYYY-MM-DD or partial matches)
+                                    search_conditions.append(f"CONVERT(varchar, {col['name']}, 23) LIKE '%{search_term}%'")
+                        
+                        # If we have search conditions, add them to where clause
+                        if search_conditions:
+                            where_conditions.append(f"({' OR '.join(search_conditions)})")
+                    
+                    # Search filtering for pegawai table
+                    elif search and table_name == 'pegawai':
+                        search_term = search.replace("'", "''")  # Escape single quotes
+                        
+                        # Build search conditions for pegawai columns
+                        search_conditions = []
+                        
+                        for col in columns:
+                            col_name = col["name"].lower()
+                            col_type = col["type"].lower()
+                            
+                            # Search in text/varchar columns (names, IDs)
+                            if col_type in ['varchar', 'nvarchar', 'char', 'nchar', 'text', 'ntext']:
+                                # Match actual column names from Pegawai model
                                 if col_name in ['name', 'g_id', 'no_ktp', 'personal_number', 'passport_id']:
                                     search_conditions.append(f"LOWER({col['name']}) LIKE LOWER('%{search_term}%')")
                             
@@ -1479,6 +1515,111 @@ async def get_all_database_info(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting database information: {str(e)}")
+
+
+@router.get("/database/sap-data")
+async def get_sap_data(
+    page: int = Query(1, ge=1, description="Page number"),
+    size: int = Query(50, ge=1, le=100, description="Records per page"),
+    gid_filter: Optional[str] = Query(None, description="Filter by G_ID status (has_gid/no_gid)"),
+    search: Optional[str] = Query(None, description="Search by name, personal number, KTP, or G_ID"),
+    db: Session = Depends(get_db)
+):
+    """Get SAP (Employee/Pegawai) data with filtering and pagination"""
+    try:
+        # Build WHERE clause conditions
+        where_conditions = []
+        
+        # G_ID filtering
+        if gid_filter:
+            if gid_filter == 'has_gid':
+                where_conditions.append("g_id IS NOT NULL AND g_id != ''")
+            elif gid_filter == 'no_gid':
+                where_conditions.append("(g_id IS NULL OR g_id = '')")
+        
+        # Search filtering
+        if search:
+            search_term = search.replace("'", "''")  # Escape single quotes
+            search_conditions = [
+                f"LOWER(name) LIKE LOWER('%{search_term}%')",
+                f"LOWER(personal_number) LIKE LOWER('%{search_term}%')",
+                f"LOWER(no_ktp) LIKE LOWER('%{search_term}%')",
+                f"LOWER(g_id) LIKE LOWER('%{search_term}%')"
+            ]
+            where_conditions.append(f"({' OR '.join(search_conditions)})")
+        
+        # Combine all conditions
+        where_clause = ""
+        if where_conditions:
+            where_clause = f"WHERE {' AND '.join(where_conditions)}"
+        
+        # Get total count for pagination
+        count_query = text(f"SELECT COUNT(*) as total FROM dbo.pegawai {where_clause}")
+        total_count = db.execute(count_query).fetchone().total
+        
+        # Calculate pagination parameters
+        offset = (page - 1) * size
+        total_pages = (total_count + size - 1) // size  # Math.ceil equivalent
+        
+        # Get paginated data
+        data_query = text(f"""
+            SELECT id, name, personal_number, no_ktp, bod, g_id, 
+                   created_at, updated_at, deleted_at
+            FROM dbo.pegawai 
+            {where_clause}
+            ORDER BY id
+            OFFSET {offset} ROWS
+            FETCH NEXT {size} ROWS ONLY
+        """)
+        
+        data_result = db.execute(data_query).fetchall()
+        
+        # Convert data to list of dictionaries
+        data_list = []
+        columns = [
+            {"name": "id", "type": "int"}, 
+            {"name": "name", "type": "varchar"}, 
+            {"name": "personal_number", "type": "varchar"}, 
+            {"name": "no_ktp", "type": "varchar"}, 
+            {"name": "bod", "type": "date"}, 
+            {"name": "g_id", "type": "varchar"}, 
+            {"name": "created_at", "type": "datetime"}, 
+            {"name": "updated_at", "type": "datetime"}, 
+            {"name": "deleted_at", "type": "datetime"}
+        ]
+        
+        for row in data_result:
+            row_dict = {}
+            for i, col in enumerate(columns):
+                value = row[i]
+                # Convert datetime objects to strings
+                if hasattr(value, 'isoformat'):
+                    value = value.isoformat()
+                row_dict[col["name"]] = value
+            data_list.append(row_dict)
+        
+        return {
+            "success": True,
+            "data": {
+                "columns": columns,
+                "records": data_list,
+                "pagination": {
+                    "current_page": page,
+                    "page_size": size,
+                    "total_pages": total_pages,
+                    "total_records": total_count,
+                    "has_next": page < total_pages,
+                    "has_previous": page > 1
+                },
+                "filters": {
+                    "gid_filter": gid_filter,
+                    "search": search
+                }
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting SAP data: {str(e)}")
 
 
 @router.post("/system/repair-gid-sequence")

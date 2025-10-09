@@ -447,6 +447,52 @@
     color: white;
 }
 
+.badge-success {
+    background-color: #28a745;
+    color: white;
+}
+
+/* SAP Data Section Styling */
+.database-header.pegawai {
+    background: linear-gradient(135deg, #fd7e14 0%, #e83e8c 100%);
+}
+
+.btn-outline-light {
+    border-color: rgba(255, 255, 255, 0.5);
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-light:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: white;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.btn-outline-light:active {
+    transform: translateY(0);
+}
+
+/* Smooth transitions for collapsible content */
+.database-info, .search-section, #sap-data-tables {
+    transition: opacity 0.3s ease, max-height 0.3s ease;
+}
+
+/* Enhanced View SAP Data button */
+.btn-lg {
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.btn-lg:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
 /* Modal Styling */
 .modal {
     display: none;
@@ -1291,7 +1337,89 @@
                 <!-- Global ID table will be loaded here -->
             </div>
         </div>
+        
+        <!-- SAP Data Section -->
+        <div class="database-section" id="sap-data-section" style="display: none;">
+            <div class="database-header pegawai">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2><i class="fas fa-users"></i> SAP Employee Data</h2>
+                    <div>
+                        <button class="btn btn-outline-light btn-sm me-2" onclick="toggleSapDataContent()" title="Collapse/Expand Content" id="sap-toggle-btn">
+                            <i class="fas fa-chevron-up"></i> Collapse
+                        </button>
+                        <button class="btn btn-outline-light btn-sm" onclick="closeSapDataSection()" title="Close SAP Data View">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="database-info">
+                <p><strong>Connection:</strong> <code>mssql+pyodbc://sqlvendor1:***@localhost:1435/g_id</code></p>
+                <p><strong>Table:</strong> pegawai | <strong>Total Records:</strong> <span id="sap-record-count">0</span></p>
+                <p><strong>Description:</strong> Employee records from SAP system with G_ID assignments</p>
+            </div>
+            
+            <!-- SAP Data Controls -->
+            <div class="search-section" style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+                <div class="search-header" style="margin-bottom: 15px;">
+                    <h4 style="margin: 0; color: #495057;"><i class="fas fa-filter"></i> Filter SAP Employee Data</h4>
+                    <small class="text-muted">Filter by G_ID status and search employee records</small>
+                </div>
+                <div class="search-form">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label for="gid-filter" class="form-label">G_ID Status Filter</label>
+                            <select id="gid-filter" class="form-select" onchange="loadSapData()">
+                                <option value="">All Employees</option>
+                                <option value="has_gid">Has G_ID</option>
+                                <option value="no_gid">No G_ID</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="sap-search-input" class="form-label">Search</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" 
+                                       id="sap-search-input" 
+                                       class="form-control" 
+                                       placeholder="Search by name, personal number, KTP, or G_ID"
+                                       style="font-size: 0.9rem;"
+                                       autocomplete="off">
+                                <button class="btn btn-outline-secondary" type="button" onclick="clearSapSearch()" title="Clear search">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button class="btn btn-primary d-block w-100" onclick="loadSapData()">
+                                <i class="fas fa-search"></i> Filter
+                            </button>
+                        </div>
+                    </div>
+                    <div id="sap-search-status" class="mt-2" style="display: none;">
+                        <!-- Search status will be shown here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div id="sap-data-tables">
+                <!-- SAP data table will be loaded here -->
+            </div>
+        </div>
     </div>
+</div>
+
+<!-- View SAP Data Button -->
+<div class="text-center mb-4" id="sap-data-button" style="display: none;">
+    <div class="alert alert-info d-inline-block mb-3" style="max-width: 600px;">
+        <i class="fas fa-info-circle"></i> 
+        <strong>SAP Employee Data Available:</strong> Click below to view employee records with G_ID filtering and search capabilities.
+    </div>
+    <br>
+    <button class="btn btn-warning btn-lg" onclick="showSapDataSection()">
+        <i class="fas fa-eye"></i> View SAP Employee Data
+    </button>
 </div>
 
 <script>
@@ -1399,6 +1527,9 @@ async function loadAllDatabaseData(page = 1) {
         
         loading.style.display = 'none';
         content.style.display = 'block';
+        
+        // Show SAP data button after Global ID data loads
+        showSapDataButton();
         
     } catch (error) {
         console.error('Error loading database data:', error);
@@ -3326,6 +3457,365 @@ document.addEventListener('DOMContentLoaded', function() {
 // Expose modal functions globally for onclick handlers
 window.showAddGlobalIDModal = showAddGlobalIDModal;
 window.showDeleteGlobalIDModal = showDeleteGlobalIDModal;
+
+// SAP Data functionality
+let currentSapPage = 1;
+let sapDataLoaded = false;
+
+function showSapDataSection() {
+    const sapSection = document.getElementById('sap-data-section');
+    const sapButton = document.getElementById('sap-data-button');
+    
+    sapSection.style.display = 'block';
+    sapButton.style.display = 'none';
+    
+    // Reset toggle button state
+    resetSapToggleButton();
+    
+    if (!sapDataLoaded) {
+        loadSapData();
+    }
+}
+
+function closeSapDataSection() {
+    // Add confirmation dialog for better UX
+    if (sapDataLoaded && confirm('Are you sure you want to close the SAP data view? You can reopen it using the "View SAP Employee Data" button.')) {
+        const sapSection = document.getElementById('sap-data-section');
+        const sapButton = document.getElementById('sap-data-button');
+        
+        // Add fade out animation
+        sapSection.style.transition = 'opacity 0.3s ease';
+        sapSection.style.opacity = '0';
+        
+        // Hide after animation and show button
+        setTimeout(() => {
+            sapSection.style.display = 'none';
+            sapSection.style.opacity = '1';
+            sapSection.style.transition = '';
+            sapButton.style.display = 'block';
+            
+            // Reset toggle button state
+            resetSapToggleButton();
+        }, 300);
+    } else if (!sapDataLoaded) {
+        // If no data loaded yet, close immediately
+        const sapSection = document.getElementById('sap-data-section');
+        const sapButton = document.getElementById('sap-data-button');
+        
+        sapSection.style.display = 'none';
+        sapButton.style.display = 'block';
+        resetSapToggleButton();
+    }
+}
+
+function toggleSapDataContent() {
+    const sapInfoSection = document.querySelector('#sap-data-section .database-info');
+    const sapSearchSection = document.querySelector('#sap-data-section .search-section');
+    const sapTablesSection = document.getElementById('sap-data-tables');
+    const toggleBtn = document.getElementById('sap-toggle-btn');
+    
+    const isCollapsed = sapInfoSection.style.display === 'none';
+    
+    if (isCollapsed) {
+        // Expand content
+        sapInfoSection.style.display = 'block';
+        sapSearchSection.style.display = 'block';
+        sapTablesSection.style.display = 'block';
+        toggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i> Collapse';
+        toggleBtn.title = 'Collapse Content';
+    } else {
+        // Collapse content
+        sapInfoSection.style.display = 'none';
+        sapSearchSection.style.display = 'none';
+        sapTablesSection.style.display = 'none';
+        toggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i> Expand';
+        toggleBtn.title = 'Expand Content';
+    }
+}
+
+function resetSapToggleButton() {
+    const toggleBtn = document.getElementById('sap-toggle-btn');
+    if (toggleBtn) {
+        toggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i> Collapse';
+        toggleBtn.title = 'Collapse Content';
+    }
+    
+    // Reset content visibility
+    const sapInfoSection = document.querySelector('#sap-data-section .database-info');
+    const sapSearchSection = document.querySelector('#sap-data-section .search-section');
+    const sapTablesSection = document.getElementById('sap-data-tables');
+    
+    if (sapInfoSection) sapInfoSection.style.display = 'block';
+    if (sapSearchSection) sapSearchSection.style.display = 'block';
+    if (sapTablesSection) sapTablesSection.style.display = 'block';
+}
+
+async function loadSapData(page = 1) {
+    currentSapPage = page;
+    const sapTablesContainer = document.getElementById('sap-data-tables');
+    const gidFilter = document.getElementById('gid-filter').value;
+    const searchTerm = document.getElementById('sap-search-input').value.trim();
+    
+    // Show loading
+    sapTablesContainer.innerHTML = `
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Loading SAP employee data...</p>
+        </div>
+    `;
+    
+    try {
+        const params = new URLSearchParams({
+            page: page,
+            size: 50
+        });
+        
+        if (gidFilter) {
+            params.append('gid_filter', gidFilter);
+        }
+        
+        if (searchTerm) {
+            params.append('search', searchTerm);
+        }
+        
+        const apiBaseUrl = getApiBaseUrl();
+        const response = await fetch(`${apiBaseUrl}/database/sap-data?${params.toString()}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            displaySapData(result.data);
+            updateSapRecordCount(result.data.pagination.total_records);
+            sapDataLoaded = true;
+        } else {
+            throw new Error(result.message || 'Failed to load SAP data');
+        }
+        
+    } catch (error) {
+        console.error('Error loading SAP data:', error);
+        sapTablesContainer.innerHTML = `
+            <div class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>Error loading SAP data:</strong><br>
+                ${error.message}
+                <br><br>
+                <button class="btn btn-outline-primary btn-sm" onclick="loadSapData()">
+                    <i class="fas fa-sync-alt"></i> Retry
+                </button>
+            </div>
+        `;
+    }
+}
+
+function displaySapData(data) {
+    const sapTablesContainer = document.getElementById('sap-data-tables');
+    
+    if (!data.records || data.records.length === 0) {
+        sapTablesContainer.innerHTML = `
+            <div class="no-data-message">
+                <i class="fas fa-inbox"></i>
+                <h4>No SAP Employee Records Found</h4>
+                <p>No employees match the current filter criteria.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Create table HTML
+    let tableHtml = `
+        <div class="table-section">
+            <div class="table-header">
+                <h3><i class="fas fa-users"></i> SAP Employee Records</h3>
+                <div class="table-meta">
+                    ${data.pagination.total_records} total records
+                </div>
+            </div>
+            <div class="table-content">
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+    `;
+    
+    // Add column headers
+    data.columns.forEach(col => {
+        if (col.name !== 'deleted_at') { // Skip deleted_at column
+            tableHtml += `<th>${col.name.charAt(0).toUpperCase() + col.name.slice(1).replace('_', ' ')}</th>`;
+        }
+    });
+    tableHtml += `</tr></thead><tbody>`;
+    
+    // Add data rows
+    data.records.forEach(record => {
+        tableHtml += '<tr>';
+        data.columns.forEach(col => {
+            if (col.name !== 'deleted_at') { // Skip deleted_at column
+                let value = record[col.name];
+                
+                if (value === null || value === undefined) {
+                    value = '-';
+                } else if (col.name === 'g_id') {
+                    // Highlight G_ID status
+                    if (value && value.trim() !== '') {
+                        value = `<span class="badge badge-success">${value}</span>`;
+                    } else {
+                        value = '<span class="badge badge-secondary">No G_ID</span>';
+                    }
+                } else if (typeof value === 'string' && value.includes('T')) {
+                    // Format datetime
+                    try {
+                        value = new Date(value).toLocaleString();
+                    } catch (e) {
+                        // Keep original value if parsing fails
+                    }
+                }
+                
+                tableHtml += `<td>${value}</td>`;
+            }
+        });
+        tableHtml += '</tr>';
+    });
+    
+    tableHtml += `
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination Controls -->
+                <div class="pagination-section">
+                    <div class="pagination-controls">
+                        ${generateAdvancedSapPagination(data.pagination)}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    sapTablesContainer.innerHTML = tableHtml;
+}
+
+function generateAdvancedSapPagination(pagination) {
+    const currentPage = pagination.current_page || 1;
+    const totalPages = pagination.total_pages || 1;
+    const hasNext = pagination.has_next || false;
+    const hasPrevious = pagination.has_previous || false;
+    
+    if (totalPages <= 1) {
+        return `<span class="page-info">Page 1 of 1</span>`;
+    }
+    
+    let paginationHtml = '';
+    
+    // Previous button
+    paginationHtml += `
+        <button class="btn btn-sm btn-secondary pagination-btn" 
+                onclick="loadSapData(${currentPage - 1})" 
+                ${!hasPrevious ? 'disabled' : ''}>
+            <i class="fas fa-chevron-left"></i>
+        </button>
+    `;
+    
+    // First page
+    if (currentPage > 2) {
+        paginationHtml += `
+            <button class="btn btn-sm btn-outline-primary pagination-btn page-number" 
+                    onclick="loadSapData(1)">1</button>
+        `;
+        if (currentPage > 3) {
+            paginationHtml += `<span class="pagination-ellipsis">...</span>`;
+        }
+    }
+    
+    // Pages around current page
+    const startPage = Math.max(1, currentPage - 1);
+    const endPage = Math.min(totalPages, currentPage + 1);
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const isActive = i === currentPage;
+        paginationHtml += `
+            <button class="btn btn-sm ${isActive ? 'btn-primary' : 'btn-outline-primary'} pagination-btn page-number" 
+                    onclick="loadSapData(${i})" 
+                    ${isActive ? 'disabled' : ''}>${i}</button>
+        `;
+    }
+    
+    // Last pages
+    if (currentPage < totalPages - 1) {
+        if (currentPage < totalPages - 2) {
+            paginationHtml += `<span class="pagination-ellipsis">...</span>`;
+        }
+        paginationHtml += `
+            <button class="btn btn-sm btn-outline-primary pagination-btn page-number" 
+                    onclick="loadSapData(${totalPages})">${totalPages}</button>
+        `;
+    }
+    
+    // Next button
+    paginationHtml += `
+        <button class="btn btn-sm btn-secondary pagination-btn" 
+                onclick="loadSapData(${currentPage + 1})" 
+                ${!hasNext ? 'disabled' : ''}>
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    `;
+    
+    // Page info
+    paginationHtml += `
+        <span class="page-info-advanced">
+            Page ${currentPage} of ${totalPages} (${pagination.total_records || 0} records)
+        </span>
+    `;
+    
+    return paginationHtml;
+}
+
+function updateSapRecordCount(count) {
+    const sapRecordCount = document.getElementById('sap-record-count');
+    if (sapRecordCount) {
+        sapRecordCount.textContent = count || 0;
+    }
+}
+
+function clearSapSearch() {
+    document.getElementById('sap-search-input').value = '';
+    loadSapData();
+}
+
+// Show SAP data button after Global ID data loads
+function showSapDataButton() {
+    const sapButton = document.getElementById('sap-data-button');
+    sapButton.style.display = 'block';
+}
+
+// Add search input event listener for SAP data
+document.addEventListener('DOMContentLoaded', function() {
+    const sapSearchInput = document.getElementById('sap-search-input');
+    if (sapSearchInput) {
+        let searchTimeout;
+        sapSearchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                if (sapDataLoaded) {
+                    loadSapData();
+                }
+            }, 500); // 500ms delay for auto-search
+        });
+    }
+    
+    // Add keyboard shortcut for closing SAP data (Escape key)
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            const sapSection = document.getElementById('sap-data-section');
+            if (sapSection && sapSection.style.display === 'block') {
+                closeSapDataSection();
+            }
+        }
+    });
+});
 </script>
 
 <!-- No modals needed for read-only Global ID display -->
