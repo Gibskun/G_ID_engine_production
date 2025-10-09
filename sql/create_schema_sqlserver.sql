@@ -32,8 +32,8 @@ CREATE TABLE dbo.global_id (
     g_id NVARCHAR(10) NOT NULL PRIMARY KEY,
     name NVARCHAR(255) NOT NULL,
     personal_number NVARCHAR(15),
-    no_ktp NVARCHAR(16) NOT NULL UNIQUE,
-    passport_id NVARCHAR(9) NOT NULL UNIQUE,
+    no_ktp NVARCHAR(16) NULL,  -- Allow NULL - both fields can be empty
+    passport_id NVARCHAR(9) NULL,  -- Allow NULL - both fields can be empty
     bod DATE,
     status NVARCHAR(15) NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Non Active')),
     source NVARCHAR(20) NOT NULL DEFAULT 'database_pegawai' CHECK (source IN ('database_pegawai', 'excel')),
@@ -47,13 +47,16 @@ CREATE TABLE dbo.global_id_non_database (
     g_id NVARCHAR(10) NOT NULL PRIMARY KEY,
     name NVARCHAR(255) NOT NULL,
     personal_number NVARCHAR(15),
-    no_ktp NVARCHAR(16) NOT NULL UNIQUE,
-    passport_id NVARCHAR(9) NOT NULL UNIQUE,
+    no_ktp NVARCHAR(16) NULL,  -- Allow NULL - both fields can be empty
+    passport_id NVARCHAR(9) NULL,  -- Allow NULL - both fields can be empty
+    passport_id NVARCHAR(9) NULL,  -- Allow NULL - both fields can be empty
     bod DATE,
     status NVARCHAR(15) NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Non Active')),
     source NVARCHAR(20) NOT NULL DEFAULT 'excel' CHECK (source IN ('database_pegawai', 'excel')),
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE()
+);
+GO
 );
 GO
 
@@ -75,14 +78,48 @@ CREATE TABLE dbo.pegawai (
     id INT IDENTITY(1,1) PRIMARY KEY,
     name NVARCHAR(255) NOT NULL,
     personal_number NVARCHAR(15),
-    no_ktp NVARCHAR(16) NOT NULL UNIQUE,
-    passport_id NVARCHAR(9) NOT NULL UNIQUE,
+    no_ktp NVARCHAR(16) NULL,  -- Allow NULL - both fields can be empty
+    passport_id NVARCHAR(9) NULL,  -- Allow NULL - both fields can be empty
     bod DATE,
     g_id NVARCHAR(10),
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
     deleted_at DATETIME2 NULL
 );
+GO
+
+-- =========================================
+-- Create Unique Indexes for Nullable Fields
+-- =========================================
+
+-- For global_id table
+CREATE UNIQUE INDEX IX_global_id_no_ktp_unique 
+    ON dbo.global_id (no_ktp) 
+    WHERE no_ktp IS NOT NULL;
+
+CREATE UNIQUE INDEX IX_global_id_passport_id_unique 
+    ON dbo.global_id (passport_id) 
+    WHERE passport_id IS NOT NULL;
+GO
+
+-- For global_id_non_database table
+CREATE UNIQUE INDEX IX_global_id_non_db_no_ktp_unique 
+    ON dbo.global_id_non_database (no_ktp) 
+    WHERE no_ktp IS NOT NULL;
+
+CREATE UNIQUE INDEX IX_global_id_non_db_passport_id_unique 
+    ON dbo.global_id_non_database (passport_id) 
+    WHERE passport_id IS NOT NULL;
+GO
+
+-- For pegawai table
+CREATE UNIQUE INDEX IX_pegawai_no_ktp_unique 
+    ON dbo.pegawai (no_ktp) 
+    WHERE no_ktp IS NOT NULL;
+
+CREATE UNIQUE INDEX IX_pegawai_passport_id_unique 
+    ON dbo.pegawai (passport_id) 
+    WHERE passport_id IS NOT NULL;
 GO
 
 -- Audit Log Table

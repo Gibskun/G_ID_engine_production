@@ -239,35 +239,71 @@ class ExcelIngestionService:
                         processing_summary['skipped'] += 1
                         processing_summary['errors'].append(row_data['error'])
                         continue
-                    # Check for existing record by (name, No_KTP, BOD)
-                    existing_global = self.db.query(GlobalID).filter(
-                        and_(
-                            GlobalID.name == row_data['name'],
-                            GlobalID.no_ktp == row_data['No_KTP'],
-                            GlobalID.bod == row_data.get('BOD')
-                        )
-                    ).first()
+                    # Check for existing record based on available data
+                    # Priority: (name, No_KTP, BOD) if No_KTP exists, otherwise (name, passport_id, BOD)
+                    existing_global = None
+                    
+                    if row_data['no_ktp']:
+                        # Check by name, no_ktp, and BOD
+                        existing_global = self.db.query(GlobalID).filter(
+                            and_(
+                                GlobalID.name == row_data['name'],
+                                GlobalID.no_ktp == row_data['no_ktp'],
+                                GlobalID.bod == row_data.get('bod')
+                            )
+                        ).first()
+                    elif row_data['passport_id']:
+                        # Check by name, passport_id, and BOD when no_ktp is not available
+                        existing_global = self.db.query(GlobalID).filter(
+                            and_(
+                                GlobalID.name == row_data['name'],
+                                GlobalID.passport_id == row_data['passport_id'],
+                                GlobalID.bod == row_data.get('bod')
+                            )
+                        ).first()
+                    
                     if existing_global:
                         if existing_global.status == "Non Active":
                             # Reactivate
                             existing_global.status = "Active"
                             existing_global.updated_at = datetime.now()
+                            
+                            # Update passport_id if provided and currently missing
+                            if row_data['passport_id'] and not existing_global.passport_id:
+                                existing_global.passport_id = row_data['passport_id']
+                            
                             # Reactivate in global_id_non_database
-                            existing_non_db = self.db.query(GlobalIDNonDatabase).filter(
-                                and_(
-                                    GlobalIDNonDatabase.name == row_data['name'],
-                                    GlobalIDNonDatabase.no_ktp == row_data['No_KTP'],
-                                    GlobalIDNonDatabase.bod == row_data.get('BOD')
-                                )
-                            ).first()
+                            existing_non_db = None
+                            if row_data['no_ktp']:
+                                existing_non_db = self.db.query(GlobalIDNonDatabase).filter(
+                                    and_(
+                                        GlobalIDNonDatabase.name == row_data['name'],
+                                        GlobalIDNonDatabase.no_ktp == row_data['no_ktp'],
+                                        GlobalIDNonDatabase.bod == row_data.get('bod')
+                                    )
+                                ).first()
+                            elif row_data['passport_id']:
+                                existing_non_db = self.db.query(GlobalIDNonDatabase).filter(
+                                    and_(
+                                        GlobalIDNonDatabase.name == row_data['name'],
+                                        GlobalIDNonDatabase.passport_id == row_data['passport_id'],
+                                        GlobalIDNonDatabase.bod == row_data.get('bod')
+                                    )
+                                ).first()
+                            
                             if existing_non_db:
                                 existing_non_db.status = "Active"
                                 existing_non_db.updated_at = datetime.now()
+                                # Update passport_id if provided and currently missing
+                                if row_data['passport_id'] and not existing_non_db.passport_id:
+                                    existing_non_db.passport_id = row_data['passport_id']
+                            
                             self.db.commit()
                             reactivated_records.append({
                                 'gid': existing_global.g_id,
                                 'name': row_data['name'],
-                                'no_ktp': row_data['No_KTP'],
+                                'no_ktp': row_data['no_ktp'],
+                                'passport_id': row_data['passport_id'],
                                 'reactivated': True
                             })
                             processing_summary['successful'] += 1
@@ -275,8 +311,9 @@ class ExcelIngestionService:
                         else:
                             # Already active, skip
                             processing_summary['skipped'] += 1
+                            identifier = f"No_KTP: {row_data['no_ktp']}" if row_data['no_ktp'] else f"Passport_ID: {row_data['passport_id']}"
                             processing_summary['errors'].append(
-                                f"Row {row_num}: (name, No_KTP, BOD) already exists and is active"
+                                f"Row {row_num}: Record with {identifier} already exists and is active"
                             )
                             continue
                     valid_records.append((row_num, row_data))
@@ -319,24 +356,18 @@ class ExcelIngestionService:
                     'error': f"Row {row_number}: Name is required"
                 }
             
-            if pd.isna(row['no_ktp']) or not str(row['no_ktp']).strip():
-                return {
-                    'valid': False,
-                    'error': f"Row {row_number}: No_KTP is required"
-                }
+            # NEW VALIDATION LOGIC: Both no_ktp and passport_id can be empty
+            no_ktp_value = str(row['no_ktp']).strip() if pd.notna(row['no_ktp']) else ""
+            passport_id_value = str(row['passport_id']).strip() if pd.notna(row['passport_id']) else ""
             
-            if pd.isna(row['passport_id']) or not str(row['passport_id']).strip():
-                return {
-                    'valid': False,
-                    'error': f"Row {row_number}: Passport_ID is required"
-                }
+            # Both fields can be empty - no validation required for identifiers
             
             # Clean and validate data
             cleaned_data = {
                 'name': str(row['name']).strip()[:255],  # Limit to 255 chars
                 'personal_number': str(row['personal_number']).strip()[:15] if pd.notna(row.get('personal_number', '')) and str(row.get('personal_number', '')).strip() else None,
-                'No_KTP': str(row['no_ktp']).strip()[:16],  # Limit to 16 chars
-                'passport_id': str(row['passport_id']).strip()[:9]  # Limit to 9 chars
+                'no_ktp': no_ktp_value[:16] if no_ktp_value else None,  # Limit to 16 chars, allow None
+                'passport_id': passport_id_value[:9] if passport_id_value else None  # Limit to 9 chars, allow None
             }
             
             # Handle BOD (Birth of Date)
@@ -344,7 +375,7 @@ class ExcelIngestionService:
                 if isinstance(row['bod'], str):
                     try:
                         # Try to parse date string
-                        cleaned_data['BOD'] = pd.to_datetime(row['bod']).date()
+                        cleaned_data['bod'] = pd.to_datetime(row['bod']).date()
                     except:
                         return {
                             'valid': False,
@@ -352,30 +383,30 @@ class ExcelIngestionService:
                         }
                 else:
                     try:
-                        cleaned_data['BOD'] = pd.to_datetime(row['bod']).date()
+                        cleaned_data['bod'] = pd.to_datetime(row['bod']).date()
                     except:
-                        cleaned_data['BOD'] = None
+                        cleaned_data['bod'] = None
             else:
-                cleaned_data['BOD'] = None
+                cleaned_data['bod'] = None
             
             # Validate No_KTP format (should be numeric and proper length)
-            # Only validate if strict validation is enabled
-            if self.config_service.is_strict_validation_enabled() and self.config_service.is_ktp_validation_enabled():
-                if not cleaned_data['No_KTP'].isdigit():
+            # Only validate if No_KTP is provided and strict validation is enabled
+            if cleaned_data['no_ktp'] and self.config_service.is_strict_validation_enabled() and self.config_service.is_ktp_validation_enabled():
+                if not cleaned_data['no_ktp'].isdigit():
                     return {
                         'valid': False,
                         'error': f"Row {row_number}: No_KTP must contain only digits"
                     }
                 
-                if len(cleaned_data['No_KTP']) != 16:
+                if len(cleaned_data['no_ktp']) != 16:
                     return {
                         'valid': False,
                         'error': f"Row {row_number}: No_KTP must be exactly 16 digits"
                     }
             
             # Validate passport_id format (8-9 characters, first letter, numbers must dominate)
-            # Only validate if strict validation is enabled
-            if self.config_service.is_strict_validation_enabled() and self.config_service.is_passport_validation_enabled():
+            # Only validate if passport_id is provided and strict validation is enabled
+            if cleaned_data['passport_id'] and self.config_service.is_strict_validation_enabled() and self.config_service.is_passport_validation_enabled():
                 passport_id = cleaned_data['passport_id']
                 if len(passport_id) < 8 or len(passport_id) > 9:
                     return {
@@ -442,8 +473,9 @@ class ExcelIngestionService:
                         g_id=gid,
                         name=row_data['name'],
                         personal_number=row_data.get('personal_number'),
-                        no_ktp=row_data['No_KTP'],
-                        bod=row_data.get('BOD'),
+                        no_ktp=row_data['no_ktp'],
+                        passport_id=row_data.get('passport_id'),  # Include passport_id in global_id
+                        bod=row_data.get('bod'),
                         status='Active',
                         source='excel',
                         created_at=current_time,
@@ -455,9 +487,9 @@ class ExcelIngestionService:
                         g_id=gid,
                         name=row_data['name'],
                         personal_number=row_data.get('personal_number'),
-                        no_ktp=row_data['No_KTP'],
-                        passport_id=row_data.get('passport_id', ''),
-                        bod=row_data.get('BOD'),
+                        no_ktp=row_data['no_ktp'],
+                        passport_id=row_data.get('passport_id'),  # Use actual passport_id value
+                        bod=row_data.get('bod'),
                         status='Active',
                         source='excel',
                         created_at=current_time,
@@ -470,7 +502,7 @@ class ExcelIngestionService:
                     created_gids.append({
                         'gid': gid,
                         'name': row_data['name'],
-                        'no_ktp': row_data['No_KTP']
+                        'no_ktp': row_data['no_ktp']
                     })
                     
                     successful += 1

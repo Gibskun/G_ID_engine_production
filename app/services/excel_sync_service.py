@@ -189,18 +189,15 @@ class ExcelSyncService:
                     'process': record.get('process', 0)  # Default to 0 if not present
                 }
                 
-                # Validate required fields
-                if not cleaned_record['name']:
-                    record_errors.append(f"Missing employee name")
-                    skip_record = True
-                    
-                if not cleaned_record['no_ktp']:
-                    record_errors.append(f"Missing KTP number")
-                    skip_record = True
+                # NEW VALIDATION LOGIC: Both no_ktp and passport_id can be empty
+                no_ktp_value = cleaned_record['no_ktp']
+                passport_id_value = cleaned_record['passport_id']
                 
-                # KTP length validation with process override and database constraints
-                if not skip_record:
-                    ktp_length = len(cleaned_record['no_ktp'])
+                # Both fields can be empty - no validation required for identifiers
+                
+                # KTP length validation with process override and database constraints (only if KTP is provided)
+                if not skip_record and no_ktp_value:
+                    ktp_length = len(no_ktp_value)
                     process_value = cleaned_record['process']
                     
                     # Convert process value to int if possible
@@ -211,23 +208,27 @@ class ExcelSyncService:
                     
                     # Hard database constraint: KTP cannot exceed 16 characters (database field limit)
                     if ktp_length > 16:
-                        record_errors.append(f"KTP '{cleaned_record['no_ktp']}' has {ktp_length} digits (exceeds database limit of 16 characters)")
+                        record_errors.append(f"KTP '{no_ktp_value}' has {ktp_length} digits (exceeds database limit of 16 characters)")
                         skip_record = True
                     # Standard validation: KTP should be exactly 16 digits
                     elif ktp_length != 16:
                         if process_int == 1:
                             # Process override: allow invalid KTP length (but still within database limits)
-                            processing_warnings.append(f"Row {row_num}: Employee '{cleaned_record['name']}' - KTP '{cleaned_record['no_ktp']}' has {ktp_length} digits (not 16) but ALLOWED due to process override (process=1)")
+                            processing_warnings.append(f"Row {row_num}: Employee '{cleaned_record['name']}' - KTP '{no_ktp_value}' has {ktp_length} digits (not 16) but ALLOWED due to process override (process=1)")
                         else:
                             # No override: skip this record
-                            record_errors.append(f"KTP '{cleaned_record['no_ktp']}' has {ktp_length} digits (must be exactly 16, or set process=1 to override)")
+                            record_errors.append(f"KTP '{no_ktp_value}' has {ktp_length} digits (must be exactly 16, or set process=1 to override)")
                             skip_record = True
                 
-                # Handle missing passport_id
-                if not skip_record and not cleaned_record['passport_id']:
-                    # Auto-generate passport_id but warn user
-                    cleaned_record['passport_id'] = self.generate_passport_id(cleaned_record)
-                    processing_warnings.append(f"Row {row_num}: Employee '{cleaned_record['name']}' - Missing Passport ID, AUTO-GENERATED: {cleaned_record['passport_id']} (please verify)")
+                # Handle missing passport_id when no_ktp is also missing
+                if not skip_record and not passport_id_value and not no_ktp_value:
+                    # This case is already handled above - both fields are empty
+                    record_errors.append(f"Both No_KTP and Passport_ID are missing")
+                    skip_record = True
+                elif not skip_record and not passport_id_value and no_ktp_value:
+                    # KTP is provided but passport_id is missing - this is allowed
+                    # Leave passport_id empty instead of auto-generating
+                    pass
                 
                 # Validate passport_id length (database constraint: 9 characters max)
                 if not skip_record and cleaned_record['passport_id']:
@@ -241,26 +242,30 @@ class ExcelSyncService:
                 
                 # Check for duplicates within the file
                 if not skip_record:
-                    if cleaned_record['passport_id'] in seen_passport_ids:
-                        other_row = seen_passport_ids[cleaned_record['passport_id']]
-                        record_errors.append(f"Duplicate Passport ID '{cleaned_record['passport_id']}' (also found in row {other_row})")
+                    # Check passport_id duplicates only if passport_id is provided
+                    if passport_id_value and passport_id_value in seen_passport_ids:
+                        other_row = seen_passport_ids[passport_id_value]
+                        record_errors.append(f"Duplicate Passport ID '{passport_id_value}' (also found in row {other_row})")
                         skip_record = True
-                    else:
-                        seen_passport_ids[cleaned_record['passport_id']] = row_num
+                    elif passport_id_value:
+                        seen_passport_ids[passport_id_value] = row_num
                     
-                    if cleaned_record['no_ktp'] in seen_ktp_numbers:
-                        other_row = seen_ktp_numbers[cleaned_record['no_ktp']]
-                        record_errors.append(f"Duplicate KTP number '{cleaned_record['no_ktp']}' (also found in row {other_row})")
+                    # Check no_ktp duplicates only if no_ktp is provided
+                    if no_ktp_value and no_ktp_value in seen_ktp_numbers:
+                        other_row = seen_ktp_numbers[no_ktp_value]
+                        record_errors.append(f"Duplicate KTP number '{no_ktp_value}' (also found in row {other_row})")
                         skip_record = True
-                    else:
-                        seen_ktp_numbers[cleaned_record['no_ktp']] = row_num
+                    elif no_ktp_value:
+                        seen_ktp_numbers[no_ktp_value] = row_num
                     
-                    if cleaned_record['personal_number'] in seen_personal_numbers:
-                        other_row = seen_personal_numbers[cleaned_record['personal_number']]
-                        record_errors.append(f"Duplicate Personal Number '{cleaned_record['personal_number']}' (also found in row {other_row})")
+                    # Check personal_number duplicates if provided
+                    personal_number = cleaned_record['personal_number']
+                    if personal_number and personal_number in seen_personal_numbers:
+                        other_row = seen_personal_numbers[personal_number]
+                        record_errors.append(f"Duplicate Personal Number '{personal_number}' (also found in row {other_row})")
                         skip_record = True
-                    else:
-                        seen_personal_numbers[cleaned_record['personal_number']] = row_num
+                    elif personal_number:
+                        seen_personal_numbers[personal_number] = row_num
                 
                 # Decide whether to include or skip this record
                 if skip_record:

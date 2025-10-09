@@ -992,12 +992,14 @@ async def download_template(
                 instructions = pd.DataFrame({
                     'INSTRUCTIONS': [
                         '1. Fill in employee data in the Employee_Data sheet',
-                        '2. Required fields: name, no_ktp',
-                        '3. Optional fields: personal_number, passport_id, bod',
-                        '4. no_ktp must be exactly 16 digits',
-                        '5. Date format for bod: YYYY-MM-DD',
-                        '6. All no_ktp values must be unique',
-                        '7. Save and upload this file'
+                        '2. Required fields: name',
+                        '3. Optional fields: personal_number, no_ktp, passport_id, bod',
+                        '4. no_ktp must be exactly 16 digits (if provided)',
+                        '5. passport_id must be 8-9 characters (if provided)',
+                        '6. Date format for bod: YYYY-MM-DD',
+                        '7. All no_ktp and passport_id values must be unique (if provided)',
+                        '8. Both no_ktp and passport_id can be left blank',
+                        '9. Save and upload this file'
                     ]
                 })
                 instructions.to_excel(writer, sheet_name='Instructions', index=False)
@@ -1021,9 +1023,11 @@ async def download_template(
             
             # Add instructions as comments
             instructions = f"""# Employee Data Template
-# Required fields: name, no_ktp
-# Optional fields: personal_number, passport_id, bod  
-# no_ktp must be exactly 16 digits
+# Required fields: name
+# At least one ID field required: no_ktp OR passport_id
+# Optional fields: personal_number, bod  
+# no_ktp must be exactly 16 digits (if provided)
+# passport_id must be 8-9 characters (if provided)
 # Date format for bod: YYYY-MM-DD
 # Separator used: {separator}
 # 
@@ -2017,6 +2021,209 @@ async def set_validation_config(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating validation config: {str(e)}")
+
+
+@router.get("/global-id/debug")
+async def debug_global_id_passport_data(
+    limit: int = Query(default=10, description="Number of records to check"),
+    db: Session = Depends(get_db)
+):
+    """
+    Debug endpoint to check actual passport_id values in database
+    """
+    try:
+        # Query first N records to debug passport_id field
+        records = db.query(GlobalID).limit(limit).all()
+        
+        debug_data = []
+        for record in records:
+            debug_data.append({
+                'g_id': record.g_id,
+                'name': record.name,
+                'passport_id_raw': record.passport_id,
+                'passport_id_type': type(record.passport_id).__name__,
+                'passport_id_is_none': record.passport_id is None,
+                'passport_id_is_empty_string': record.passport_id == "",
+                'passport_id_length': len(record.passport_id) if record.passport_id else 0,
+                'passport_id_repr': repr(record.passport_id),
+                'source': record.source
+            })
+        
+        return {
+            "success": True,
+            "debug_info": debug_data,
+            "total_checked": len(debug_data)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error debugging passport_id data: {str(e)}")
+
+
+@router.get("/global-id/export")
+async def export_global_id_data(
+    format: str = Query(default="csv", description="Export format: csv, excel"),
+    separator: str = Query(default=",", description="CSV separator for CSV format"),
+    include_empty_passport: bool = Query(default=True, description="Include records with empty passport_id"),
+    db: Session = Depends(get_db)
+):
+    """
+    Export all global_id table data to CSV or Excel format
+    """
+    try:
+        import pandas as pd
+        from fastapi.responses import Response
+        from io import StringIO, BytesIO
+        
+        # Query all global_id records
+        query = db.query(GlobalID)
+        
+        # Filter records based on passport_id if needed
+        if not include_empty_passport:
+            query = query.filter(GlobalID.passport_id.isnot(None), GlobalID.passport_id != "")
+        
+        records = query.all()
+        
+        # Convert to list of dictionaries with proper passport_id handling
+        data = []
+        for record in records:
+            # Debug passport_id value
+            passport_value = record.passport_id
+            
+            # Ensure we preserve the actual passport_id value without converting to empty string
+            if passport_value is None:
+                passport_display = None  # Keep as None for pandas to handle properly
+            elif passport_value == "":
+                passport_display = ""  # Keep empty string as is
+            else:
+                passport_display = str(passport_value).strip()  # Convert to string and trim whitespace
+            
+            data.append({
+                'g_id': record.g_id,
+                'name': record.name,
+                'personal_number': record.personal_number,
+                'no_ktp': record.no_ktp,
+                'passport_id': passport_display,
+                'bod': record.bod.strftime('%Y-%m-%d') if record.bod else None,
+                'status': record.status,
+                'source': record.source,
+                'created_at': record.created_at.strftime('%Y-%m-%d %H:%M:%S') if record.created_at else None,
+                'updated_at': record.updated_at.strftime('%Y-%m-%d %H:%M:%S') if record.updated_at else None
+            })
+        
+        # Create DataFrame
+        df = pd.DataFrame(data)
+        
+        if df.empty:
+            raise HTTPException(status_code=404, detail="No data found in global_id table")
+        
+        # Debug: Log passport_id column info
+        print(f"DEBUG: DataFrame shape: {df.shape}")
+        print(f"DEBUG: Passport_ID column stats:")
+        print(f"  - Non-null count: {df['passport_id'].notna().sum()}")
+        print(f"  - Null count: {df['passport_id'].isna().sum()}")
+        print(f"  - Empty string count: {(df['passport_id'] == '').sum()}")
+        print(f"  - Sample values: {df['passport_id'].head().tolist()}")
+        
+        # Ensure passport_id column is handled properly for export
+        # Replace None values with empty string for better export compatibility
+        df['passport_id'] = df['passport_id'].fillna('')
+        
+        # Generate export based on format
+        if format.lower() == 'excel':
+            # Excel export
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='GlobalID_Data')
+            
+            output.seek(0)
+            filename = f"global_id_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            return Response(
+                content=output.getvalue(),
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+        
+        else:
+            # CSV export
+            output = StringIO()
+            df.to_csv(output, index=False, sep=separator)
+            
+            output.seek(0)
+            filename = f"global_id_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            
+            return Response(
+                content=output.getvalue(),
+                media_type="text/csv",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting global_id data: {str(e)}")
+
+
+@router.get("/global-id/stats")
+async def get_global_id_stats(db: Session = Depends(get_db)):
+    """
+    Get statistics about global_id table including passport_id field analysis
+    """
+    try:
+        from sqlalchemy import func, case
+        
+        # Total records
+        total_records = db.query(func.count(GlobalID.g_id)).scalar()
+        
+        # Records with empty/null passport_id
+        empty_passport_count = db.query(func.count(GlobalID.g_id)).filter(
+            (GlobalID.passport_id.is_(None)) | (GlobalID.passport_id == "")
+        ).scalar()
+        
+        # Records with valid passport_id
+        valid_passport_count = total_records - empty_passport_count
+        
+        # Status distribution
+        status_stats = db.query(
+            GlobalID.status,
+            func.count(GlobalID.g_id).label('count')
+        ).group_by(GlobalID.status).all()
+        
+        # Source distribution
+        source_stats = db.query(
+            GlobalID.source,
+            func.count(GlobalID.g_id).label('count')
+        ).group_by(GlobalID.source).all()
+        
+        # Sample records with empty passport_id (first 5)
+        empty_passport_samples = db.query(GlobalID).filter(
+            (GlobalID.passport_id.is_(None)) | (GlobalID.passport_id == "")
+        ).limit(5).all()
+        
+        empty_samples_data = []
+        for record in empty_passport_samples:
+            empty_samples_data.append({
+                'g_id': record.g_id,
+                'name': record.name,
+                'no_ktp': record.no_ktp,
+                'passport_id': record.passport_id,
+                'source': record.source,
+                'created_at': record.created_at.strftime('%Y-%m-%d %H:%M:%S') if record.created_at else None
+            })
+        
+        return {
+            "success": True,
+            "statistics": {
+                "total_records": total_records,
+                "valid_passport_id": valid_passport_count,
+                "empty_passport_id": empty_passport_count,
+                "empty_passport_percentage": round((empty_passport_count / total_records * 100) if total_records > 0 else 0, 2),
+                "status_distribution": [{"status": s.status, "count": s.count} for s in status_stats],
+                "source_distribution": [{"source": s.source, "count": s.count} for s in source_stats],
+                "empty_passport_samples": empty_samples_data
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting global_id statistics: {str(e)}")
 
 
 # Include router in the API
