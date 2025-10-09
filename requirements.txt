@@ -1,0 +1,36 @@
+# Core FastAPI and Web Framework
+fastapi==0.104.1
+uvicorn==0.24.0
+jinja2==3.1.2
+python-multipart==0.0.6
+aiofiles==23.2.1
+
+# Database and ORM
+sqlalchemy==2.0.23
+pyodbc==4.0.39
+
+# Data Processing
+pandas==2.1.3
+openpyxl==3.1.2
+xlwt==1.3.0
+numpy==1.24.3
+
+# High-Performance Processing
+psutil==5.9.5
+
+# Configuration and Environment
+python-dotenv==1.0.0
+pydantic==2.5.0
+
+# HTTP Requests (for testing and external API calls)
+requests==2.31.0
+
+# Testing Dependencies
+faker==19.6.2
+
+# Development and Testing (optional, uncomment if needed for pytest-based testing)
+# pytest==7.4.2
+# pytest-asyncio==0.21.1
+
+# Note: Current test files use simple Python scripts rather than pytest framework
+# If you want to use pytest for testing, uncomment the above lines
