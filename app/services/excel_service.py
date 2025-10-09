@@ -184,17 +184,19 @@ class ExcelIngestionService:
                     'filename': filename
                 }
             
-            # Check for duplicate No_KTP within the file
-            if 'no_ktp' in df.columns:
-                duplicate_ktps = df[df.duplicated(subset=['no_ktp'], keep=False)]['no_ktp'].unique()
-                if len(duplicate_ktps) > 0:
-                    return {
-                        'valid': False,
-                        'success': False,
-                        'error': f"Duplicate No_KTP found in file: {', '.join(map(str, duplicate_ktps))}",
-                        'filename': filename,
-                        'duplicate_ktps': list(duplicate_ktps)
-                    }
+            # REMOVED: Duplicate KTP checking disabled
+            # User wants ALL data processed regardless of duplicates
+            # Allow duplicate KTP numbers (including '9999999999999999999999', '-', etc.)
+            # if 'no_ktp' in df.columns:
+            #     duplicate_ktps = df[df.duplicated(subset=['no_ktp'], keep=False)]['no_ktp'].unique()
+            #     if len(duplicate_ktps) > 0:
+            #         return {
+            #             'valid': False,
+            #             'success': False,
+            #             'error': f"Duplicate No_KTP found in file: {', '.join(map(str, duplicate_ktps))}",
+            #             'filename': filename,
+            #             'duplicate_ktps': list(duplicate_ktps)
+            #         }
             
             return {
                 'valid': True,

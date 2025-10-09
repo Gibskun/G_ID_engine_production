@@ -87,35 +87,37 @@ CREATE TABLE dbo.pegawai (
 GO
 
 -- =========================================
--- Create Unique Indexes for Nullable Fields
+-- Create Non-Unique Indexes for Performance (No Unique Constraints)
+-- UPDATED: Removed unique constraints to allow duplicate passport_id and no_ktp values
+-- This allows processing of files with duplicate '0' values or other duplicates
 -- =========================================
 
--- For global_id table
-CREATE UNIQUE INDEX IX_global_id_no_ktp_unique 
+-- For global_id table (performance indexes only - no uniqueness enforced)
+CREATE INDEX IX_global_id_no_ktp_lookup 
     ON dbo.global_id (no_ktp) 
     WHERE no_ktp IS NOT NULL;
 
-CREATE UNIQUE INDEX IX_global_id_passport_id_unique 
+CREATE INDEX IX_global_id_passport_id_lookup 
     ON dbo.global_id (passport_id) 
     WHERE passport_id IS NOT NULL;
 GO
 
--- For global_id_non_database table
-CREATE UNIQUE INDEX IX_global_id_non_db_no_ktp_unique 
+-- For global_id_non_database table (performance indexes only - no uniqueness enforced)
+CREATE INDEX IX_global_id_non_db_no_ktp_lookup 
     ON dbo.global_id_non_database (no_ktp) 
     WHERE no_ktp IS NOT NULL;
 
-CREATE UNIQUE INDEX IX_global_id_non_db_passport_id_unique 
+CREATE INDEX IX_global_id_non_db_passport_id_lookup 
     ON dbo.global_id_non_database (passport_id) 
     WHERE passport_id IS NOT NULL;
 GO
 
--- For pegawai table
-CREATE UNIQUE INDEX IX_pegawai_no_ktp_unique 
+-- For pegawai table (performance indexes only - no uniqueness enforced)
+CREATE INDEX IX_pegawai_no_ktp_lookup 
     ON dbo.pegawai (no_ktp) 
     WHERE no_ktp IS NOT NULL;
 
-CREATE UNIQUE INDEX IX_pegawai_passport_id_unique 
+CREATE INDEX IX_pegawai_passport_id_lookup 
     ON dbo.pegawai (passport_id) 
     WHERE passport_id IS NOT NULL;
 GO
@@ -230,6 +232,13 @@ GO
 
 PRINT 'Database schema created successfully!';
 PRINT 'Tables created: global_id, global_id_non_database, g_id_sequence, pegawai, audit_log';
-PRINT 'Indexes and triggers created successfully.';
+PRINT 'Performance indexes and triggers created successfully.';
 PRINT 'Sample data inserted into pegawai table.';
+PRINT '';
+PRINT '🎉 SCHEMA OPTIMIZED FOR DUPLICATE HANDLING!';
+PRINT '✅ No unique constraints on passport_id or no_ktp fields';
+PRINT '✅ Duplicate passport_id values (including 0) are allowed';
+PRINT '✅ Duplicate no_ktp values are allowed';
+PRINT '✅ Performance indexes created for fast lookups';
+PRINT '✅ Ready to process Excel files with duplicate data';
 GO
