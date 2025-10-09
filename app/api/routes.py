@@ -1381,7 +1381,7 @@ async def get_all_database_info(
                             # Search in text/varchar columns (names, IDs)
                             if col_type in ['varchar', 'nvarchar', 'char', 'nchar', 'text', 'ntext']:
                                 # Match actual column names from GlobalID model
-                                if col_name in ['name', 'g_id', 'no_ktp', 'personal_number']:
+                                if col_name in ['name', 'g_id', 'no_ktp', 'personal_number', 'passport_id']:
                                     search_conditions.append(f"LOWER({col['name']}) LIKE LOWER('%{search_term}%')")
                             
                             # Search in date columns (birth date)
