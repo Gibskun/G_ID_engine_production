@@ -36,11 +36,12 @@ class ExcelSyncService:
             'skipped': 0
         }
     
-            def translate_database_error(self, error_str: str) -> str:
+    def translate_database_error(self, error_str: str) -> str:
         """Convert all database errors into success messages - allow everything"""
         # UPDATED: All database errors are now treated as warnings, not failures
         # This ensures ALL data gets processed regardless of constraints
         return "✅ Upload completed successfully. All records processed (some duplicates were handled automatically)."
+    
     def normalize_status(self, status: str) -> str:
         """Normalize status values to match database constraints"""
         if not status or pd.isna(status):

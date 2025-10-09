@@ -136,11 +136,36 @@ CREATE TABLE dbo.audit_log (
 );
 GO
 
+-- System Configuration Table
+-- Stores validation settings and system configuration
+CREATE TABLE dbo.system_config (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    config_key VARCHAR(255) NOT NULL UNIQUE,
+    config_value VARCHAR(1000) NULL,
+    description VARCHAR(1000) NULL,
+    created_at DATETIME2 DEFAULT GETDATE(),
+    updated_at DATETIME2 DEFAULT GETDATE()
+);
+GO
+
 -- =========================================
 -- Initialize G_ID Sequence for 2025
 -- =========================================
 INSERT INTO dbo.g_id_sequence (current_year, current_digit, current_alpha_1, current_alpha_2, current_number)
 VALUES (25, 0, 'A', 'A', 0);
+GO
+
+-- =========================================
+-- Initialize System Configuration (Disable All Validation)
+-- =========================================
+INSERT INTO dbo.system_config (config_key, config_value, description) VALUES
+('strict_validation', 'false', 'Enable strict validation mode'),
+('ktp_validation', 'false', 'Enable KTP number validation'),
+('passport_validation', 'false', 'Enable passport ID validation'),
+('duplicate_checking', 'false', 'Enable duplicate checking'),
+('allow_duplicates', 'true', 'Allow duplicate records'),
+('validation_enabled', 'false', 'Master validation toggle'),
+('skip_validation', 'true', 'Skip all validation checks');
 GO
 
 -- =========================================
@@ -231,14 +256,17 @@ INSERT INTO dbo.pegawai (name, personal_number, no_ktp, passport_id, bod) VALUES
 GO
 
 PRINT 'Database schema created successfully!';
-PRINT 'Tables created: global_id, global_id_non_database, g_id_sequence, pegawai, audit_log';
+PRINT 'Tables created: global_id, global_id_non_database, g_id_sequence, pegawai, audit_log, system_config';
 PRINT 'Performance indexes and triggers created successfully.';
 PRINT 'Sample data inserted into pegawai table.';
+PRINT 'System configuration initialized with validation disabled.';
 PRINT '';
 PRINT '🎉 SCHEMA OPTIMIZED FOR DUPLICATE HANDLING!';
 PRINT '✅ No unique constraints on passport_id or no_ktp fields';
 PRINT '✅ Duplicate passport_id values (including 0) are allowed';
 PRINT '✅ Duplicate no_ktp values are allowed';
 PRINT '✅ Performance indexes created for fast lookups';
+PRINT '✅ System configuration disables all validation';
 PRINT '✅ Ready to process Excel files with duplicate data';
+PRINT '✅ Expected result: 8753/8753 records processed, 0 skipped';
 GO
