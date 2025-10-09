@@ -188,11 +188,12 @@ class UltraHighPerformanceProcessor:
             # Ultra-fast duplicate detection using pandas
             dedup_start = time.time()
             initial_count = len(df)
-            df = df.drop_duplicates(subset=['no_ktp'], keep='first')
+            # DISABLED: User wants ALL data processed regardless of duplicates
+            # df = df.drop_duplicates(subset=['no_ktp'], keep='first')
             dedup_time = time.time() - dedup_start
-            duplicates_removed = initial_count - len(df)
+            duplicates_removed = 0  # No duplicates removed - process all data
             
-            logger.info(f"🔍 Validation: {validation_time:.3f}s, Deduplication: {dedup_time:.3f}s, Removed {duplicates_removed:,} duplicates")
+            logger.info(f"🔍 Validation: {validation_time:.3f}s, Deduplication: {dedup_time:.3f}s, Processed {initial_count:,} records (duplicates allowed)")
             
             # Ultra-fast G_ID generation in parallel
             gid_start = time.time()

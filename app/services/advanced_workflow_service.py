@@ -185,18 +185,19 @@ class AdvancedWorkflowService:
                 # Clean and prepare data
                 clean_data = self._clean_row_data(row)
                 
-                # Check if record already exists in global_id table
-                existing_record = self.main_db.query(GlobalID).filter(
-                    GlobalID.no_ktp == clean_data['no_ktp']
-                ).first()
-                
-                if existing_record:
-                    result['skipped'] += 1
-                    result['errors'].append(
-                        f"Row {row_num}: No_KTP {clean_data['no_ktp']} already exists (G_ID: {existing_record.g_id})"
-                    )
-                    logger.warning(f"Skipping duplicate No_KTP: {clean_data['no_ktp']}")
-                    continue
+                # DISABLED: Check if record already exists in global_id table
+                # User wants ALL data processed regardless of duplicates
+                # existing_record = self.main_db.query(GlobalID).filter(
+                #     GlobalID.no_ktp == clean_data['no_ktp']
+                # ).first()
+                # 
+                # if existing_record:
+                #     result['skipped'] += 1
+                #     result['errors'].append(
+                #         f"Row {row_num}: No_KTP {clean_data['no_ktp']} already exists (G_ID: {existing_record.g_id})"
+                #     )
+                #     logger.warning(f"Skipping duplicate No_KTP: {clean_data['no_ktp']}")
+                #     continue
                 
                 # Generate new G_ID
                 new_gid = self.gid_generator.generate_next_gid()

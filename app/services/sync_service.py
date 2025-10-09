@@ -104,11 +104,12 @@ class SyncService:
             for pegawai in pegawai_records:
                 sync_summary['processed'] += 1
                 
-                # Check if no_ktp already exists (in-memory check, much faster)
-                if pegawai.no_ktp in existing_no_ktps:
-                    sync_summary['skipped'] += 1
-                    logger.debug(f"Skipping duplicate no_ktp: {pegawai.no_ktp}")
-                    continue
+                # DISABLED: Check if no_ktp already exists (in-memory check, much faster)
+                # User wants ALL data processed regardless of duplicates
+                # if pegawai.no_ktp in existing_no_ktps:
+                #     sync_summary['skipped'] += 1
+                #     logger.debug(f"Skipping duplicate no_ktp: {pegawai.no_ktp}")
+                #     continue
                 
                 records_needing_gids.append(pegawai)
             
@@ -252,11 +253,12 @@ class SyncService:
                 sync_summary['processed'] += 1
                 
                 try:
-                    # Fast in-memory duplicate check
-                    if pegawai.no_ktp in existing_no_ktps:
-                        sync_summary['skipped'] += 1
-                        logger.debug(f"Skipping duplicate no_ktp: {pegawai.no_ktp}")
-                        continue
+                    # DISABLED: Fast in-memory duplicate check
+                    # User wants ALL data processed regardless of duplicates
+                    # if pegawai.no_ktp in existing_no_ktps:
+                    #     sync_summary['skipped'] += 1
+                    #     logger.debug(f"Skipping duplicate no_ktp: {pegawai.no_ktp}")
+                    #     continue
                     
                     # Generate G_ID
                     new_gid = self.gid_generator.generate_next_gid()
