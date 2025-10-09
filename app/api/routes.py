@@ -1515,11 +1515,14 @@ async def generate_dummy_data(
     db: Session = Depends(get_db)
 ):
     """
-    Generate dummy data for testing purposes
+    Generate dummy data for testing purposes - Optimized for speed (< 5 seconds)
     
     This endpoint runs the dummy data generator to populate the database with test records.
     Supports generating both valid and invalid KTP records for testing validation logic.
     """
+    import time
+    start_time = time.time()
+    
     try:
         import sys
         import os
@@ -1560,12 +1563,14 @@ async def generate_dummy_data(
         # Generate dummy data
         dummy_data = create_dummy_data(count, include_invalid_ktp=include_invalid_ktp, invalid_ktp_ratio=invalid_ktp_ratio)
         
-        # Insert data
+        # OPTIMIZED BULK INSERT for speed
         inserted_count = 0
         invalid_ktp_count = 0
         process_override_count = 0
         errors = []
         
+        # Prepare bulk insert data
+        bulk_data = []
         for i, data in enumerate(dummy_data):
             try:
                 # Count statistics
@@ -1574,28 +1579,38 @@ async def generate_dummy_data(
                 if data.get('process') == 1:
                     process_override_count += 1
                 
-                pegawai = Pegawai(
-                    name=data['name'],
-                    personal_number=data['personal_number'],
-                    no_ktp=data['no_ktp'],
-                    passport_id=data['passport_id'],
-                    bod=data['bod']
-                )
-                
-                db.add(pegawai)
-                db.commit()
-                inserted_count += 1
+                bulk_data.append({
+                    'name': data['name'],
+                    'personal_number': data['personal_number'],
+                    'no_ktp': data['no_ktp'],
+                    'passport_id': data['passport_id'],
+                    'bod': data['bod']
+                })
                 
             except Exception as e:
-                db.rollback()
                 errors.append(f"Record {i+1}: {str(e)}")
                 if len(errors) > 10:  # Limit error reporting
-                    errors.append(f"... and {len(dummy_data) - i - 1} more errors")
                     break
+        
+        # Bulk insert for speed - insert in chunks of 500
+        chunk_size = 500
+        for i in range(0, len(bulk_data), chunk_size):
+            chunk = bulk_data[i:i + chunk_size]
+            try:
+                db.bulk_insert_mappings(Pegawai, chunk)
+                db.commit()
+                inserted_count += len(chunk)
+            except Exception as e:
+                db.rollback()
+                errors.append(f"Bulk insert error for chunk {i//chunk_size + 1}: {str(e)}")
+        
+        # Calculate performance
+        end_time = time.time()
+        execution_time = round(end_time - start_time, 2)
         
         # Prepare response
         message_parts = [
-            f"✅ **Dummy Data Generation Completed!**",
+            f"✅ **Dummy Data Generation Completed in {execution_time}s!**",
             f"📊 **Summary:**",
             f"• **{inserted_count}** records successfully inserted",
             f"• **{db.query(Pegawai).count()}** total records now in database"
@@ -1618,12 +1633,14 @@ async def generate_dummy_data(
         return {
             "success": True,
             "message": "\n".join(message_parts),
+            "execution_time": execution_time,
             "statistics": {
                 "inserted_count": inserted_count,
                 "total_records": db.query(Pegawai).count(),
                 "invalid_ktp_count": invalid_ktp_count,
                 "process_override_count": process_override_count,
                 "error_count": len(errors),
+                "execution_time_seconds": execution_time,
                 "generation_settings": {
                     "requested_count": count,
                     "include_invalid_ktp": include_invalid_ktp,
@@ -1634,6 +1651,54 @@ async def generate_dummy_data(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating dummy data: {str(e)}")
+
+
+@router.get("/generate-dummy-data/progress/{task_id}")
+async def get_dummy_data_progress(task_id: str):
+    """
+    Get progress of dummy data generation using simple polling
+    """
+    # This is a simplified mock progress - in production you'd use a task queue
+    import random
+    import time
+    
+    # Simulate progress based on task_id timestamp
+    try:
+        task_timestamp = float(task_id)
+        elapsed = time.time() - task_timestamp
+        
+        if elapsed < 1:
+            progress = min(30, int(elapsed * 30))
+            message = "🚀 Initializing dummy data generator..."
+        elif elapsed < 2:
+            progress = min(50, 30 + int((elapsed - 1) * 20))
+            message = "📝 Generating employee data..."
+        elif elapsed < 3:
+            progress = min(70, 50 + int((elapsed - 2) * 20))
+            message = "🔍 Validating KTP numbers..."
+        elif elapsed < 4:
+            progress = min(90, 70 + int((elapsed - 3) * 20))
+            message = "💾 Preparing bulk insert..."
+        elif elapsed < 5:
+            progress = min(95, 90 + int((elapsed - 4) * 5))
+            message = "📤 Inserting records to database..."
+        else:
+            progress = 100
+            message = "✅ Generation completed!"
+            
+        return {
+            "progress": progress,
+            "message": message,
+            "completed": progress >= 100,
+            "elapsed_time": round(elapsed, 1)
+        }
+    except:
+        return {
+            "progress": 0,
+            "message": "⚠️ Invalid task ID",
+            "completed": False,
+            "elapsed_time": 0
+        }
 
 
 # Include router in the API

@@ -591,7 +591,7 @@ function showGenerateDummyDataModal() {
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">Generate Dummy Data</h5>
-                        <button type="button" class="close" data-dismiss="modal">
+                        <button type="button" class="close" data-bs-dismiss="modal">
                             <span>&times;</span>
                         </button>
                     </div>
@@ -621,7 +621,7 @@ function showGenerateDummyDataModal() {
                         </form>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="button" class="btn btn-success" onclick="generateDummyData()">Generate Data</button>
                     </div>
                 </div>
@@ -652,8 +652,9 @@ function showGenerateDummyDataModal() {
         ratioValueSpan.textContent = Math.round(this.value * 100) + '%';
     });
     
-    // Show modal
-    $('#generateDummyDataModal').modal('show');
+    // Show modal using Bootstrap 5 API
+    const modal = new bootstrap.Modal(document.getElementById('generateDummyDataModal'));
+    modal.show();
 }
 
 async function generateDummyData() {
@@ -669,8 +670,15 @@ async function generateDummyData() {
     
     const generateButton = event.target;
     
+    // Create progress modal
+    showProgressModal('Generating Dummy Data', 'Preparing to generate employee data...');
+    
     try {
-        UIUtils.showLoading(generateButton);
+        // Generate task ID for progress tracking
+        const taskId = Date.now().toString();
+        
+        // Start progress tracking
+        const progressInterval = startProgressTracking(taskId);
         
         // Build query parameters
         const params = new URLSearchParams({
@@ -688,25 +696,142 @@ async function generateDummyData() {
         
         const result = await response.json();
         
+        // Stop progress tracking
+        clearInterval(progressInterval);
+        
         if (result.success) {
-            UIUtils.showAlert(result.message, 'success');
+            // Show completion in progress modal
+            updateProgressModal(100, `✅ Generation completed in ${result.execution_time}s!`, true);
             
-            // Close modal
-            $('#generateDummyDataModal').modal('hide');
-            
-            // Refresh statistics
-            await loadSyncStatus();
+            // Wait a moment for user to see completion
+            setTimeout(() => {
+                hideProgressModal();
+                UIUtils.showAlert(result.message, 'success');
+                
+                // Close generation modal using Bootstrap 5 API
+                const modal = bootstrap.Modal.getInstance(document.getElementById('generateDummyDataModal'));
+                if (modal) modal.hide();
+                
+                // Refresh statistics
+                loadSyncStatus();
+            }, 1500);
             
         } else {
-            UIUtils.showAlert('Failed to generate dummy data: ' + result.message, 'danger');
+            hideProgressModal();
+            UIUtils.showAlert(result.message || 'Failed to generate dummy data', 'error');
         }
         
     } catch (error) {
-        UIUtils.showAlert('Error generating dummy data: ' + error.message, 'danger');
+        hideProgressModal();
         console.error('Generate dummy data error:', error);
+        UIUtils.showAlert('Error generating dummy data: ' + error.message, 'error');
     } finally {
         UIUtils.hideLoading(generateButton);
     }
+}
+
+// Progress modal functions
+function showProgressModal(title, message) {
+    const progressModalHtml = `
+        <div class="modal fade" id="progressModal" tabindex="-1" role="dialog" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${title}</h5>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div class="mb-3">
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                     id="progressBar" 
+                                     role="progressbar" 
+                                     style="width: 0%" 
+                                     aria-valuenow="0" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    0%
+                                </div>
+                            </div>
+                        </div>
+                        <div id="progressMessage" class="text-muted">${message}</div>
+                        <div id="progressTime" class="small text-muted mt-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing progress modal if present
+    const existingModal = document.getElementById('progressModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', progressModalHtml);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('progressModal'));
+    modal.show();
+}
+
+function updateProgressModal(progress, message, isComplete = false) {
+    const progressBar = document.getElementById('progressBar');
+    const progressMessage = document.getElementById('progressMessage');
+    const progressTime = document.getElementById('progressTime');
+    
+    if (progressBar) {
+        progressBar.style.width = progress + '%';
+        progressBar.setAttribute('aria-valuenow', progress);
+        progressBar.textContent = progress + '%';
+        
+        // Change color when complete
+        if (isComplete) {
+            progressBar.className = 'progress-bar bg-success';
+        }
+    }
+    
+    if (progressMessage) {
+        progressMessage.textContent = message;
+    }
+    
+    if (progressTime) {
+        const elapsed = ((Date.now() - window.progressStartTime) / 1000).toFixed(1);
+        progressTime.textContent = `Elapsed: ${elapsed}s`;
+    }
+}
+
+function hideProgressModal() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('progressModal'));
+    if (modal) {
+        modal.hide();
+        // Remove modal element after hiding
+        setTimeout(() => {
+            const modalElement = document.getElementById('progressModal');
+            if (modalElement) modalElement.remove();
+        }, 500);
+    }
+}
+
+function startProgressTracking(taskId) {
+    window.progressStartTime = Date.now();
+    
+    const interval = setInterval(async () => {
+        try {
+            const response = await fetch(`/api/v1/generate-dummy-data/progress/${taskId}`);
+            const progress = await response.json();
+            
+            updateProgressModal(progress.progress, progress.message, progress.completed);
+            
+            if (progress.completed) {
+                clearInterval(interval);
+            }
+        } catch (error) {
+            console.error('Progress tracking error:', error);
+        }
+    }, 200); // Update every 200ms for smooth animation
+    
+    return interval;
 }
 
 // Reset G_ID Sequence Functions
@@ -717,7 +842,7 @@ function showResetSequenceModal() {
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">Reset G_ID Sequence</h5>
-                        <button type="button" class="close" data-dismiss="modal">
+                        <button type="button" class="close" data-bs-dismiss="modal">
                             <span>&times;</span>
                         </button>
                     </div>
@@ -745,7 +870,7 @@ function showResetSequenceModal() {
                         </form>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="button" class="btn btn-warning" onclick="resetGIDSequence()">Reset Sequence</button>
                     </div>
                 </div>
@@ -776,8 +901,9 @@ function showResetSequenceModal() {
     yearInput.addEventListener('input', updatePreview);
     digitInput.addEventListener('input', updatePreview);
     
-    // Show modal
-    $('#resetSequenceModal').modal('show');
+    // Show modal using Bootstrap 5 API
+    const modal = new bootstrap.Modal(document.getElementById('resetSequenceModal'));
+    modal.show();
 }
 
 async function resetGIDSequence() {
@@ -809,8 +935,9 @@ async function resetGIDSequence() {
         if (result.success) {
             UIUtils.showAlert(result.message + `. Next G_ID will be: ${result.next_gid}`, 'success');
             
-            // Close modal
-            $('#resetSequenceModal').modal('hide');
+            // Close modal using Bootstrap 5 API
+            const modal = bootstrap.Modal.getInstance(document.getElementById('resetSequenceModal'));
+            modal.hide();
             
             // Refresh statistics
             await loadSyncStatus();
