@@ -12,22 +12,23 @@ class PegawaiCreateRequest(BaseModel):
     """Request model for creating a new employee"""
     name: str = Field(..., min_length=1, max_length=255, description="Employee full name")
     personal_number: Optional[str] = Field(None, max_length=15, description="Employee personal number")
-    no_ktp: str = Field(..., min_length=16, max_length=16, description="Employee KTP number (16 digits)")
-    passport_id: str = Field(..., min_length=8, max_length=9, description="Employee passport ID (8-9 characters)")
+    no_ktp: Optional[str] = Field(None, max_length=50, description="Employee KTP number (any format, up to 50 characters)")
+    passport_id: Optional[str] = Field(None, max_length=50, description="Employee passport ID (any format, up to 50 characters)")
     bod: Optional[date] = Field(None, description="Birth date (YYYY-MM-DD)")
     
     @validator('no_ktp')
     def validate_no_ktp(cls, v):
-        """Validate KTP number format - must be 16 digits"""
-        if not re.match(r'^\d{16}$', v):
-            raise ValueError('KTP number must be exactly 16 digits')
-        return v
+        """Clean KTP number - accept any format"""
+        if v and str(v).strip() in ['nan', 'NaN', 'NULL', 'null', '']:
+            return None
+        return v.strip() if v else None
     
     @validator('passport_id')
     def validate_passport_id(cls, v):
-        """Validate passport ID format - 8-9 characters, first character letter, numbers must dominate"""
-        if not v or not v.strip():
-            raise ValueError('Passport ID cannot be empty')
+        """Clean passport ID - accept any format"""
+        if v and str(v).strip() in ['nan', 'NaN', 'NULL', 'null', '']:
+            return None
+        return v.strip() if v else None
         
         v = v.strip().upper()
         
@@ -85,43 +86,23 @@ class PegawaiUpdateRequest(BaseModel):
     """Request model for updating an existing employee"""
     name: Optional[str] = Field(None, min_length=1, max_length=255, description="Employee full name")
     personal_number: Optional[str] = Field(None, max_length=15, description="Employee personal number")
-    no_ktp: Optional[str] = Field(None, min_length=16, max_length=16, description="Employee KTP number (16 digits)")
-    passport_id: Optional[str] = Field(None, min_length=8, max_length=9, description="Employee passport ID (8-9 characters)")
+    no_ktp: Optional[str] = Field(None, max_length=50, description="Employee KTP number (any format, up to 50 characters)")
+    passport_id: Optional[str] = Field(None, max_length=50, description="Employee passport ID (any format, up to 50 characters)")
     bod: Optional[date] = Field(None, description="Birth date (YYYY-MM-DD)")
     
     @validator('no_ktp')
     def validate_no_ktp(cls, v):
-        """Validate KTP number format - must be 16 digits"""
-        if v is not None and not re.match(r'^\d{16}$', v):
-            raise ValueError('KTP number must be exactly 16 digits')
-        return v
+        """Clean KTP number - accept any format"""
+        if v and str(v).strip() in ['nan', 'NaN', 'NULL', 'null', '']:
+            return None
+        return v.strip() if v else None
     
     @validator('passport_id')
     def validate_passport_id(cls, v):
-        """Validate passport ID format if provided"""
-        if v is not None:
-            v = v.strip().upper()
-            
-            if len(v) < 8 or len(v) > 9:
-                raise ValueError('Passport ID must be 8-9 characters long')
-            
-            # Check if first character is a letter
-            if not v[0].isalpha():
-                raise ValueError('Passport ID must start with a letter')
-            
-            # Check if all characters are alphanumeric
-            if not v.isalnum():
-                raise ValueError('Passport ID can only contain letters and numbers')
-            
-            # Count letters and numbers
-            letter_count = sum(1 for c in v if c.isalpha())
-            number_count = sum(1 for c in v if c.isdigit())
-            
-            # Numbers must dominate (be more than letters)
-            if number_count <= letter_count:
-                raise ValueError('Passport ID must have more numbers than letters')
-        
-        return v
+        """Clean passport ID - accept any format"""
+        if v and str(v).strip() in ['nan', 'NaN', 'NULL', 'null', '']:
+            return None
+        return v.strip() if v else None
     
     @validator('name')
     def validate_name(cls, v):
@@ -279,6 +260,6 @@ class ErrorResponse(BaseModel):
             "example": {
                 "success": False,
                 "error": "Validation error",
-                "detail": "KTP number must be exactly 16 digits"
+                "detail": "Required field missing"
             }
         }

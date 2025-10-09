@@ -64,7 +64,7 @@ class ExcelSyncService:
         
         # Handle data truncation errors
         if 'string or binary data would be truncated' in error_lower:
-            return "❌ Upload partially completed: Some records had data that was too long for the database fields and were automatically skipped. The remaining valid records have been processed successfully. Please check that KTP numbers are 16 digits or less and Passport IDs are 8-9 characters."
+            return "❌ Upload partially completed: Some records were automatically skipped due to system errors. The remaining valid records have been processed successfully."
         
         # Handle connection errors
         if 'connection' in error_lower or 'timeout' in error_lower:
@@ -76,7 +76,7 @@ class ExcelSyncService:
         
         # Handle validation errors
         if 'validation' in error_lower or 'invalid' in error_lower:
-            return "❌ Upload failed: Some data in your file doesn't meet the required format. Please check that KTP numbers are 16 digits and Passport IDs follow the correct format (8-9 characters, starting with a letter)."
+            return "❌ Upload failed: Some data in your file has unexpected format issues. Please check your file and try again."
         
         # Generic database error
         if 'sql' in error_lower or 'database' in error_lower:

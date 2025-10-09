@@ -994,7 +994,7 @@ async def download_template(
                         '1. Fill in employee data in the Employee_Data sheet',
                         '2. Required fields: name',
                         '3. Optional fields: personal_number, no_ktp, passport_id, bod',
-                        '4. no_ktp must be exactly 16 digits (if provided)',
+                        '4. no_ktp can be any format and length (if provided)',
                         '5. passport_id must be 8-9 characters (if provided)',
                         '6. Date format for bod: YYYY-MM-DD',
                         '7. All no_ktp and passport_id values must be unique (if provided)',
@@ -1026,7 +1026,7 @@ async def download_template(
 # Required fields: name
 # At least one ID field required: no_ktp OR passport_id
 # Optional fields: personal_number, bod  
-# no_ktp must be exactly 16 digits (if provided)
+# no_ktp can be any format and length (if provided)
 # passport_id must be 8-9 characters (if provided)
 # Date format for bod: YYYY-MM-DD
 # Separator used: {separator}

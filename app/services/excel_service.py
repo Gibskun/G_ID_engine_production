@@ -669,11 +669,11 @@ class ExcelIngestionService:
                 },
                 {
                     'name': 'no_ktp',
-                    'description': 'Indonesian ID number (exactly 16 digits)',
-                    'type': 'Text (16 digits)',
-                    'required': True,
-                    'format': '16 digits only',
-                    'example': '3201234567890001'
+                    'description': 'Indonesian ID number (any format)',
+                    'type': 'Text (any length)',
+                    'required': False,
+                    'format': 'Any format accepted',
+                    'example': '3201234567890001 or 640.303.261.072.0002'
                 },
                 {
                     'name': 'personal_number',
@@ -701,7 +701,7 @@ class ExcelIngestionService:
                 }
             ],
             'notes': [
-                'no_ktp must be exactly 16 digits and unique (no duplicates)',
+                'no_ktp can be any format and length (optional)',
                 'name is required and cannot be empty',
                 'Date format for bod must be YYYY-MM-DD',
                 'personal_number and passport_id are optional',

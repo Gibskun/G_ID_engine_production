@@ -141,18 +141,12 @@ class AdvancedWorkflowService:
                 validation_errors.append(f"Row {row_num}: Name is required")
             
             # NEW VALIDATION LOGIC: Both no_ktp and passport_id can be empty
-            no_ktp_value = str(row['no_ktp']).strip() if pd.notna(row['no_ktp']) else ""
-            passport_id_value = str(row['passport_id']).strip() if pd.notna(row.get('passport_id', '')) else ""
+            no_ktp_value = str(row['no_ktp']).strip() if pd.notna(row['no_ktp']) and str(row['no_ktp']).strip() not in ['nan', 'NaN', 'NULL', 'null', ''] else ""
+            passport_id_value = str(row['passport_id']).strip() if pd.notna(row.get('passport_id', '')) and str(row.get('passport_id', '')).strip() not in ['nan', 'NaN', 'NULL', 'null', ''] else ""
             
             # Both fields can be empty - no validation required for identifiers
-            
-            # Validate no_ktp format if provided
-            if no_ktp_value and len(no_ktp_value) != 16:
-                validation_errors.append(f"Row {row_num}: No_KTP must be exactly 16 characters")
-            
-            # Validate passport_id format if provided
-            if passport_id_value and (len(passport_id_value) < 8 or len(passport_id_value) > 9):
-                validation_errors.append(f"Row {row_num}: Passport_ID must be 8-9 characters long")
+            # REMOVED: All length and format validation disabled
+            # Accept any KTP length and passport format
             
             # Validate date of birth
             if pd.isna(row['bod']):
