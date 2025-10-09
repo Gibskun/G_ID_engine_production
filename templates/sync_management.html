@@ -962,15 +962,39 @@ async function resetGIDSequence() {
 async function loadValidationStatus() {
     try {
         const response = await fetch('/api/v1/validation-config/status');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
         
         if (result.success) {
             updateValidationUI(result.status);
         } else {
-            console.error('Failed to load validation status');
+            console.error('Failed to load validation status:', result);
+            // Set default state if API call fails
+            setDefaultValidationState();
         }
     } catch (error) {
         console.error('Error loading validation status:', error);
+        // Set default state if API call fails
+        setDefaultValidationState();
+    }
+}
+
+function setDefaultValidationState() {
+    const toggleBtn = document.getElementById('validation-toggle-btn');
+    const toggleText = document.getElementById('validation-toggle-text');
+    const statusDescription = document.getElementById('validation-status-description');
+    
+    if (toggleBtn && toggleText && statusDescription) {
+        toggleBtn.className = 'btn btn-secondary';
+        toggleText.textContent = 'Enable Validation Rules';
+        statusDescription.innerHTML = `
+            <span class="text-muted"><i class="fas fa-exclamation-triangle"></i> <strong>STATUS UNKNOWN</strong></span><br>
+            Unable to load validation status. Please check server connection.
+        `;
     }
 }
 
@@ -978,6 +1002,16 @@ function updateValidationUI(status) {
     const toggleBtn = document.getElementById('validation-toggle-btn');
     const toggleText = document.getElementById('validation-toggle-text');
     const statusDescription = document.getElementById('validation-status-description');
+    
+    // Check if elements exist before updating
+    if (!toggleBtn || !toggleText || !statusDescription) {
+        console.error('Validation UI elements not found:', {
+            toggleBtn: !!toggleBtn,
+            toggleText: !!toggleText,
+            statusDescription: !!statusDescription
+        });
+        return;
+    }
     
     const isEnabled = status.strict_validation_enabled;
     
@@ -1004,12 +1038,22 @@ function updateValidationUI(status) {
 async function toggleValidationRules() {
     const toggleBtn = document.getElementById('validation-toggle-btn');
     
+    if (!toggleBtn) {
+        console.error('Toggle button not found');
+        UIUtils.showAlert('Error: Validation toggle button not found', 'error');
+        return;
+    }
+    
     try {
         UIUtils.showLoading(toggleBtn);
         
         const response = await fetch('/api/v1/validation-config/toggle-strict', {
             method: 'POST'
         });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
         const result = await response.json();
         
@@ -1033,7 +1077,11 @@ async function toggleValidationRules() {
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
     loadSyncStatus();
-    loadValidationStatus();
+    
+    // Add a small delay to ensure elements are rendered
+    setTimeout(() => {
+        loadValidationStatus();
+    }, 100);
 });
 </script>
 {% endblock %}
