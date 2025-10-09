@@ -2347,6 +2347,154 @@ async def get_sap_stats(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error getting SAP employee statistics: {str(e)}")
 
 
+@router.get("/global-id-table/export")
+async def export_global_id_table_data(
+    format: str = Query(default="csv", description="Export format: csv, excel"),
+    separator: str = Query(default=",", description="CSV separator for CSV format"),
+    db: Session = Depends(get_db)
+):
+    """
+    Export all global_id table data to CSV or Excel format
+    """
+    try:
+        import pandas as pd
+        from fastapi.responses import Response
+        from io import StringIO, BytesIO
+        
+        # Query all global_id records
+        query = db.query(GlobalID)
+        records = query.all()
+        
+        # Convert to list of dictionaries
+        data = []
+        for record in records:
+            data.append({
+                'g_id': record.g_id,
+                'name': record.name,
+                'personal_number': record.personal_number,
+                'no_ktp': record.no_ktp,
+                'passport_id': record.passport_id,
+                'bod': record.bod.strftime('%Y-%m-%d') if record.bod else None,
+                'status': record.status,
+                'source': record.source,
+                'created_at': record.created_at.strftime('%Y-%m-%d %H:%M:%S') if record.created_at else None,
+                'updated_at': record.updated_at.strftime('%Y-%m-%d %H:%M:%S') if record.updated_at else None
+            })
+        
+        # Create DataFrame
+        df = pd.DataFrame(data)
+        
+        if df.empty:
+            raise HTTPException(status_code=404, detail="No data found in global_id table")
+        
+        # Generate export based on format
+        if format.lower() == 'excel':
+            # Excel export
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Global_ID_Data')
+            
+            output.seek(0)
+            filename = f"global_id_table_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            return Response(
+                content=output.getvalue(),
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+        
+        else:
+            # CSV export
+            output = StringIO()
+            df.to_csv(output, index=False, sep=separator)
+            
+            output.seek(0)
+            filename = f"global_id_table_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            
+            return Response(
+                content=output.getvalue(),
+                media_type="text/csv",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting global_id table data: {str(e)}")
+
+
+@router.get("/global-id-non-database/export")
+async def export_global_id_non_database_data(
+    format: str = Query(default="csv", description="Export format: csv, excel"),
+    separator: str = Query(default=",", description="CSV separator for CSV format"),
+    db: Session = Depends(get_db)
+):
+    """
+    Export all global_id_non_database table data to CSV or Excel format
+    """
+    try:
+        import pandas as pd
+        from fastapi.responses import Response
+        from io import StringIO, BytesIO
+        
+        # Query all global_id_non_database records
+        query = db.query(GlobalIDNonDatabase)
+        records = query.all()
+        
+        # Convert to list of dictionaries
+        data = []
+        for record in records:
+            data.append({
+                'g_id': record.g_id,
+                'name': record.name,
+                'personal_number': record.personal_number,
+                'no_ktp': record.no_ktp,
+                'passport_id': record.passport_id,
+                'bod': record.bod.strftime('%Y-%m-%d') if record.bod else None,
+                'status': record.status,
+                'source': record.source,
+                'created_at': record.created_at.strftime('%Y-%m-%d %H:%M:%S') if record.created_at else None,
+                'updated_at': record.updated_at.strftime('%Y-%m-%d %H:%M:%S') if record.updated_at else None
+            })
+        
+        # Create DataFrame
+        df = pd.DataFrame(data)
+        
+        if df.empty:
+            raise HTTPException(status_code=404, detail="No data found in global_id_non_database table")
+        
+        # Generate export based on format
+        if format.lower() == 'excel':
+            # Excel export
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Global_ID_Non_Database')
+            
+            output.seek(0)
+            filename = f"global_id_non_database_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            return Response(
+                content=output.getvalue(),
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+        
+        else:
+            # CSV export
+            output = StringIO()
+            df.to_csv(output, index=False, sep=separator)
+            
+            output.seek(0)
+            filename = f"global_id_non_database_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            
+            return Response(
+                content=output.getvalue(),
+                media_type="text/csv",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting global_id_non_database data: {str(e)}")
+
+
 # Include router in the API
 api_router = APIRouter(prefix="/api/v1", tags=["Global ID System"])
 api_router.include_router(router)

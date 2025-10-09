@@ -1422,6 +1422,78 @@
     </button>
 </div>
 
+<!-- Global ID Tables Download Section -->
+<div class="database-section">
+    <div class="database-header">
+        <h2><i class="fas fa-database"></i> Global ID Tables Data Download</h2>
+    </div>
+    <div class="database-info">
+        <p><strong>Quick Download:</strong> Download complete data from Global ID tables for backup or analysis purposes</p>
+        <p><strong>Description:</strong> Direct downloads from global_id and global_id_non_database tables in CSV or Excel format</p>
+    </div>
+    
+    <!-- Download Controls -->
+    <div class="row" style="margin: 20px 0;">
+        <!-- Global ID Table Download -->
+        <div class="col-md-6">
+            <div class="search-section" style="padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; height: 100%;">
+                <div class="search-header" style="margin-bottom: 15px;">
+                    <h5 style="margin: 0; color: #495057;"><i class="fas fa-table"></i> Global ID Table</h5>
+                    <small class="text-muted">Download from main global_id table</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Export Format</label>
+                    <select id="global-id-format" class="form-select">
+                        <option value="csv">CSV (Comma Separated)</option>
+                        <option value="excel">Excel (.xlsx)</option>
+                    </select>
+                </div>
+                <div class="mb-3" id="global-id-csv-section">
+                    <label class="form-label">CSV Separator</label>
+                    <select id="global-id-separator" class="form-select">
+                        <option value=",">Comma (,)</option>
+                        <option value=";">Semicolon (;)</option>
+                        <option value="|">Pipe (|)</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary d-block w-100" onclick="downloadGlobalIdTable()">
+                    <i class="fas fa-download"></i> Download Global ID Table
+                </button>
+            </div>
+        </div>
+        
+        <!-- Global ID Non-Database Table Download -->
+        <div class="col-md-6">
+            <div class="search-section" style="padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; height: 100%;">
+                <div class="search-header" style="margin-bottom: 15px;">
+                    <h5 style="margin: 0; color: #495057;"><i class="fas fa-file-excel"></i> Global ID Non-Database Table</h5>
+                    <small class="text-muted">Download from global_id_non_database table</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Export Format</label>
+                    <select id="global-id-non-db-format" class="form-select">
+                        <option value="csv">CSV (Comma Separated)</option>
+                        <option value="excel">Excel (.xlsx)</option>
+                    </select>
+                </div>
+                <div class="mb-3" id="global-id-non-db-csv-section">
+                    <label class="form-label">CSV Separator</label>
+                    <select id="global-id-non-db-separator" class="form-select">
+                        <option value=",">Comma (,)</option>
+                        <option value=";">Semicolon (;)</option>
+                        <option value="|">Pipe (|)</option>
+                    </select>
+                </div>
+                <button class="btn btn-info d-block w-100" onclick="downloadGlobalIdNonDatabase()">
+                    <i class="fas fa-download"></i> Download Global ID Non-Database
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- SAP Export Section -->
 <div class="database-section">
     <div class="database-header">
@@ -3886,6 +3958,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const csvSection = document.getElementById('csv-separator-section');
         csvSection.style.display = this.value === 'csv' ? 'block' : 'none';
     });
+    
+    // Show/hide CSV separator sections for Global ID downloads
+    document.getElementById('global-id-format').addEventListener('change', function() {
+        const csvSection = document.getElementById('global-id-csv-section');
+        csvSection.style.display = this.value === 'csv' ? 'block' : 'none';
+    });
+    
+    document.getElementById('global-id-non-db-format').addEventListener('change', function() {
+        const csvSection = document.getElementById('global-id-non-db-csv-section');
+        csvSection.style.display = this.value === 'csv' ? 'block' : 'none';
+    });
 });
 
 // SAP Export Functions
@@ -3965,6 +4048,86 @@ async function exportSapData() {
         exportBtn.disabled = false;
     }
 }
+
+// Global ID Tables Download Functions
+async function downloadGlobalIdTable() {
+    try {
+        const downloadBtn = event.target;
+        const originalText = downloadBtn.innerHTML;
+        downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Downloading...';
+        downloadBtn.disabled = true;
+        
+        const format = document.getElementById('global-id-format').value;
+        const separator = document.getElementById('global-id-separator').value;
+        
+        const apiBaseUrl = getApiBaseUrl();
+        let url = `${apiBaseUrl}/global-id-table/export?format=${format}`;
+        
+        if (format === 'csv') {
+            url += `&separator=${encodeURIComponent(separator)}`;
+        }
+        
+        // Create a temporary link to trigger download
+        const link = document.createElement('a');
+        link.href = url;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Show success message
+        const formatText = format === 'excel' ? 'Excel' : `CSV (${separator})`;
+        UIUtils.showAlert(`✅ Global ID table download started! Format: ${formatText}`, 'success');
+        
+    } catch (error) {
+        console.error('Error downloading global_id table:', error);
+        UIUtils.showAlert('❌ Error downloading global_id table. Please try again.', 'danger');
+    } finally {
+        const downloadBtn = event.target;
+        downloadBtn.innerHTML = '<i class="fas fa-download"></i> Download Global ID Table';
+        downloadBtn.disabled = false;
+    }
+}
+
+async function downloadGlobalIdNonDatabase() {
+    try {
+        const downloadBtn = event.target;
+        const originalText = downloadBtn.innerHTML;
+        downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Downloading...';
+        downloadBtn.disabled = true;
+        
+        const format = document.getElementById('global-id-non-db-format').value;
+        const separator = document.getElementById('global-id-non-db-separator').value;
+        
+        const apiBaseUrl = getApiBaseUrl();
+        let url = `${apiBaseUrl}/global-id-non-database/export?format=${format}`;
+        
+        if (format === 'csv') {
+            url += `&separator=${encodeURIComponent(separator)}`;
+        }
+        
+        // Create a temporary link to trigger download
+        const link = document.createElement('a');
+        link.href = url;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Show success message
+        const formatText = format === 'excel' ? 'Excel' : `CSV (${separator})`;
+        UIUtils.showAlert(`✅ Global ID Non-Database table download started! Format: ${formatText}`, 'success');
+        
+    } catch (error) {
+        console.error('Error downloading global_id_non_database table:', error);
+        UIUtils.showAlert('❌ Error downloading global_id_non_database table. Please try again.', 'danger');
+    } finally {
+        const downloadBtn = event.target;
+        downloadBtn.innerHTML = '<i class="fas fa-download"></i> Download Global ID Non-Database';
+        downloadBtn.disabled = false;
+    }
+}
+
 async function loadGlobalIdStats() {
     try {
         const apiBaseUrl = getApiBaseUrl();
