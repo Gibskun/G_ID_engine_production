@@ -1701,6 +1701,88 @@ async def get_dummy_data_progress(task_id: str):
         }
 
 
+@router.get("/validation-config/status")
+async def get_validation_status(db: Session = Depends(get_db)):
+    """
+    Get current validation configuration status
+    """
+    try:
+        from app.services.config_service import ConfigService
+        config_service = ConfigService(db)
+        
+        status = config_service.get_validation_status()
+        
+        return {
+            "success": True,
+            "status": status,
+            "message": "Validation status retrieved successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting validation status: {str(e)}")
+
+
+@router.post("/validation-config/toggle-strict")
+async def toggle_strict_validation(db: Session = Depends(get_db)):
+    """
+    Toggle strict validation rules for Excel/CSV uploads
+    """
+    try:
+        from app.services.config_service import ConfigService
+        config_service = ConfigService(db)
+        
+        result = config_service.toggle_strict_validation()
+        
+        if result['success']:
+            return {
+                "success": True,
+                "enabled": result['enabled'],
+                "message": result['message'],
+                "status": config_service.get_validation_status()
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to toggle validation setting")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error toggling validation: {str(e)}")
+
+
+@router.post("/validation-config/set")
+async def set_validation_config(
+    strict_validation: bool = Query(description="Enable/disable strict validation"),
+    ktp_validation: bool = Query(default=None, description="Enable/disable KTP validation"),
+    passport_validation: bool = Query(default=None, description="Enable/disable passport validation"),
+    db: Session = Depends(get_db)
+):
+    """
+    Set specific validation configuration settings
+    """
+    try:
+        from app.services.config_service import ConfigService
+        config_service = ConfigService(db)
+        
+        # Update strict validation
+        config_service.set_bool_config('strict_validation_enabled', strict_validation)
+        
+        # Update specific validations if provided
+        if ktp_validation is not None:
+            config_service.set_bool_config('ktp_validation_enabled', ktp_validation)
+        
+        if passport_validation is not None:
+            config_service.set_bool_config('passport_validation_enabled', passport_validation)
+        
+        status = config_service.get_validation_status()
+        
+        return {
+            "success": True,
+            "status": status,
+            "message": "Validation configuration updated successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating validation config: {str(e)}")
+
+
 # Include router in the API
 api_router = APIRouter(prefix="/api/v1", tags=["Global ID System"])
 api_router.include_router(router)

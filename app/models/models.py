@@ -115,5 +115,21 @@ class AuditLog(Base):
         return f"<AuditLog(id={self.id}, table='{self.table_name}', action='{self.action}')>"
 
 
+class SystemConfig(Base):
+    """System configuration settings"""
+    __tablename__ = 'system_config'
+    # __table_args__ = {'schema': 'dbo'}  # Disabled for local testing
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    config_key = Column(String(100), unique=True, nullable=False)
+    config_value = Column(String(500), nullable=False)
+    description = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<SystemConfig(key='{self.config_key}', value='{self.config_value}')>"
+
+
 # Import fix - make sure the models are available when imported
 G_ID_Sequence = GIDSequence  # For backward compatibility with the generator

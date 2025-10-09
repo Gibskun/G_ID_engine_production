@@ -12,6 +12,7 @@ from io import BytesIO, StringIO
 
 from app.models.models import GlobalID, GlobalIDNonDatabase, AuditLog
 from app.services.gid_generator import GIDGenerator
+from app.services.config_service import ConfigService
 from sqlalchemy import and_
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ class ExcelIngestionService:
     def __init__(self, db: Session):
         self.db = db
         self.gid_generator = GIDGenerator(db)
+        self.config_service = ConfigService(db)
     
     def process_file(self, file_content: bytes, filename: str) -> Dict[str, Any]:
         """
@@ -337,50 +339,54 @@ class ExcelIngestionService:
                 cleaned_data['BOD'] = None
             
             # Validate No_KTP format (should be numeric and proper length)
-            if not cleaned_data['No_KTP'].isdigit():
-                return {
-                    'valid': False,
-                    'error': f"Row {row_number}: No_KTP must contain only digits"
-                }
-            
-            if len(cleaned_data['No_KTP']) != 16:
-                return {
-                    'valid': False,
-                    'error': f"Row {row_number}: No_KTP must be exactly 16 digits"
-                }
+            # Only validate if strict validation is enabled
+            if self.config_service.is_strict_validation_enabled() and self.config_service.is_ktp_validation_enabled():
+                if not cleaned_data['No_KTP'].isdigit():
+                    return {
+                        'valid': False,
+                        'error': f"Row {row_number}: No_KTP must contain only digits"
+                    }
+                
+                if len(cleaned_data['No_KTP']) != 16:
+                    return {
+                        'valid': False,
+                        'error': f"Row {row_number}: No_KTP must be exactly 16 digits"
+                    }
             
             # Validate passport_id format (8-9 characters, first letter, numbers must dominate)
-            passport_id = cleaned_data['passport_id']
-            if len(passport_id) < 8 or len(passport_id) > 9:
-                return {
-                    'valid': False,
-                    'error': f"Row {row_number}: Passport_ID must be 8-9 characters long"
-                }
-            
-            # Check if passport_id starts with letters and has numbers
-            if not passport_id[0].isalpha():
-                return {
-                    'valid': False,
-                    'error': f"Row {row_number}: Passport_ID must start with a letter"
-                }
-            
-            # Check if all characters are alphanumeric
-            if not passport_id.isalnum():
-                return {
-                    'valid': False,
-                    'error': f"Row {row_number}: Passport_ID can only contain letters and numbers"
-                }
-            
-            # Count letters and numbers
-            letter_count = sum(1 for c in passport_id if c.isalpha())
-            number_count = sum(1 for c in passport_id if c.isdigit())
-            
-            # Numbers must dominate (be more than letters)
-            if number_count <= letter_count:
-                return {
-                    'valid': False,
-                    'error': f"Row {row_number}: Passport_ID must have more numbers than letters"
-                }
+            # Only validate if strict validation is enabled
+            if self.config_service.is_strict_validation_enabled() and self.config_service.is_passport_validation_enabled():
+                passport_id = cleaned_data['passport_id']
+                if len(passport_id) < 8 or len(passport_id) > 9:
+                    return {
+                        'valid': False,
+                        'error': f"Row {row_number}: Passport_ID must be 8-9 characters long"
+                    }
+                
+                # Check if passport_id starts with letters and has numbers
+                if not passport_id[0].isalpha():
+                    return {
+                        'valid': False,
+                        'error': f"Row {row_number}: Passport_ID must start with a letter"
+                    }
+                
+                # Check if all characters are alphanumeric
+                if not passport_id.isalnum():
+                    return {
+                        'valid': False,
+                        'error': f"Row {row_number}: Passport_ID can only contain letters and numbers"
+                    }
+                
+                # Count letters and numbers
+                letter_count = sum(1 for c in passport_id if c.isalpha())
+                number_count = sum(1 for c in passport_id if c.isdigit())
+                
+                # Numbers must dominate (be more than letters)
+                if number_count <= letter_count:
+                    return {
+                        'valid': False,
+                        'error': f"Row {row_number}: Passport_ID must have more numbers than letters"
+                    }
             
             return {
                 'valid': True,
