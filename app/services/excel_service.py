@@ -79,21 +79,41 @@ class ExcelIngestionService:
             }
     
     def _read_csv_with_encoding(self, file_content: bytes, filename: str) -> pd.DataFrame:
-        """Try to read CSV with different encodings"""
+        """Try to read CSV with different encodings and separators"""
         encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'iso-8859-1', 'cp1252']
+        separators = [',', ';']  # Support both comma and semicolon
         
         for encoding in encodings:
-            try:
-                content_str = file_content.decode(encoding)
-                df = pd.read_csv(StringIO(content_str))
-                logger.info(f"Successfully read CSV {filename} with encoding: {encoding}")
-                return df
-            except (UnicodeDecodeError, pd.errors.EmptyDataError) as e:
-                logger.debug(f"Failed to read {filename} with encoding {encoding}: {str(e)}")
-                continue
+            for separator in separators:
+                try:
+                    content_str = file_content.decode(encoding)
+                    df = pd.read_csv(StringIO(content_str), sep=separator)
+                    
+                    # Check if we got meaningful data (more than 1 column usually means correct separator)
+                    if len(df.columns) > 1:
+                        logger.info(f"Successfully read CSV {filename} with encoding: {encoding} and separator: '{separator}'")
+                        return df
+                    
+                except (UnicodeDecodeError, pd.errors.EmptyDataError, pd.errors.ParserError) as e:
+                    logger.debug(f"Failed to read {filename} with encoding {encoding} and separator '{separator}': {str(e)}")
+                    continue
         
-        # If all encodings fail, raise the last exception
-        raise ValueError(f"Could not read CSV file {filename} with any supported encoding")
+        # If all combinations fail, try auto-detection with pandas
+        try:
+            for encoding in encodings:
+                try:
+                    content_str = file_content.decode(encoding)
+                    # Let pandas auto-detect the separator
+                    df = pd.read_csv(StringIO(content_str), sep=None, engine='python')
+                    logger.info(f"Successfully read CSV {filename} with encoding: {encoding} using auto-detection")
+                    return df
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        
+        # If everything fails, raise an informative error
+        raise ValueError(f"Could not read CSV file {filename}. Please ensure the file uses comma (,) or semicolon (;) as separator and is properly encoded.")
     
     def _get_file_extension(self, filename: str) -> str:
         """Get file extension in lowercase"""
@@ -658,17 +678,11 @@ class ExcelIngestionService:
                     'description': 'Full name of the person',
                     'type': 'Text',
                     'required': True,
-                    'max_length': 255
+                    'max_length': 255,
+                    'example': 'Ahmad Suharto'
                 },
                 {
-                    'name': 'personal_number',
-                    'description': 'Personal number',
-                    'type': 'Text',
-                    'required': False,
-                    'max_length': 15
-                },
-                {
-                    'name': 'No_KTP',
+                    'name': 'no_ktp',
                     'description': 'Indonesian ID number (exactly 16 digits)',
                     'type': 'Text (16 digits)',
                     'required': True,
@@ -676,16 +690,24 @@ class ExcelIngestionService:
                     'example': '3201234567890001'
                 },
                 {
-                    'name': 'passport_id',
-                    'description': 'Passport ID (8-9 characters, first letter, numbers dominate)',
-                    'type': 'Text (8-9 chars)',
-                    'required': True,
-                    'format': 'First letter, then letters/numbers (more numbers than letters)',
-                    'example': 'A12345678 or B789A1234'
+                    'name': 'personal_number',
+                    'description': 'Employee personal/staff number',
+                    'type': 'Text',
+                    'required': False,
+                    'max_length': 50,
+                    'example': 'EMP-2025-0001'
                 },
                 {
-                    'name': 'BOD',
-                    'description': 'Birth of Date',
+                    'name': 'passport_id',
+                    'description': 'Passport ID (8-9 characters, alphanumeric)',
+                    'type': 'Text (8-9 chars)',
+                    'required': False,
+                    'format': 'Alphanumeric, 8-9 characters',
+                    'example': 'A12345678'
+                },
+                {
+                    'name': 'bod',
+                    'description': 'Birth Date',
                     'type': 'Date',
                     'required': False,
                     'format': 'YYYY-MM-DD',
@@ -693,10 +715,12 @@ class ExcelIngestionService:
                 }
             ],
             'notes': [
-                'No_KTP must be exactly 16 digits',
-                'No_KTP must be unique (no duplicates allowed)',
-                'Date format for BOD must be YYYY-MM-DD',
-                'Name is required and cannot be empty',
-                'Personal number is optional'
+                'no_ktp must be exactly 16 digits and unique (no duplicates)',
+                'name is required and cannot be empty',
+                'Date format for bod must be YYYY-MM-DD',
+                'personal_number and passport_id are optional',
+                'CSV files support both comma (,) and semicolon (;) separators',
+                'Multiple text encodings are automatically detected',
+                'Remove any "process" column if copying from dummy data'
             ]
         }

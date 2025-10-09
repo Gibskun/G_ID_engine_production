@@ -18,8 +18,13 @@
         <p class="text-center">Loading template information...</p>
     </div>
     <div class="text-center">
-        <button class="btn btn-secondary" onclick="downloadTemplate('csv')">Download CSV Template</button>
-        <button class="btn btn-secondary" onclick="downloadTemplate('excel')">Download Excel Template</button>
+        <div class="btn-group mb-2" role="group">
+            <button class="btn btn-secondary" onclick="downloadTemplate('csv', ',')">Download CSV Template (Comma)</button>
+            <button class="btn btn-secondary" onclick="downloadTemplate('csv', ';')">Download CSV Template (Semicolon)</button>
+            <button class="btn btn-secondary" onclick="downloadTemplate('excel')">Download Excel Template</button>
+        </div>
+        <br>
+        <small class="text-muted">Choose CSV with comma (,) or semicolon (;) separator, or Excel format</small>
     </div>
 </div>
 
@@ -108,6 +113,17 @@
 
 {% block scripts %}
 <script>
+// API Base URL Detection - Same logic as main.js
+function getApiBaseUrl() {
+    const path = window.location.pathname || '';
+    // Treat /gid or /gid/... as prefixed deployment (user-facing)
+    if (path === '/gid' || path.startsWith('/gid/')) {
+        return '/gid/api/v1'; // Browser will request /gid/api/v1/* which nginx rewrites -> /api/v1/*
+    } else {
+        return '/api/v1';
+    }
+}
+
 let fileUploader;
 let uploadInProgress = false;
 
@@ -124,7 +140,20 @@ async function loadTemplateInfo() {
 function updateTemplateInfo(template) {
     const container = document.getElementById('template-info');
     
-    let html = '<div class="table-container"><table><thead><tr>';
+    // Add CSV separator information
+    let html = `
+        <div class="alert alert-info mb-3">
+            <h5><i class="fas fa-info-circle"></i> File Format Support</h5>
+            <ul class="mb-0">
+                <li><strong>Excel files:</strong> .xlsx, .xls formats</li>
+                <li><strong>CSV files:</strong> Both comma (,) and semicolon (;) separators supported</li>
+                <li><strong>Encoding:</strong> UTF-8, UTF-8-BOM, Latin-1, ISO-8859-1, CP1252</li>
+                <li><strong>Auto-detection:</strong> The system automatically detects separator and encoding</li>
+            </ul>
+        </div>
+    `;
+    
+    html += '<div class="table-container"><table><thead><tr>';
     html += '<th>Column Name</th><th>Description</th><th>Type</th><th>Required</th><th>Notes</th>';
     html += '</tr></thead><tbody>';
     
@@ -147,6 +176,9 @@ function updateTemplateInfo(template) {
         template.notes.forEach(note => {
             html += `<li>${note}</li>`;
         });
+        // Add additional notes about CSV separators
+        html += '<li><strong>CSV Separators:</strong> Use either comma (,) or semicolon (;) - system auto-detects</li>';
+        html += '<li><strong>International Support:</strong> Multiple character encodings supported automatically</li>';
         html += '</ul>';
     }
     
@@ -429,45 +461,30 @@ function uploadAnother() {
     document.getElementById('file-upload-container').scrollIntoView({ behavior: 'smooth' });
 }
 
-function downloadTemplate(format = 'csv') {
-    // Create a sample template based on the requirements
-    const csvContent = `name,personal_number,no_ktp,bod
-John Doe,081234567890,3201234567890001,1985-03-15
-Jane Smith,081234567891,3201234567890002,1990-07-22
-Ahmad Suharto,081234567892,3201234567890003,1988-12-10`;
-
-    if (format === 'csv') {
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
+function downloadTemplate(format = 'csv', separator = ',') {
+    try {
+        const apiBaseUrl = getApiBaseUrl();
+        let url = `${apiBaseUrl}/excel/template/download?format=${format}`;
+        
+        if (format === 'csv') {
+            url += `&separator=${encodeURIComponent(separator)}`;
+        }
+        
+        // Create a temporary link and trigger download
         const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', 'global_id_template.csv');
+        link.href = url;
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         
-        UIUtils.showAlert('CSV template downloaded successfully!', 'success');
-    } else if (format === 'excel') {
-        // For Excel template, we'll provide a CSV with instructions for Excel conversion
-        const excelInstructions = `# Global ID Excel Template Instructions
-# 1. Copy the data below to Excel
-# 2. Save as .xlsx format
-# 3. Upload the Excel file
-
-${csvContent}`;
-
-        const blob = new Blob([excelInstructions], { type: 'text/plain' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', 'global_id_excel_template_instructions.txt');
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const separatorText = separator === ',' ? 'comma' : 'semicolon';
+        const formatText = format === 'excel' ? 'Excel' : `CSV (${separatorText})`;
+        UIUtils.showAlert(`${formatText} template download started!`, 'success');
         
-        UIUtils.showAlert('Excel template instructions downloaded! Copy the data to Excel and save as .xlsx', 'info');
+    } catch (error) {
+        console.error('Error downloading template:', error);
+        UIUtils.showAlert('Error downloading template. Please try again.', 'danger');
     }
 }
 

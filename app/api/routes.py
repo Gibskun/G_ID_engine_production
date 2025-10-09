@@ -944,6 +944,101 @@ async def get_excel_template(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error getting template: {str(e)}")
 
 
+@router.get("/excel/template/download")
+async def download_template(
+    format: str = Query("csv", description="Template format: csv or excel"),
+    separator: str = Query(",", description="CSV separator: comma (,) or semicolon (;)")
+):
+    """Download Excel/CSV template file with sample data"""
+    try:
+        from fastapi.responses import Response
+        import io
+        import pandas as pd
+        
+        # Create sample data that matches the actual requirements
+        sample_data = [
+            {
+                'name': 'Ahmad Suharto',
+                'personal_number': 'EMP-2025-0001',
+                'no_ktp': '3201234567890001',
+                'passport_id': 'A12345678',
+                'bod': '1985-03-15'
+            },
+            {
+                'name': 'Siti Nurhaliza',
+                'personal_number': 'EMP-2025-0002', 
+                'no_ktp': '3201234567890002',
+                'passport_id': 'B78912345',
+                'bod': '1990-07-22'
+            },
+            {
+                'name': 'Budi Santoso',
+                'personal_number': 'EMP-2025-0003',
+                'no_ktp': '3201234567890003', 
+                'passport_id': 'C56789123',
+                'bod': '1988-12-10'
+            }
+        ]
+        
+        df = pd.DataFrame(sample_data)
+        
+        if format.lower() == 'excel':
+            # Create Excel file
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='Employee_Data', index=False)
+                
+                # Add instructions sheet
+                instructions = pd.DataFrame({
+                    'INSTRUCTIONS': [
+                        '1. Fill in employee data in the Employee_Data sheet',
+                        '2. Required fields: name, no_ktp',
+                        '3. Optional fields: personal_number, passport_id, bod',
+                        '4. no_ktp must be exactly 16 digits',
+                        '5. Date format for bod: YYYY-MM-DD',
+                        '6. All no_ktp values must be unique',
+                        '7. Save and upload this file'
+                    ]
+                })
+                instructions.to_excel(writer, sheet_name='Instructions', index=False)
+            
+            output.seek(0)
+            
+            return Response(
+                content=output.getvalue(),
+                media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                headers={'Content-Disposition': 'attachment; filename="employee_template.xlsx"'}
+            )
+            
+        else:  # CSV format
+            # Validate separator
+            if separator not in [',', ';']:
+                separator = ','
+            
+            output = io.StringIO()
+            df.to_csv(output, index=False, sep=separator)
+            csv_content = output.getvalue()
+            
+            # Add instructions as comments
+            instructions = f"""# Employee Data Template
+# Required fields: name, no_ktp
+# Optional fields: personal_number, passport_id, bod  
+# no_ktp must be exactly 16 digits
+# Date format for bod: YYYY-MM-DD
+# Separator used: {separator}
+# 
+{csv_content}"""
+
+            return Response(
+                content=instructions,
+                media_type='text/csv',
+                headers={'Content-Disposition': f'attachment; filename="employee_template_{separator.replace(",", "comma").replace(";", "semicolon")}.csv"'}
+            )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating template: {str(e)}")
+
+
 @router.get("/gid/next-preview")
 async def preview_next_gid(db: Session = Depends(get_db)):
     """Preview what the next G_ID will be"""
