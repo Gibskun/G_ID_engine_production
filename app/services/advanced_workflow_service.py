@@ -191,12 +191,12 @@ class AdvancedWorkflowService:
                 #     GlobalID.no_ktp == clean_data['no_ktp']
                 # ).first()
                 # 
-                # if existing_record:
+                # if False:  # DISABLED: existence checking
                 #     result['skipped'] += 1
                 #     result['errors'].append(
                 #         f"Row {row_num}: No_KTP {clean_data['no_ktp']} already exists (G_ID: {existing_record.g_id})"
                 #     )
-                #     logger.warning(f"Skipping duplicate No_KTP: {clean_data['no_ktp']}")
+                #     logger.warning(f"pass  # DISABLED: skip on duplicate No_KTP: {clean_data['no_ktp']}")
                 #     continue
                 
                 # Generate new G_ID

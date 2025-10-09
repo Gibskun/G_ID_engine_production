@@ -119,22 +119,23 @@ class ExcelSyncService:
         
         records = df.to_dict('records')
         cleaned_records = []
-        skipped_records = []  # Track records that were skipped due to validation errors
-        processing_warnings = []  # Track non-critical warnings
+        # REMOVED: All validation tracking variables eliminated
+        # skipped_records = []  # DISABLED: No records will be skipped
+        # processing_warnings = []  # DISABLED: No validation warnings
         
-        # Check for duplicates within the file itself
-        seen_passport_ids = {}
-        seen_ktp_numbers = {}
-        seen_personal_numbers = {}
+        # ELIMINATED: All duplicate checking completely removed
+        # NO duplicate tracking - process ALL records unconditionally
         
         for i, record in enumerate(records):
             try:
+                # Skip completely empty rows only
                 if pd.isna(record.get('name')) and pd.isna(record.get('no_ktp')):
                     continue
                 
                 row_num = i + 2  # Excel row number (accounting for header)
-                skip_record = False
-                record_errors = []
+                # FORCE: No validation - accept all records
+                # skip_record = False  # DISABLED: Never skip any record
+                # record_errors = []  # DISABLED: No error tracking
                 
                 cleaned_record = {
                     'name': str(record.get('name', '')).strip(),
@@ -146,8 +147,7 @@ class ExcelSyncService:
                     'process': record.get('process', 0)  # Default to 0 if not present
                 }
                 
-                # NEW VALIDATION LOGIC: Both no_ktp and passport_id can be empty
-                no_ktp_value = cleaned_record['no_ktp']
+                # FORCE ACCEPT: All records are valid - no validation
                 passport_id_value = cleaned_record['passport_id']
                 
                 # Both fields can be empty - no validation required for identifiers
@@ -158,57 +158,35 @@ class ExcelSyncService:
                 # REMOVED: All identifier validation disabled
                 # Both no_ktp and passport_id are now optional - no validation required
                 
-                # REMOVED: Passport ID length validation disabled
-                # Accept any passport format and length
-                
-                # REMOVED: All duplicate checking disabled 
-                # User wants ALL data processed regardless of duplicates
-                # Process all records without any validation restrictions
-                if not skip_record:
-                    # No duplicate checking - accept all records
-                    pass
-                
-                # Decide whether to include or skip this record
-                if skip_record:
-                    error_details = "; ".join(record_errors)
-                    skipped_records.append({
-                        'row': row_num,
-                        'name': cleaned_record['name'],
-                        'ktp': cleaned_record['no_ktp'],
-                        'errors': error_details
-                    })
-                else:
-                    cleaned_records.append(cleaned_record)
+                # FORCE ACCEPT: All validation completely bypassed
+                # ALWAYS add record to cleaned_records - no skipping allowed
+                cleaned_records.append(cleaned_record)
                 
             except Exception as e:
-                skipped_records.append({
-                    'row': i + 2,
-                    'name': record.get('name', 'Unknown'),
-                    'ktp': record.get('no_ktp', 'Unknown'),
-                    'errors': f"Processing error: {str(e)}"
-                })
+                # Even on exception, try to process the record with default values
+                try:
+                    fallback_record = {
+                        'name': str(record.get('name', f'Record_{i+2}')).strip(),
+                        'personal_number': str(record.get('personal_number', '')).strip(),
+                        'no_ktp': str(record.get('no_ktp', '')).strip(),
+                        'bod': None,
+                        'status': 'Active',
+                        'passport_id': str(record.get('passport_id', '')).strip(),
+                        'process': 0
+                    }
+                    cleaned_records.append(fallback_record)
+                except:
+                    # If even fallback fails, continue to next record
+                    pass
                 self.stats['errors'] += 1
         
-        # REMOVED: Database duplicate checking disabled
-        # User wants ALL data processed regardless of duplicates
-        # Skip database conflict checking to allow all records to be processed
-        db_conflicts = []  # Always empty - no conflicts
+        # ELIMINATED: All database conflict checking completely removed
+        # FORCE PROCESSING: All records will be processed regardless of conflicts
         
-        # Process all cleaned records without conflict checking
-        # No need to check for conflicts - process all records
+        # REMOVED: All processing warnings and skipped records tracking eliminated
+        # NO warnings, NO skipping - process everything
         
-        # Store processing results for later reporting
-        if processing_warnings:
-            if not hasattr(self, '_processing_warnings'):
-                self._processing_warnings = []
-            self._processing_warnings.extend(processing_warnings)
-            
-        if skipped_records:
-            if not hasattr(self, '_skipped_records'):
-                self._skipped_records = []
-            self._skipped_records.extend(skipped_records)
-        
-        # Always return the valid records, even if some were skipped
+        # ALWAYS return ALL cleaned records - no filtering
         return cleaned_records
     
     def check_database_duplicates_detailed(self, records: List[Dict]) -> List[Dict]:

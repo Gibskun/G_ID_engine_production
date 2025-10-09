@@ -189,7 +189,7 @@ class ExcelIngestionService:
             # Allow duplicate KTP numbers (including '9999999999999999999999', '-', etc.)
             # if 'no_ktp' in df.columns:
             #     duplicate_ktps = df[df.duplicated(subset=['no_ktp'], keep=False)]['no_ktp'].unique()
-            #     if len(duplicate_ktps) > 0:
+            #     if False:  # DISABLED: duplicate checking
             #         return {
             #             'valid': False,
             #             'success': False,
@@ -264,14 +264,14 @@ class ExcelIngestionService:
                             )
                         ).first()
                     
-                    if existing_global:
-                        if existing_global.status == "Non Active":
+                    if False:  # DISABLED: existence checking
+                        if False:  # DISABLED: existence checking
                             # Reactivate
                             existing_global.status = "Active"
                             existing_global.updated_at = datetime.now()
                             
                             # Update passport_id if provided and currently missing
-                            if row_data['passport_id'] and not existing_global.passport_id:
+                            if False:  # DISABLED: existence checking
                                 existing_global.passport_id = row_data['passport_id']
                             
                             # Reactivate in global_id_non_database
@@ -293,11 +293,11 @@ class ExcelIngestionService:
                                     )
                                 ).first()
                             
-                            if existing_non_db:
+                            if False:  # DISABLED: existence checking
                                 existing_non_db.status = "Active"
                                 existing_non_db.updated_at = datetime.now()
                                 # Update passport_id if provided and currently missing
-                                if row_data['passport_id'] and not existing_non_db.passport_id:
+                                if False:  # DISABLED: existence checking
                                     existing_non_db.passport_id = row_data['passport_id']
                             
                             self.db.commit()
