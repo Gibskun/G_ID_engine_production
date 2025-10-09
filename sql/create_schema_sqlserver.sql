@@ -32,8 +32,8 @@ CREATE TABLE dbo.global_id (
     g_id NVARCHAR(10) NOT NULL PRIMARY KEY,
     name NVARCHAR(255) NOT NULL,
     personal_number NVARCHAR(15),
-    no_ktp NVARCHAR(16) NULL,  -- Allow NULL - both fields can be empty
-    passport_id NVARCHAR(9) NULL,  -- Allow NULL - both fields can be empty
+    no_ktp NVARCHAR(50) NULL,  -- Increased from 16 to 50 to handle formatted KTP with dots
+    passport_id NVARCHAR(50) NULL,  -- Increased from 9 to 50 for flexibility
     bod DATE,
     status NVARCHAR(15) NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Non Active')),
     source NVARCHAR(20) NOT NULL DEFAULT 'database_pegawai' CHECK (source IN ('database_pegawai', 'excel')),
@@ -47,9 +47,8 @@ CREATE TABLE dbo.global_id_non_database (
     g_id NVARCHAR(10) NOT NULL PRIMARY KEY,
     name NVARCHAR(255) NOT NULL,
     personal_number NVARCHAR(15),
-    no_ktp NVARCHAR(16) NULL,  -- Allow NULL - both fields can be empty
-    passport_id NVARCHAR(9) NULL,  -- Allow NULL - both fields can be empty
-    passport_id NVARCHAR(9) NULL,  -- Allow NULL - both fields can be empty
+    no_ktp NVARCHAR(50) NULL,  -- Increased from 16 to 50 to handle formatted KTP with dots
+    passport_id NVARCHAR(50) NULL,  -- Increased from 9 to 50 for flexibility
     bod DATE,
     status NVARCHAR(15) NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Non Active')),
     source NVARCHAR(20) NOT NULL DEFAULT 'excel' CHECK (source IN ('database_pegawai', 'excel')),
@@ -57,7 +56,6 @@ CREATE TABLE dbo.global_id_non_database (
     updated_at DATETIME2 DEFAULT GETDATE()
 );
 GO
-);
 GO
 
 -- G_ID Sequence Management Table
@@ -78,8 +76,8 @@ CREATE TABLE dbo.pegawai (
     id INT IDENTITY(1,1) PRIMARY KEY,
     name NVARCHAR(255) NOT NULL,
     personal_number NVARCHAR(15),
-    no_ktp NVARCHAR(16) NULL,  -- Allow NULL - both fields can be empty
-    passport_id NVARCHAR(9) NULL,  -- Allow NULL - both fields can be empty
+    no_ktp NVARCHAR(50) NULL,  -- Increased from 16 to 50 to handle formatted KTP with dots
+    passport_id NVARCHAR(50) NULL,  -- Increased from 9 to 50 for flexibility
     bod DATE,
     g_id NVARCHAR(10),
     created_at DATETIME2 DEFAULT GETDATE(),

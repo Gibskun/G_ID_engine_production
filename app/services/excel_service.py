@@ -357,17 +357,17 @@ class ExcelIngestionService:
                 }
             
             # NEW VALIDATION LOGIC: Both no_ktp and passport_id can be empty
-            no_ktp_value = str(row['no_ktp']).strip() if pd.notna(row['no_ktp']) else ""
-            passport_id_value = str(row['passport_id']).strip() if pd.notna(row['passport_id']) else ""
+            no_ktp_value = str(row['no_ktp']).strip() if pd.notna(row['no_ktp']) and str(row['no_ktp']).strip() not in ['nan', 'NaN', 'NULL', 'null', ''] else ""
+            passport_id_value = str(row['passport_id']).strip() if pd.notna(row['passport_id']) and str(row['passport_id']).strip() not in ['nan', 'NaN', 'NULL', 'null', ''] else ""
             
             # Both fields can be empty - no validation required for identifiers
             
-            # Clean and validate data
+            # Clean and validate data - accept any length for identifiers
             cleaned_data = {
                 'name': str(row['name']).strip()[:255],  # Limit to 255 chars
-                'personal_number': str(row['personal_number']).strip()[:15] if pd.notna(row.get('personal_number', '')) and str(row.get('personal_number', '')).strip() else None,
-                'no_ktp': no_ktp_value[:16] if no_ktp_value else None,  # Limit to 16 chars, allow None
-                'passport_id': passport_id_value[:9] if passport_id_value else None  # Limit to 9 chars, allow None
+                'personal_number': str(row['personal_number']).strip() if pd.notna(row.get('personal_number', '')) and str(row.get('personal_number', '')).strip() not in ['nan', 'NaN', 'NULL', 'null', ''] else None,
+                'no_ktp': no_ktp_value if no_ktp_value else None,  # Accept any length
+                'passport_id': passport_id_value if passport_id_value else None  # Accept any length
             }
             
             # Handle BOD (Birth of Date)
@@ -389,55 +389,9 @@ class ExcelIngestionService:
             else:
                 cleaned_data['bod'] = None
             
-            # Validate No_KTP format (should be numeric and proper length)
-            # Only validate if No_KTP is provided and strict validation is enabled
-            if cleaned_data['no_ktp'] and self.config_service.is_strict_validation_enabled() and self.config_service.is_ktp_validation_enabled():
-                if not cleaned_data['no_ktp'].isdigit():
-                    return {
-                        'valid': False,
-                        'error': f"Row {row_number}: No_KTP must contain only digits"
-                    }
-                
-                if len(cleaned_data['no_ktp']) != 16:
-                    return {
-                        'valid': False,
-                        'error': f"Row {row_number}: No_KTP must be exactly 16 digits"
-                    }
-            
-            # Validate passport_id format (8-9 characters, first letter, numbers must dominate)
-            # Only validate if passport_id is provided and strict validation is enabled
-            if cleaned_data['passport_id'] and self.config_service.is_strict_validation_enabled() and self.config_service.is_passport_validation_enabled():
-                passport_id = cleaned_data['passport_id']
-                if len(passport_id) < 8 or len(passport_id) > 9:
-                    return {
-                        'valid': False,
-                        'error': f"Row {row_number}: Passport_ID must be 8-9 characters long"
-                    }
-                
-                # Check if passport_id starts with letters and has numbers
-                if not passport_id[0].isalpha():
-                    return {
-                        'valid': False,
-                        'error': f"Row {row_number}: Passport_ID must start with a letter"
-                    }
-                
-                # Check if all characters are alphanumeric
-                if not passport_id.isalnum():
-                    return {
-                        'valid': False,
-                        'error': f"Row {row_number}: Passport_ID can only contain letters and numbers"
-                    }
-                
-                # Count letters and numbers
-                letter_count = sum(1 for c in passport_id if c.isalpha())
-                number_count = sum(1 for c in passport_id if c.isdigit())
-                
-                # Numbers must dominate (be more than letters)
-                if number_count <= letter_count:
-                    return {
-                        'valid': False,
-                        'error': f"Row {row_number}: Passport_ID must have more numbers than letters"
-                    }
+            # REMOVED: All strict validation disabled
+            # Accept any format for no_ktp and passport_id
+            # No validation required - process all data regardless of format
             
             return {
                 'valid': True,

@@ -43,24 +43,24 @@ class ExcelSyncService:
         # Handle unique constraint violations
         if 'unique key constraint' in error_lower or 'duplicate key' in error_lower:
             if 'passport_id' in error_lower:
-                return "❌ Upload failed: Some records have duplicate or missing Passport IDs. Each employee must have a unique Passport ID. Please check your file and ensure all Passport ID fields are filled with unique values."
+                return "❌ Upload failed: Some records have duplicate Passport IDs. Each employee with a Passport ID must have a unique one. Please check your file for duplicate Passport ID entries."
             elif 'no_ktp' in error_lower:
-                return "❌ Upload failed: Some records have duplicate KTP numbers. Each employee must have a unique KTP number. Please check your file for duplicate entries."
+                return "❌ Upload failed: Some records have duplicate KTP numbers. Each employee with a KTP must have a unique one. Please check your file for duplicate KTP entries."
             elif 'g_id' in error_lower:
                 return "❌ Upload failed: System detected duplicate Global ID values. This is usually a system issue. Please try uploading again or contact support."
             else:
-                return "❌ Upload failed: Duplicate data detected. Please check your file for duplicate entries and ensure all required fields are unique."
+                return "❌ Upload failed: Duplicate data detected. Please check your file for duplicate entries."
         
         # Handle null constraint violations
         if 'cannot insert the value null' in error_lower or 'column does not allow nulls' in error_lower:
             if 'passport_id' in error_lower:
-                return "❌ Upload failed: Some records are missing Passport ID values. All employees must have a Passport ID. Please add Passport IDs to all records in your file."
+                return "❌ Upload failed: System error with Passport ID handling. Please try again or contact support."
             elif 'no_ktp' in error_lower:
-                return "❌ Upload failed: Some records are missing KTP numbers. All employees must have a KTP number. Please add KTP numbers to all records in your file."
+                return "❌ Upload failed: System error with KTP handling. Please try again or contact support."
             elif 'name' in error_lower:
                 return "❌ Upload failed: Some records are missing employee names. All records must have a name. Please add names to all records in your file."
             else:
-                return "❌ Upload failed: Some required information is missing from your file. Please ensure all required fields (Name, KTP, Passport ID) are filled for every record."
+                return "❌ Upload failed: Some required information is missing from your file. Please ensure all required fields (Name) are filled for every record."
         
         # Handle data truncation errors
         if 'string or binary data would be truncated' in error_lower:
@@ -182,10 +182,10 @@ class ExcelSyncService:
                 cleaned_record = {
                     'name': str(record.get('name', '')).strip(),
                     'personal_number': str(record.get('personal_number', '')).strip(),
-                    'no_ktp': str(record.get('no_ktp', '')).strip(),
+                    'no_ktp': str(record.get('no_ktp', '')).strip() if pd.notna(record.get('no_ktp')) and str(record.get('no_ktp')).strip() not in ['nan', 'NaN', 'NULL', 'null'] else '',
                     'bod': self.parse_date(record.get('bod')),
                     'status': self.normalize_status(record.get('status', 'Active')),
-                    'passport_id': str(record.get('passport_id', '')).strip() if record.get('passport_id') else '',
+                    'passport_id': str(record.get('passport_id', '')).strip() if pd.notna(record.get('passport_id')) and str(record.get('passport_id')).strip() not in ['nan', 'NaN', 'NULL', 'null'] else '',
                     'process': record.get('process', 0)  # Default to 0 if not present
                 }
                 
@@ -195,50 +195,14 @@ class ExcelSyncService:
                 
                 # Both fields can be empty - no validation required for identifiers
                 
-                # KTP length validation with process override and database constraints (only if KTP is provided)
-                if not skip_record and no_ktp_value:
-                    ktp_length = len(no_ktp_value)
-                    process_value = cleaned_record['process']
-                    
-                    # Convert process value to int if possible
-                    try:
-                        process_int = int(process_value) if pd.notna(process_value) and str(process_value).strip() != '' else 0
-                    except (ValueError, TypeError):
-                        process_int = 0
-                    
-                    # Hard database constraint: KTP cannot exceed 16 characters (database field limit)
-                    if ktp_length > 16:
-                        record_errors.append(f"KTP '{no_ktp_value}' has {ktp_length} digits (exceeds database limit of 16 characters)")
-                        skip_record = True
-                    # Standard validation: KTP should be exactly 16 digits
-                    elif ktp_length != 16:
-                        if process_int == 1:
-                            # Process override: allow invalid KTP length (but still within database limits)
-                            processing_warnings.append(f"Row {row_num}: Employee '{cleaned_record['name']}' - KTP '{no_ktp_value}' has {ktp_length} digits (not 16) but ALLOWED due to process override (process=1)")
-                        else:
-                            # No override: skip this record
-                            record_errors.append(f"KTP '{no_ktp_value}' has {ktp_length} digits (must be exactly 16, or set process=1 to override)")
-                            skip_record = True
+                # REMOVED: All KTP and identifier validation disabled
+                # Both no_ktp and passport_id are now optional - no length validation required
                 
-                # Handle missing passport_id when no_ktp is also missing
-                if not skip_record and not passport_id_value and not no_ktp_value:
-                    # This case is already handled above - both fields are empty
-                    record_errors.append(f"Both No_KTP and Passport_ID are missing")
-                    skip_record = True
-                elif not skip_record and not passport_id_value and no_ktp_value:
-                    # KTP is provided but passport_id is missing - this is allowed
-                    # Leave passport_id empty instead of auto-generating
-                    pass
+                # REMOVED: All identifier validation disabled
+                # Both no_ktp and passport_id are now optional - no validation required
                 
-                # Validate passport_id length (database constraint: 9 characters max)
-                if not skip_record and cleaned_record['passport_id']:
-                    passport_length = len(cleaned_record['passport_id'])
-                    if passport_length > 9:
-                        record_errors.append(f"Passport ID '{cleaned_record['passport_id']}' has {passport_length} characters (exceeds database limit of 9 characters)")
-                        skip_record = True
-                    elif passport_length < 8:
-                        record_errors.append(f"Passport ID '{cleaned_record['passport_id']}' has {passport_length} characters (minimum 8 characters required)")
-                        skip_record = True
+                # REMOVED: Passport ID length validation disabled
+                # Accept any passport format and length
                 
                 # Check for duplicates within the file
                 if not skip_record:

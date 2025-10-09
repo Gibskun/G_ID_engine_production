@@ -17,8 +17,8 @@ class GlobalID(Base):
     g_id = Column(String(10), primary_key=True, nullable=False, name="g_id")
     name = Column(String(255), nullable=False)
     personal_number = Column(String(15))
-    no_ktp = Column(String(16), nullable=True, name="no_ktp")  # Allow nullable - either no_ktp or passport_id must be provided
-    passport_id = Column(String(9), nullable=True, name="passport_id")  # Allow nullable - either no_ktp or passport_id must be provided
+    no_ktp = Column(String(50), nullable=True, name="no_ktp")  # Increased to 50 chars to handle formatted KTP with dots
+    passport_id = Column(String(50), nullable=True, name="passport_id")  # Increased to 50 chars for flexibility
     bod = Column(Date, name="bod")
     status = Column(String(15), nullable=False, default="Active", name="status")
     source = Column(String(20), nullable=False, default="database_pegawai")
@@ -37,8 +37,8 @@ class GlobalIDNonDatabase(Base):
     g_id = Column(String(10), primary_key=True, nullable=False, name="g_id")
     name = Column(String(255), nullable=False)
     personal_number = Column(String(15))
-    no_ktp = Column(String(16), nullable=True, name="no_ktp")  # Allow nullable - either no_ktp or passport_id must be provided
-    passport_id = Column(String(9), nullable=True, name="passport_id")  # Allow nullable - either no_ktp or passport_id must be provided
+    no_ktp = Column(String(50), nullable=True, name="no_ktp")  # Increased to 50 chars to handle formatted KTP with dots
+    passport_id = Column(String(50), nullable=True, name="passport_id")  # Increased to 50 chars for flexibility
     bod = Column(Date, name="bod")
     status = Column(String(15), nullable=False, default="Active", name="status")
     source = Column(String(20), nullable=False, default="excel")
@@ -81,8 +81,8 @@ class Pegawai(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
     personal_number = Column(String(15))  # Match schema from scripts folder
-    no_ktp = Column(String(16), nullable=True, name="no_ktp")  # Allow nullable - either no_ktp or passport_id must be provided
-    passport_id = Column(String(9), nullable=True, name="passport_id")  # Allow nullable - either no_ktp or passport_id must be provided
+    no_ktp = Column(String(50), nullable=True, name="no_ktp")  # Increased to 50 chars to handle formatted KTP with dots
+    passport_id = Column(String(50), nullable=True, name="passport_id")  # Increased to 50 chars for flexibility
     bod = Column(Date, name="bod")
     g_id = Column(String(10), name="g_id")  # Will be populated by sync system
     created_at = Column(DateTime, default=datetime.utcnow)
