@@ -357,15 +357,16 @@ class ExcelIngestionService:
                 }
             
             # NEW VALIDATION LOGIC: Both no_ktp and passport_id can be empty
-            no_ktp_value = str(row['no_ktp']).strip() if pd.notna(row['no_ktp']) and str(row['no_ktp']).strip() not in ['nan', 'NaN', 'NULL', 'null', ''] else ""
-            passport_id_value = str(row['passport_id']).strip() if pd.notna(row['passport_id']) and str(row['passport_id']).strip() not in ['nan', 'NaN', 'NULL', 'null', ''] else ""
+            # Also treat '0' as empty/null to avoid duplicate issues
+            no_ktp_value = str(row['no_ktp']).strip() if pd.notna(row['no_ktp']) and str(row['no_ktp']).strip() not in ['nan', 'NaN', 'NULL', 'null', '', '0'] else ""
+            passport_id_value = str(row['passport_id']).strip() if pd.notna(row['passport_id']) and str(row['passport_id']).strip() not in ['nan', 'NaN', 'NULL', 'null', '', '0'] else ""
             
             # Both fields can be empty - no validation required for identifiers
             
             # Clean and validate data - accept any length for identifiers
             cleaned_data = {
                 'name': str(row['name']).strip()[:255],  # Limit to 255 chars
-                'personal_number': str(row['personal_number']).strip() if pd.notna(row.get('personal_number', '')) and str(row.get('personal_number', '')).strip() not in ['nan', 'NaN', 'NULL', 'null', ''] else None,
+                'personal_number': str(row['personal_number']).strip() if pd.notna(row.get('personal_number', '')) and str(row.get('personal_number', '')).strip() not in ['nan', 'NaN', 'NULL', 'null', '', '0'] else None,
                 'no_ktp': no_ktp_value if no_ktp_value else None,  # Accept any length
                 'passport_id': passport_id_value if passport_id_value else None  # Accept any length
             }

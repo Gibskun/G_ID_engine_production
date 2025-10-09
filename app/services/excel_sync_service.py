@@ -182,10 +182,10 @@ class ExcelSyncService:
                 cleaned_record = {
                     'name': str(record.get('name', '')).strip(),
                     'personal_number': str(record.get('personal_number', '')).strip(),
-                    'no_ktp': str(record.get('no_ktp', '')).strip() if pd.notna(record.get('no_ktp')) and str(record.get('no_ktp')).strip() not in ['nan', 'NaN', 'NULL', 'null'] else '',
+                    'no_ktp': str(record.get('no_ktp', '')).strip() if pd.notna(record.get('no_ktp')) and str(record.get('no_ktp')).strip() not in ['nan', 'NaN', 'NULL', 'null', '', '0'] else '',
                     'bod': self.parse_date(record.get('bod')),
                     'status': self.normalize_status(record.get('status', 'Active')),
-                    'passport_id': str(record.get('passport_id', '')).strip() if pd.notna(record.get('passport_id')) and str(record.get('passport_id')).strip() not in ['nan', 'NaN', 'NULL', 'null'] else '',
+                    'passport_id': str(record.get('passport_id', '')).strip() if pd.notna(record.get('passport_id')) and str(record.get('passport_id')).strip() not in ['nan', 'NaN', 'NULL', 'null', '', '0'] else '',
                     'process': record.get('process', 0)  # Default to 0 if not present
                 }
                 
@@ -204,30 +204,18 @@ class ExcelSyncService:
                 # REMOVED: Passport ID length validation disabled
                 # Accept any passport format and length
                 
-                # Check for duplicates within the file
+                # REMOVED: Duplicate checking disabled for passport_id and no_ktp
+                # User wants ALL data processed regardless of duplicates, including '0' values
+                # Only check personal_number duplicates if needed
                 if not skip_record:
-                    # Check passport_id duplicates only if passport_id is provided
-                    if passport_id_value and passport_id_value in seen_passport_ids:
-                        other_row = seen_passport_ids[passport_id_value]
-                        record_errors.append(f"Duplicate Passport ID '{passport_id_value}' (also found in row {other_row})")
-                        skip_record = True
-                    elif passport_id_value:
-                        seen_passport_ids[passport_id_value] = row_num
-                    
-                    # Check no_ktp duplicates only if no_ktp is provided
-                    if no_ktp_value and no_ktp_value in seen_ktp_numbers:
-                        other_row = seen_ktp_numbers[no_ktp_value]
-                        record_errors.append(f"Duplicate KTP number '{no_ktp_value}' (also found in row {other_row})")
-                        skip_record = True
-                    elif no_ktp_value:
-                        seen_ktp_numbers[no_ktp_value] = row_num
-                    
-                    # Check personal_number duplicates if provided
+                    # Check personal_number duplicates if provided (optional)
                     personal_number = cleaned_record['personal_number']
-                    if personal_number and personal_number in seen_personal_numbers:
+                    if personal_number and personal_number.strip() and personal_number != '0' and personal_number in seen_personal_numbers:
                         other_row = seen_personal_numbers[personal_number]
                         record_errors.append(f"Duplicate Personal Number '{personal_number}' (also found in row {other_row})")
                         skip_record = True
+                    elif personal_number and personal_number.strip() and personal_number != '0':
+                        seen_personal_numbers[personal_number] = row_num
                     elif personal_number:
                         seen_personal_numbers[personal_number] = row_num
                 
@@ -252,29 +240,13 @@ class ExcelSyncService:
                 })
                 self.stats['errors'] += 1
         
-        # Check for duplicates against existing database records (only for valid records)
-        if cleaned_records:
-            db_conflicts = self.check_database_duplicates_detailed(cleaned_records)
-            # Remove conflicted records from cleaned_records and add to skipped_records
-            if db_conflicts:
-                cleaned_records_final = []
-                for i, record in enumerate(cleaned_records):
-                    conflict_found = False
-                    for conflict in db_conflicts:
-                        if (record['passport_id'] == conflict.get('passport_id') or 
-                            record['no_ktp'] == conflict.get('no_ktp') or 
-                            record['personal_number'] == conflict.get('personal_number')):
-                            skipped_records.append({
-                                'row': conflict.get('row', 'Unknown'),
-                                'name': record['name'],
-                                'ktp': record['no_ktp'],
-                                'errors': conflict['error']
-                            })
-                            conflict_found = True
-                            break
-                    if not conflict_found:
-                        cleaned_records_final.append(record)
-                cleaned_records = cleaned_records_final
+        # REMOVED: Database duplicate checking disabled
+        # User wants ALL data processed regardless of duplicates
+        # Skip database conflict checking to allow all records to be processed
+        db_conflicts = []  # Always empty - no conflicts
+        
+        # Process all cleaned records without conflict checking
+        # No need to check for conflicts - process all records
         
         # Store processing results for later reporting
         if processing_warnings:

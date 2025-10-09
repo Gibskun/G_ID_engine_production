@@ -141,8 +141,9 @@ class AdvancedWorkflowService:
                 validation_errors.append(f"Row {row_num}: Name is required")
             
             # NEW VALIDATION LOGIC: Both no_ktp and passport_id can be empty
-            no_ktp_value = str(row['no_ktp']).strip() if pd.notna(row['no_ktp']) and str(row['no_ktp']).strip() not in ['nan', 'NaN', 'NULL', 'null', ''] else ""
-            passport_id_value = str(row['passport_id']).strip() if pd.notna(row.get('passport_id', '')) and str(row.get('passport_id', '')).strip() not in ['nan', 'NaN', 'NULL', 'null', ''] else ""
+            # Also treat '0' as empty/null to avoid duplicate issues
+            no_ktp_value = str(row['no_ktp']).strip() if pd.notna(row['no_ktp']) and str(row['no_ktp']).strip() not in ['nan', 'NaN', 'NULL', 'null', '', '0'] else ""
+            passport_id_value = str(row['passport_id']).strip() if pd.notna(row.get('passport_id', '')) and str(row.get('passport_id', '')).strip() not in ['nan', 'NaN', 'NULL', 'null', '', '0'] else ""
             
             # Both fields can be empty - no validation required for identifiers
             # REMOVED: All length and format validation disabled
