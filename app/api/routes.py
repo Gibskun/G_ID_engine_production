@@ -2226,6 +2226,127 @@ async def get_global_id_stats(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error getting global_id statistics: {str(e)}")
 
 
+@router.get("/sap/export")
+async def export_sap_data(
+    format: str = Query(default="csv", description="Export format: csv, excel"),
+    separator: str = Query(default=",", description="CSV separator for CSV format"),
+    db: Session = Depends(get_db)
+):
+    """
+    Export all pegawai (SAP employee) table data to CSV or Excel format
+    """
+    try:
+        import pandas as pd
+        from fastapi.responses import Response
+        from io import StringIO, BytesIO
+        
+        # Query all active pegawai records
+        query = db.query(Pegawai).filter(Pegawai.deleted_at.is_(None))
+        records = query.all()
+        
+        # Convert to list of dictionaries
+        data = []
+        for record in records:
+            data.append({
+                'id': record.id,
+                'name': record.name,
+                'personal_number': record.personal_number,
+                'no_ktp': record.no_ktp,
+                'passport_id': record.passport_id,
+                'bod': record.bod.strftime('%Y-%m-%d') if record.bod else None,
+                'g_id': record.g_id,
+                'source': getattr(record, 'source', 'SAP'),  # Default to SAP if column doesn't exist yet
+                'created_at': record.created_at.strftime('%Y-%m-%d %H:%M:%S') if record.created_at else None,
+                'updated_at': record.updated_at.strftime('%Y-%m-%d %H:%M:%S') if record.updated_at else None
+            })
+        
+        # Create DataFrame
+        df = pd.DataFrame(data)
+        
+        if df.empty:
+            raise HTTPException(status_code=404, detail="No data found in pegawai table")
+        
+        # Generate export based on format
+        if format.lower() == 'excel':
+            # Excel export
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='SAP_Employee_Data')
+            
+            output.seek(0)
+            filename = f"sap_employee_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            return Response(
+                content=output.getvalue(),
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+        
+        else:
+            # CSV export
+            output = StringIO()
+            df.to_csv(output, index=False, sep=separator)
+            
+            output.seek(0)
+            filename = f"sap_employee_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            
+            return Response(
+                content=output.getvalue(),
+                media_type="text/csv",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting SAP employee data: {str(e)}")
+
+
+@router.get("/sap/stats")
+async def get_sap_stats(db: Session = Depends(get_db)):
+    """
+    Get statistics about pegawai (SAP employee) table
+    """
+    try:
+        from sqlalchemy import func
+        
+        # Total active records
+        total_records = db.query(func.count(Pegawai.id)).filter(Pegawai.deleted_at.is_(None)).scalar()
+        
+        # Records with G_ID assigned
+        with_gid_count = db.query(func.count(Pegawai.id)).filter(
+            Pegawai.deleted_at.is_(None),
+            Pegawai.g_id.isnot(None),
+            Pegawai.g_id != ""
+        ).scalar()
+        
+        # Records without G_ID
+        without_gid_count = total_records - with_gid_count
+        
+        # Source distribution (if column exists)
+        try:
+            source_stats = db.query(
+                Pegawai.source,
+                func.count(Pegawai.id).label('count')
+            ).filter(Pegawai.deleted_at.is_(None)).group_by(Pegawai.source).all()
+            source_distribution = [{"source": s.source, "count": s.count} for s in source_stats]
+        except:
+            # If source column doesn't exist yet, default to SAP
+            source_distribution = [{"source": "SAP", "count": total_records}]
+        
+        return {
+            "status": "success",
+            "stats": {
+                "total_employees": total_records,
+                "employees_with_gid": with_gid_count,
+                "employees_without_gid": without_gid_count,
+                "gid_assignment_percentage": round((with_gid_count / total_records * 100) if total_records > 0 else 0, 2),
+                "source_distribution": source_distribution
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting SAP employee statistics: {str(e)}")
+
+
 # Include router in the API
 api_router = APIRouter(prefix="/api/v1", tags=["Global ID System"])
 api_router.include_router(router)

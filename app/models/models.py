@@ -85,12 +85,13 @@ class Pegawai(Base):
     passport_id = Column(String(50), nullable=True, name="passport_id")  # Increased to 50 chars for flexibility
     bod = Column(Date, name="bod")
     g_id = Column(String(10), name="g_id")  # Will be populated by sync system
+    source = Column(String(20), nullable=False, default="SAP")  # Source of employee data
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     deleted_at = Column(DateTime)  # For soft deletes
 
     def __repr__(self):
-        return f"<Pegawai(id={self.id}, name='{self.name}', g_id='{self.g_id}')>"
+        return f"<Pegawai(id={self.id}, name='{self.name}', g_id='{self.g_id}', source='{self.source}')>"
 
 
 class AuditLog(Base):
