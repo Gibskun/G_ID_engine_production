@@ -2,6 +2,9 @@
 FastAPI routers and endpoints
 """
 
+import sys
+import os
+import tempfile
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -684,17 +687,24 @@ async def clear_all_data(
         deleted_global_id_non_db = db.query(GlobalIDNonDatabase).delete()
         deleted_pegawai = db.query(Pegawai).delete()
         
+        # Reset G_ID sequence to start from G25AA00
+        from app.services.gid_generator import GIDGenerator
+        gid_generator = GIDGenerator(db)
+        sequence_reset = gid_generator.reset_sequence()
+        
         # Commit the transaction
         db.commit()
         
         return {
             "success": True,
-            "message": "All data has been successfully deleted from the database",
+            "message": "All data has been successfully deleted from the database and G_ID sequence reset to G025AA00",
             "deleted_counts": {
                 "global_id": deleted_global_id,
                 "global_id_non_database": deleted_global_id_non_db,
                 "pegawai": deleted_pegawai
             },
+            "sequence_reset": sequence_reset,
+            "next_gid": "G025AA00",
             "previous_counts": {
                 "global_id": global_id_count,
                 "global_id_non_database": global_id_non_db_count,
@@ -850,6 +860,56 @@ async def reinitialize_database_tables(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reinitializing database: {str(e)}")
+
+
+@router.post("/gid/reset-sequence", response_model=Dict[str, Any])
+async def reset_gid_sequence(
+    year: Optional[int] = Query(None, description="Year for sequence (default: 25 for G25AA00)"),
+    digit: int = Query(0, description="Starting digit (0-9)"),
+    confirm: bool = Query(False, description="Confirmation flag to prevent accidental reset"),
+    db: Session = Depends(get_db)
+):
+    """
+    Reset G_ID sequence to specified values
+    Default: G025AA00 (year=25, digit=0, alpha=AA, number=00)
+    
+    This is useful when you want to restart G_ID generation from a specific point.
+    WARNING: Use with caution in production!
+    """
+    if not confirm:
+        raise HTTPException(
+            status_code=400, 
+            detail="This operation requires confirmation. Add ?confirm=true to the request."
+        )
+    
+    try:
+        from app.services.gid_generator import GIDGenerator
+        
+        generator = GIDGenerator(db)
+        
+        # Get current sequence before reset for logging
+        current_sequence = generator.get_current_sequence_info()
+        
+        # Reset sequence
+        success = generator.reset_sequence(year=year, digit=digit)
+        
+        if success:
+            # Get new sequence info
+            new_sequence = generator.get_current_sequence_info()
+            
+            return {
+                "success": True,
+                "message": f"G_ID sequence successfully reset to G{digit}{year or 25:02d}AA00",
+                "previous_sequence": current_sequence,
+                "new_sequence": new_sequence,
+                "next_gid": new_sequence['next_gid_preview'] if new_sequence else f"G{digit}{year or 25:02d}AA00",
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to reset G_ID sequence")
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error resetting G_ID sequence: {str(e)}")
 
 
 @router.get("/workflow/status", response_model=Dict[str, Any])
@@ -1473,7 +1533,25 @@ async def generate_dummy_data(
             sys.path.append(scripts_path)
         
         # Import the dummy data functions
-        from generate_dummy_data import create_dummy_data, generate_indonesian_name, generate_no_ktp, generate_passport_id, generate_personal_number, generate_birth_date
+        try:
+            # Import from the scripts directory
+            from scripts.generate_dummy_data import (
+                create_dummy_data, 
+                generate_indonesian_name, 
+                generate_no_ktp, 
+                generate_passport_id, 
+                generate_personal_number, 
+                generate_birth_date
+            )
+        except ImportError:
+            # Fallback: try to import from the current directory dummy data generator
+            from dummy_data_generator import DummyDataGenerator
+            
+            # Create a wrapper to use the DummyDataGenerator class
+            def create_dummy_data(count, include_invalid_ktp=False, invalid_ktp_ratio=0.2):
+                generator = DummyDataGenerator()
+                df = generator.generate_dummy_data(count, include_invalid_ktp, invalid_ktp_ratio)
+                return df.to_dict('records')
         
         # Check if data already exists
         from app.models.models import Pegawai

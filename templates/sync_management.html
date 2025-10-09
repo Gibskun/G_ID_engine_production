@@ -52,6 +52,9 @@
         <button class="btn btn-success" onclick="showGenerateDummyDataModal()">
             <i class="fas fa-database"></i> Generate Dummy Data
         </button>
+        <button class="btn btn-warning" onclick="showResetSequenceModal()">
+            <i class="fas fa-redo"></i> Reset G_ID Sequence
+        </button>
         <button class="btn btn-danger" onclick="confirmClearAllData()">
             <i class="fas fa-trash"></i> Clear All Data
         </button>
@@ -64,7 +67,8 @@
         <h4>Database Management Descriptions:</h4>
         <ul>
             <li><strong>Generate Dummy Data:</strong> Populates the database with realistic test data for development and testing purposes. Supports both valid and invalid KTP records for testing validation logic.</li>
-            <li><strong>Clear All Data:</strong> Deletes all records from global_id, global_id_non_database, and pegawai tables. Table structure remains intact.</li>
+            <li><strong>Reset G_ID Sequence:</strong> Manually reset the G_ID sequence to start from a specific point (default: G025AA00). Useful for testing or when you want to restart numbering.</li>
+            <li><strong>Clear All Data:</strong> Deletes all records from global_id, global_id_non_database, and pegawai tables. Automatically resets G_ID sequence to G025AA00. Table structure remains intact.</li>
             <li><strong>Reinitialize Tables:</strong> Executes the SQL schema file (create_schema_sqlserver.sql) to create/recreate the g_id database and all tables with proper structure including passport_id fields.</li>
         </ul>
         <div class="alert alert-warning mt-2">
@@ -702,6 +706,124 @@ async function generateDummyData() {
         console.error('Generate dummy data error:', error);
     } finally {
         UIUtils.hideLoading(generateButton);
+    }
+}
+
+// Reset G_ID Sequence Functions
+function showResetSequenceModal() {
+    const modalHtml = `
+        <div class="modal fade" id="resetSequenceModal" tabindex="-1" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Reset G_ID Sequence</h5>
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-warning">
+                            <strong>⚠️ Warning:</strong> This will reset the G_ID sequence. New records will start from the specified G_ID.
+                        </div>
+                        <form id="resetSequenceForm">
+                            <div class="form-group">
+                                <label for="sequenceYear">Year (YY)</label>
+                                <input type="number" class="form-control" id="sequenceYear" value="25" min="0" max="99">
+                                <small class="form-text text-muted">Two-digit year (25 = 2025, etc.)</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="sequenceDigit">Starting Digit (N)</label>
+                                <input type="number" class="form-control" id="sequenceDigit" value="0" min="0" max="9">
+                                <small class="form-text text-muted">Single digit (0-9)</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Preview Next G_ID:</label>
+                                <div class="form-control-plaintext font-weight-bold text-primary" id="previewGID">G025AA00</div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-warning" onclick="resetGIDSequence()">Reset Sequence</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if present
+    const existingModal = document.getElementById('resetSequenceModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Set up event listeners for preview update
+    const yearInput = document.getElementById('sequenceYear');
+    const digitInput = document.getElementById('sequenceDigit');
+    const previewDiv = document.getElementById('previewGID');
+    
+    function updatePreview() {
+        const year = yearInput.value.padStart(2, '0');
+        const digit = digitInput.value;
+        previewDiv.textContent = `G${digit}${year}AA00`;
+    }
+    
+    yearInput.addEventListener('input', updatePreview);
+    digitInput.addEventListener('input', updatePreview);
+    
+    // Show modal
+    $('#resetSequenceModal').modal('show');
+}
+
+async function resetGIDSequence() {
+    const year = document.getElementById('sequenceYear').value;
+    const digit = document.getElementById('sequenceDigit').value;
+    
+    // Validate inputs
+    if (!year || year < 0 || year > 99) {
+        UIUtils.showAlert('Please enter a valid year (0-99)', 'warning');
+        return;
+    }
+    
+    if (!digit || digit < 0 || digit > 9) {
+        UIUtils.showAlert('Please enter a valid digit (0-9)', 'warning');
+        return;
+    }
+    
+    const resetButton = event.target;
+    
+    try {
+        UIUtils.showLoading(resetButton);
+        
+        const response = await fetch(`/api/v1/gid/reset-sequence?year=${year}&digit=${digit}&confirm=true`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            UIUtils.showAlert(result.message + `. Next G_ID will be: ${result.next_gid}`, 'success');
+            
+            // Close modal
+            $('#resetSequenceModal').modal('hide');
+            
+            // Refresh statistics
+            await loadSyncStatus();
+            
+        } else {
+            UIUtils.showAlert('Failed to reset G_ID sequence: ' + result.message, 'danger');
+        }
+        
+    } catch (error) {
+        UIUtils.showAlert('Error resetting G_ID sequence: ' + error.message, 'danger');
+        console.error('Reset G_ID sequence error:', error);
+    } finally {
+        UIUtils.hideLoading(resetButton);
     }
 }
 

@@ -7,7 +7,15 @@ from datetime import datetime
 from typing import Optional, List
 import logging
 from sqlalchemy.orm import Session
-from app.models.models import GIDSequence
+
+try:
+    from app.models.models import GIDSequence
+except ImportError:
+    # Fallback for different import contexts
+    try:
+        from ..models.models import GIDSequence
+    except ImportError:
+        from models.models import GIDSequence
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +44,19 @@ class GIDGenerator:
         2. After 99, reset NN to 00 and increment AA (AA -> AB -> ... -> AZ -> BA -> ... -> ZZ)
         3. After ZZ99, increment YY by 1 and reset AA to AA, NN to 00
         4. After 99ZZ99, increment N by 1 and reset YY to current year, AA to AA, NN to 00
+        
+        If all tables are empty, automatically reset sequence to G25AA00
         """
         try:
+            # Check if database is empty and reset sequence if needed
+            self._check_and_reset_if_empty()
+            
             # Get current sequence
             sequence = self.db.query(GIDSequence).first()
             
             if not sequence:
-                # Initialize sequence if not exists
-                current_year = int(str(datetime.now().year)[-2:])
+                # Initialize sequence if not exists (starting from G25AA00)
+                current_year = 25  # Start from year 25 (2025)
                 sequence = GIDSequence(
                     current_year=current_year,
                     current_digit=0,
@@ -77,6 +90,8 @@ class GIDGenerator:
         """
         Generate multiple G_IDs efficiently in batch (OPTIMIZED for speed)
         Reduces database transactions from N to 1 for N G_IDs
+        
+        If all tables are empty, automatically reset sequence to G25AA00
         """
         try:
             if count <= 0:
@@ -85,10 +100,13 @@ class GIDGenerator:
             logger.info(f"🚀 Generating {count} G_IDs in batch mode...")
             start_time = datetime.now()
             
+            # Check if database is empty and reset sequence if needed
+            self._check_and_reset_if_empty()
+            
             # Get or initialize sequence once
             sequence = self.db.query(GIDSequence).first()
             if not sequence:
-                current_year = int(str(datetime.now().year)[-2:])
+                current_year = 25  # Start from year 25 (2025)
                 sequence = GIDSequence(
                     current_year=current_year,
                     current_digit=0,
@@ -178,6 +196,47 @@ class GIDGenerator:
         """Format the G_ID string"""
         return f"G{digit}{year:02d}{alpha1}{alpha2}{number:02d}"
     
+    def _check_and_reset_if_empty(self) -> None:
+        """
+        Check if all data tables are empty and reset sequence to G25AA00 if so
+        This ensures that when database is cleared, G_ID generation starts fresh
+        """
+        try:
+            try:
+                from app.models.models import GlobalID, GlobalIDNonDatabase, Pegawai
+            except ImportError:
+                # Fallback for different import contexts
+                try:
+                    from ..models.models import GlobalID, GlobalIDNonDatabase, Pegawai
+                except ImportError:
+                    from models.models import GlobalID, GlobalIDNonDatabase, Pegawai
+            
+            # Check if all data tables are empty
+            global_id_count = self.db.query(GlobalID).count()
+            global_id_non_db_count = self.db.query(GlobalIDNonDatabase).count()
+            pegawai_count = self.db.query(Pegawai).count()
+            
+            # If all tables are empty, reset sequence to start from G25AA00
+            if global_id_count == 0 and global_id_non_db_count == 0 and pegawai_count == 0:
+                logger.info("🔄 All data tables are empty. Resetting G_ID sequence to G25AA00...")
+                
+                sequence = self.db.query(GIDSequence).first()
+                if sequence:
+                    # Reset existing sequence
+                    sequence.current_year = 25  # type: ignore
+                    sequence.current_digit = 0  # type: ignore
+                    sequence.current_alpha_1 = 'A'  # type: ignore
+                    sequence.current_alpha_2 = 'A'  # type: ignore
+                    sequence.current_number = 0  # type: ignore
+                    self.db.commit()
+                    logger.info("✅ G_ID sequence reset to G025AA00")
+                # If no sequence exists, it will be created with default values in generate methods
+                
+        except Exception as e:
+            logger.warning(f"Could not check/reset empty database: {str(e)}")
+            # Don't fail G_ID generation if this check fails
+            pass
+    
     def _increment_sequence(self, sequence: GIDSequence) -> None:
         """Increment the sequence following the specified logic"""
         try:
@@ -266,11 +325,12 @@ class GIDGenerator:
     def reset_sequence(self, year: Optional[int] = None, digit: int = 0) -> bool:
         """
         Reset sequence to specified values (for testing/maintenance)
+        Default year is 25 (for G25AA00 starting pattern)
         WARNING: Use with caution in production
         """
         try:
             if year is None:
-                year = int(str(datetime.now().year)[-2:])
+                year = 25  # Default to year 25 for G25AA00 pattern
             
             sequence = self.db.query(GIDSequence).first()
             if sequence:
