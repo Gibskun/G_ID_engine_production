@@ -10,9 +10,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from io import BytesIO, StringIO
 
-from app.models.models import GlobalID, GlobalIDNonDatabase, AuditLog
+from app.models.models import GlobalID, GlobalIDNonDatabase, AuditLog, Pegawai
 from app.services.gid_generator import GIDGenerator
 from app.services.config_service import ConfigService
+from app.services.data_validation_service import DataValidationService
 from sqlalchemy import and_
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ class ExcelIngestionService:
         self.db = db
         self.gid_generator = GIDGenerator(db)
         self.config_service = ConfigService(db)
+        self.validation_service = DataValidationService(db)
     
     def process_file(self, file_content: bytes, filename: str) -> Dict[str, Any]:
         """
@@ -128,8 +130,8 @@ class ExcelIngestionService:
     def _validate_file_structure(self, df: pd.DataFrame, filename: str) -> Dict[str, Any]:
         """Validate file structure and required columns"""
         try:
-            required_columns = ['name', 'no_ktp', 'passport_id', 'bod']  # passport_id is now required
-            optional_columns = ['personal_number']
+            required_columns = ['name']  # Only name is strictly required
+            optional_columns = ['personal_number', 'no_ktp', 'passport_id', 'bod', 'process']
             all_columns = required_columns + optional_columns
             
             # Handle both uppercase and lowercase column names
@@ -144,7 +146,8 @@ class ExcelIngestionService:
                 'personal_number': ['personal_number', 'phone', 'telp', 'telepon', 'hp'],
                 'no_ktp': ['no_ktp', 'noktp', 'ktp', 'id_number', 'nik', 'no_nik'],
                 'passport_id': ['passport_id', 'passport', 'passportid', 'no_passport', 'passport_number'],
-                'bod': ['bod', 'birth_date', 'birthdate', 'date_of_birth', 'dob', 'tanggal_lahir', 'tgl_lahir']
+                'bod': ['bod', 'birth_date', 'birthdate', 'date_of_birth', 'dob', 'tanggal_lahir', 'tgl_lahir'],
+                'process': ['process', 'proses', 'flag', 'allow', 'enable']
             }
             
             # Find matching columns
@@ -214,7 +217,7 @@ class ExcelIngestionService:
             }
     
     def _process_file_rows(self, df: pd.DataFrame, filename: str) -> Dict[str, Any]:
-        """Process each row from the file"""
+        """Process each row from the file with comprehensive validation"""
         try:
             processing_summary = {
                 'success': True,
@@ -224,106 +227,168 @@ class ExcelIngestionService:
                 'successful': 0,
                 'skipped': 0,
                 'errors': [],
-                'created_gids': []
+                'created_gids': [],
+                'validation_report': None
             }
             
-            # NEW LOGIC: Use (name, No_KTP, BOD) for uniqueness, ignore personal_number
-            logger.info("🚀 Starting batch processing optimization...")
-            valid_records = []
-            reactivated_records = []
+            logger.info(f"🚀 Starting validation and processing for {len(df)} rows...")
+            
+            # First, convert DataFrame to list of dictionaries for validation
+            records_for_validation = []
             for row_idx in range(len(df)):
                 row = df.iloc[row_idx]
-                row_num = row_idx + 2
+                raw_data = {
+                    'name': row.get('name'),
+                    'personal_number': row.get('personal_number'),
+                    'no_ktp': row.get('no_ktp'),
+                    'passport_id': row.get('passport_id'),
+                    'bod': row.get('bod'),
+                    'process': row.get('process')
+                }
+                
+                # Clean the data
+                cleaned_data = self._clean_row_data(raw_data, row_idx + 2)
+                if cleaned_data['valid']:
+                    records_for_validation.append(cleaned_data)
+                else:
+                    processing_summary['errors'].append(cleaned_data['error'])
+                    processing_summary['skipped'] += 1
+            
+            # Perform batch validation
+            validation_results = self.validation_service.validate_batch(records_for_validation)
+            
+            # Create validation report
+            processing_summary['validation_report'] = self.validation_service.create_validation_report(
+                validation_results, filename
+            )
+            
+            # Log validation summary
+            logger.info(f"Validation complete: {validation_results['validation_summary']['valid_count']} valid, "
+                       f"{validation_results['validation_summary']['invalid_count']} invalid records")
+            
+            # Process valid records
+            valid_records = []
+            reactivated_records = []
+            
+            for valid_record in validation_results['valid_records']:
+                row_num = valid_record['row_number'] + 1  # Adjust for header row
+                row_data = valid_record['data']
                 processing_summary['processed'] += 1
+                
                 try:
-                    row_data = self._validate_and_clean_row(row, row_num)
-                    if not row_data['valid']:
-                        processing_summary['skipped'] += 1
-                        processing_summary['errors'].append(row_data['error'])
-                        continue
-                    # Check for existing record based on available data
-                    # Priority: (name, No_KTP, BOD) if No_KTP exists, otherwise (name, passport_id, BOD)
-                    existing_global = None
+                    # Check for existing record in global_id table (employee data)
+                    existing_global = self._find_existing_record(row_data)
                     
-                    if row_data['no_ktp']:
-                        # Check by name, no_ktp, and BOD
-                        existing_global = self.db.query(GlobalID).filter(
-                            and_(
-                                GlobalID.name == row_data['name'],
-                                GlobalID.no_ktp == row_data['no_ktp'],
-                                GlobalID.bod == row_data.get('bod')
-                            )
+                    if existing_global:
+                        # Found existing G_ID - reuse it and add/update in global_id_non_database
+                        existing_g_id = existing_global.g_id
+                        
+                        # Check if already exists in global_id_non_database table
+                        existing_non_db = self.db.query(GlobalIDNonDatabase).filter(
+                            GlobalIDNonDatabase.g_id == existing_g_id
                         ).first()
-                    elif row_data['passport_id']:
-                        # Check by name, passport_id, and BOD when no_ktp is not available
-                        existing_global = self.db.query(GlobalID).filter(
-                            and_(
-                                GlobalID.name == row_data['name'],
-                                GlobalID.passport_id == row_data['passport_id'],
-                                GlobalID.bod == row_data.get('bod')
-                            )
-                        ).first()
-                    
-                    if False:  # DISABLED: existence checking
-                        if False:  # DISABLED: existence checking
-                            # Reactivate
-                            existing_global.status = "Active"
-                            existing_global.updated_at = datetime.now()
-                            
-                            # Update passport_id if provided and currently missing
-                            if False:  # DISABLED: existence checking
-                                existing_global.passport_id = row_data['passport_id']
-                            
-                            # Reactivate in global_id_non_database
-                            existing_non_db = None
-                            if row_data['no_ktp']:
-                                existing_non_db = self.db.query(GlobalIDNonDatabase).filter(
-                                    and_(
-                                        GlobalIDNonDatabase.name == row_data['name'],
-                                        GlobalIDNonDatabase.no_ktp == row_data['no_ktp'],
-                                        GlobalIDNonDatabase.bod == row_data.get('bod')
-                                    )
-                                ).first()
-                            elif row_data['passport_id']:
-                                existing_non_db = self.db.query(GlobalIDNonDatabase).filter(
-                                    and_(
-                                        GlobalIDNonDatabase.name == row_data['name'],
-                                        GlobalIDNonDatabase.passport_id == row_data['passport_id'],
-                                        GlobalIDNonDatabase.bod == row_data.get('bod')
-                                    )
-                                ).first()
-                            
-                            if False:  # DISABLED: existence checking
+                        
+                        if existing_non_db:
+                            # Update existing record in global_id_non_database
+                            if existing_non_db.status != "Active":
+                                # Reactivate the record
                                 existing_non_db.status = "Active"
                                 existing_non_db.updated_at = datetime.now()
-                                # Update passport_id if provided and currently missing
-                                if False:  # DISABLED: existence checking
-                                    existing_non_db.passport_id = row_data['passport_id']
+                                existing_non_db.name = row_data['name']
+                                existing_non_db.personal_number = row_data.get('personal_number')
+                                existing_non_db.no_ktp = row_data.get('no_ktp')
+                                existing_non_db.passport_id = row_data.get('passport_id')
+                                existing_non_db.bod = row_data.get('bod')
+                                
+                                # Also reactivate in global_id table if needed
+                                if existing_global.status != "Active":
+                                    existing_global.status = "Active"
+                                    existing_global.updated_at = datetime.now()
+                                
+                                reactivated_records.append({
+                                    'row_number': row_num,
+                                    'gid': existing_g_id,
+                                    'name': row_data['name'],
+                                    'no_ktp': row_data.get('no_ktp'),
+                                    'passport_id': row_data.get('passport_id'),
+                                    'reactivated': True,
+                                    'reason': 'Existing G_ID reused and reactivated in global_id_non_database'
+                                })
+                                processing_summary['successful'] += 1
+                                logger.info(f"✅ Reactivated existing G_ID {existing_g_id} in global_id_non_database for {row_data['name']}")
+                                continue
+                            else:
+                                # Already active - just update data if needed
+                                existing_non_db.name = row_data['name']
+                                existing_non_db.personal_number = row_data.get('personal_number')
+                                existing_non_db.no_ktp = row_data.get('no_ktp')
+                                existing_non_db.passport_id = row_data.get('passport_id')
+                                existing_non_db.bod = row_data.get('bod')
+                                existing_non_db.updated_at = datetime.now()
+                                
+                                reactivated_records.append({
+                                    'row_number': row_num,
+                                    'gid': existing_g_id,
+                                    'name': row_data['name'],
+                                    'no_ktp': row_data.get('no_ktp'),
+                                    'passport_id': row_data.get('passport_id'),
+                                    'reactivated': False,
+                                    'reason': 'Existing G_ID reused and updated in global_id_non_database'
+                                })
+                                processing_summary['successful'] += 1
+                                logger.info(f"✅ Updated existing G_ID {existing_g_id} in global_id_non_database for {row_data['name']}")
+                                continue
+                        else:
+                            # Create new record in global_id_non_database with existing G_ID
+                            new_non_db_record = GlobalIDNonDatabase(
+                                g_id=existing_g_id,
+                                name=row_data['name'],
+                                personal_number=row_data.get('personal_number'),
+                                no_ktp=row_data.get('no_ktp'),
+                                passport_id=row_data.get('passport_id'),
+                                bod=row_data.get('bod'),
+                                status='Active',
+                                source='excel',
+                                created_at=datetime.now(),
+                                updated_at=datetime.now()
+                            )
                             
-                            self.db.commit()
+                            self.db.add(new_non_db_record)
+                            
+                            # Also ensure global_id record is active
+                            if existing_global.status != "Active":
+                                existing_global.status = "Active"
+                                existing_global.updated_at = datetime.now()
+                            
                             reactivated_records.append({
-                                'gid': existing_global.g_id,
+                                'row_number': row_num,
+                                'gid': existing_g_id,
                                 'name': row_data['name'],
-                                'no_ktp': row_data['no_ktp'],
-                                'passport_id': row_data['passport_id'],
-                                'reactivated': True
+                                'no_ktp': row_data.get('no_ktp'),
+                                'passport_id': row_data.get('passport_id'),
+                                'reactivated': False,
+                                'reason': 'Existing G_ID reused and added to global_id_non_database'
                             })
                             processing_summary['successful'] += 1
+                            logger.info(f"✅ Reused existing G_ID {existing_g_id} and added to global_id_non_database for {row_data['name']}")
                             continue
-                        else:
-                            # Already active, skip
-                            processing_summary['skipped'] += 1
-                            identifier = f"No_KTP: {row_data['no_ktp']}" if row_data['no_ktp'] else f"Passport_ID: {row_data['passport_id']}"
-                            processing_summary['errors'].append(
-                                f"Row {row_num}: Record with {identifier} already exists and is active"
-                            )
-                            continue
+                    
+                    # No existing G_ID found - create new record (original logic)
                     valid_records.append((row_num, row_data))
+                    
                 except Exception as e:
                     processing_summary['errors'].append(f"Row {row_num}: {str(e)}")
-                    logger.error(f"Error validating row {row_num}: {str(e)}")
+                    logger.error(f"Error processing existing record check for row {row_num}: {str(e)}")
                     processing_summary['skipped'] += 1
-            # BATCH G_ID GENERATION: Generate all G_IDs at once for new records
+            
+            # Add validation errors to processing summary
+            for invalid_record in validation_results['invalid_records']:
+                row_num = invalid_record['row_number'] + 1  # Adjust for header row
+                for error in invalid_record['errors']:
+                    processing_summary['errors'].append(f"Row {row_num}: {error}")
+                processing_summary['skipped'] += 1
+
+            # BATCH G_ID GENERATION: Generate all G_IDs at once for new valid records
             if valid_records:
                 logger.info(f"🚀 Generating {len(valid_records)} G_IDs in batch...")
                 batch_gids = self.gid_generator.generate_batch_gids(len(valid_records))
@@ -335,9 +400,50 @@ class ExcelIngestionService:
             else:
                 processing_summary['created_gids'] = reactivated_records
                 logger.info("No valid new records to process")
+
+            # NEW: Handle status changes based on upload content
+            # Process status changes for existing excel-sourced records
+            all_processed_data = []
+            for valid_record in validation_results['valid_records']:
+                all_processed_data.append(valid_record['data'])
+            
+            if all_processed_data:
+                logger.info(f"🔄 Processing status changes for existing records based on upload...")
+                status_result = self.handle_upload_status_changes(all_processed_data, filename)
+                if status_result['success']:
+                    processing_summary['status_changes'] = {
+                        'reactivated': status_result['reactivated_count'],
+                        'deactivated': status_result['deactivated_count'],
+                        'details': status_result['status_changes']
+                    }
+                    logger.info(f"✅ Status changes: {status_result['reactivated_count']} reactivated, {status_result['deactivated_count']} deactivated")
+                else:
+                    processing_summary['errors'].append(f"Status change processing failed: {status_result.get('error', 'Unknown error')}")
+
+            # Commit all changes together
+            try:
+                self.db.commit()
+                logger.info("✅ All changes committed successfully")
+            except Exception as commit_error:
+                self.db.rollback()
+                logger.error(f"❌ Failed to commit changes: {str(commit_error)}")
+                processing_summary['errors'].append(f"Failed to save changes: {str(commit_error)}")
+                processing_summary['success'] = False            # Final success determination
             if processing_summary['successful'] == 0 and processing_summary['errors']:
                 processing_summary['success'] = False
                 processing_summary['error'] = "No records were successfully processed"
+            
+            # Add summary message
+            total_processed = processing_summary['successful']
+            total_skipped = processing_summary['skipped']
+            
+            processing_summary['summary_message'] = (
+                f"Processing complete for {filename}:\n"
+                f"✅ Successfully processed: {total_processed} records\n"
+                f"❌ Skipped/Invalid: {total_skipped} records\n"
+                f"📊 Success rate: {(total_processed / len(df) * 100):.1f}%"
+            )
+            
             return processing_summary
             
         except Exception as e:
@@ -348,37 +454,167 @@ class ExcelIngestionService:
                 'filename': filename
             }
     
+    def _find_existing_record(self, row_data: Dict[str, Any]) -> Optional[GlobalID]:
+        """
+        Find existing record based on available identifiers.
+        IMPROVED LOGIC: Handle exact matching for G_ID reuse from global_id table (employee data)
+        """
+        
+        # Debug logging to understand the matching process
+        logger.info(f"🔍 Searching for existing record for: {row_data.get('name')} | KTP: {row_data.get('no_ktp')} | BOD: {row_data.get('bod')}")
+        
+        # STRATEGY 1: Exact match on name + no_ktp + bod (most precise)
+        if row_data.get('name') and row_data.get('no_ktp') and row_data.get('bod'):
+            exact_match = self.db.query(GlobalID).filter(
+                and_(
+                    GlobalID.name == row_data['name'],
+                    GlobalID.no_ktp == row_data['no_ktp'],
+                    GlobalID.bod == row_data['bod']
+                )
+            ).first()
+            
+            if exact_match:
+                logger.info(f"✅ EXACT MATCH found! G_ID {exact_match.g_id} | Name: {exact_match.name} | KTP: {exact_match.no_ktp} | BOD: {exact_match.bod}")
+                return exact_match
+        
+        # STRATEGY 2: Match on name + no_ktp (ignore BOD for flexibility)
+        if row_data.get('name') and row_data.get('no_ktp'):
+            name_ktp_match = self.db.query(GlobalID).filter(
+                and_(
+                    GlobalID.name == row_data['name'],
+                    GlobalID.no_ktp == row_data['no_ktp']
+                )
+            ).first()
+            
+            if name_ktp_match:
+                logger.info(f"✅ NAME+KTP MATCH found! G_ID {name_ktp_match.g_id} | Name: {name_ktp_match.name} | KTP: {name_ktp_match.no_ktp}")
+                logger.info(f"   Database BOD: {name_ktp_match.bod} | Upload BOD: {row_data.get('bod')}")
+                return name_ktp_match
+        
+        # STRATEGY 3: Match only on no_ktp (unique identifier)
+        if row_data.get('no_ktp'):
+            ktp_match = self.db.query(GlobalID).filter(
+                GlobalID.no_ktp == row_data['no_ktp']
+            ).first()
+            
+            if ktp_match:
+                logger.info(f"✅ KTP-ONLY MATCH found! G_ID {ktp_match.g_id} | Name: {ktp_match.name} | KTP: {ktp_match.no_ktp}")
+                logger.info(f"   Database Name: '{ktp_match.name}' | Upload Name: '{row_data.get('name')}'")
+                logger.info(f"   Database BOD: {ktp_match.bod} | Upload BOD: {row_data.get('bod')}")
+                return ktp_match
+        
+        # STRATEGY 4: Match on name + passport_id if no KTP
+        if row_data.get('name') and row_data.get('passport_id') and not row_data.get('no_ktp'):
+            passport_match = self.db.query(GlobalID).filter(
+                and_(
+                    GlobalID.name == row_data['name'],
+                    GlobalID.passport_id == row_data['passport_id']
+                )
+            ).first()
+            
+            if passport_match:
+                logger.info(f"✅ NAME+PASSPORT MATCH found! G_ID {passport_match.g_id} | Name: {passport_match.name} | Passport: {passport_match.passport_id}")
+                return passport_match
+        
+        # STRATEGY 5: Debug - show what records exist with similar names or KTPs
+        if row_data.get('name'):
+            similar_names = self.db.query(GlobalID).filter(
+                GlobalID.name.ilike(f"%{row_data['name']}%")
+            ).limit(3).all()
+            
+            if similar_names:
+                logger.info(f"🔍 Found {len(similar_names)} similar name(s) in database:")
+                for similar in similar_names:
+                    logger.info(f"   G_ID: {similar.g_id} | Name: '{similar.name}' | KTP: {similar.no_ktp} | BOD: {similar.bod}")
+        
+        if row_data.get('no_ktp'):
+            similar_ktps = self.db.query(GlobalID).filter(
+                GlobalID.no_ktp == row_data['no_ktp']
+            ).limit(3).all()
+            
+            if similar_ktps:
+                logger.info(f"🔍 Found {len(similar_ktps)} record(s) with same KTP:")
+                for similar in similar_ktps:
+                    logger.info(f"   G_ID: {similar.g_id} | Name: '{similar.name}' | KTP: {similar.no_ktp} | BOD: {similar.bod}")
+        
+        logger.info(f"❌ NO MATCHING RECORD found for: {row_data.get('name')} | KTP: {row_data.get('no_ktp')}")
+        return None
+    
     def _validate_and_clean_row(self, row: pd.Series, row_number: int) -> Dict[str, Any]:
-        """Validate and clean individual row data"""
+        """Validate and clean individual row data using the new validation service"""
         try:
-            # Check for missing required fields
-            if pd.isna(row['name']) or not str(row['name']).strip():
+            # Extract raw data from the row
+            raw_data = {
+                'name': row.get('name'),
+                'personal_number': row.get('personal_number'),
+                'no_ktp': row.get('no_ktp'),
+                'passport_id': row.get('passport_id'),
+                'bod': row.get('bod'),
+                'process': row.get('process')  # Include process column for KTP validation
+            }
+            
+            # Clean the data first
+            cleaned_data = self._clean_row_data(raw_data, row_number)
+            if not cleaned_data['valid']:
+                return cleaned_data
+            
+            # Use validation service for comprehensive validation
+            validation_result = self.validation_service.validate_record(cleaned_data, row_number)
+            
+            if validation_result['valid']:
+                return {
+                    'valid': True,
+                    **validation_result['processed_data']
+                }
+            else:
+                return {
+                    'valid': False,
+                    'error': ' | '.join(validation_result['errors'])
+                }
+                
+        except Exception as e:
+            return {
+                'valid': False,
+                'error': f"Row {row_number}: Error validating data - {str(e)}"
+            }
+    
+    def _clean_row_data(self, raw_data: Dict[str, Any], row_number: int) -> Dict[str, Any]:
+        """Clean and normalize raw row data"""
+        try:
+            # Clean name
+            name = str(raw_data.get('name', '')).strip() if pd.notna(raw_data.get('name')) else ''
+            if not name or name.lower() in ['nan', 'null', '']:
                 return {
                     'valid': False,
                     'error': f"Row {row_number}: Name is required"
                 }
             
-            # NEW VALIDATION LOGIC: Both no_ktp and passport_id can be empty
-            # Also treat '0' as empty/null to avoid duplicate issues
-            no_ktp_value = str(row['no_ktp']).strip() if pd.notna(row['no_ktp']) and str(row['no_ktp']).strip() not in ['nan', 'NaN', 'NULL', 'null', '', '0'] else ""
-            passport_id_value = str(row['passport_id']).strip() if pd.notna(row['passport_id']) and str(row['passport_id']).strip() not in ['nan', 'NaN', 'NULL', 'null', '', '0'] else ""
+            # Clean personal_number
+            personal_number = str(raw_data.get('personal_number', '')).strip() if pd.notna(raw_data.get('personal_number')) else ''
+            if personal_number.lower() in ['nan', 'null', '', '0']:
+                personal_number = None
             
-            # Both fields can be empty - no validation required for identifiers
+            # Clean no_ktp
+            no_ktp = str(raw_data.get('no_ktp', '')).strip() if pd.notna(raw_data.get('no_ktp')) else ''
+            if no_ktp.lower() in ['nan', 'null', '', '0']:
+                no_ktp = None
             
-            # Clean and validate data - accept any length for identifiers
-            cleaned_data = {
-                'name': str(row['name']).strip()[:255],  # Limit to 255 chars
-                'personal_number': str(row['personal_number']).strip() if pd.notna(row.get('personal_number', '')) and str(row.get('personal_number', '')).strip() not in ['nan', 'NaN', 'NULL', 'null', '', '0'] else None,
-                'no_ktp': no_ktp_value if no_ktp_value else None,  # Accept any length
-                'passport_id': passport_id_value if passport_id_value else None  # Accept any length
-            }
+            # Clean passport_id
+            passport_id = str(raw_data.get('passport_id', '')).strip() if pd.notna(raw_data.get('passport_id')) else ''
+            if passport_id.lower() in ['nan', 'null', '', '0']:
+                passport_id = None
+            
+            # Clean process column
+            process = str(raw_data.get('process', '')).strip() if pd.notna(raw_data.get('process')) else ''
+            if process.lower() in ['nan', 'null', '']:
+                process = None
             
             # Handle BOD (Birth of Date)
-            if pd.notna(row['bod']):
-                if isinstance(row['bod'], str):
+            bod = None
+            if pd.notna(raw_data.get('bod')):
+                if isinstance(raw_data['bod'], str):
                     try:
-                        # Try to parse date string
-                        cleaned_data['bod'] = pd.to_datetime(row['bod']).date()
+                        bod = pd.to_datetime(raw_data['bod']).date()
                     except:
                         return {
                             'valid': False,
@@ -386,25 +622,24 @@ class ExcelIngestionService:
                         }
                 else:
                     try:
-                        cleaned_data['bod'] = pd.to_datetime(row['bod']).date()
+                        bod = pd.to_datetime(raw_data['bod']).date()
                     except:
-                        cleaned_data['bod'] = None
-            else:
-                cleaned_data['bod'] = None
-            
-            # REMOVED: All strict validation disabled
-            # Accept any format for no_ktp and passport_id
-            # No validation required - process all data regardless of format
+                        bod = None
             
             return {
                 'valid': True,
-                **cleaned_data
+                'name': name[:255],  # Limit to 255 chars
+                'personal_number': personal_number,
+                'no_ktp': no_ktp,
+                'passport_id': passport_id,
+                'bod': bod,
+                'process': process
             }
             
         except Exception as e:
             return {
                 'valid': False,
-                'error': f"Row {row_number}: Error validating data - {str(e)}"
+                'error': f"Row {row_number}: Error cleaning data - {str(e)}"
             }
     
     def _batch_create_excel_records(self, input_records: list[dict], batch_gids: list[str], filename: str | None = None) -> dict:
@@ -658,6 +893,197 @@ class ExcelIngestionService:
         file_ext = os.path.splitext(filename)[1].lower()
         return file_ext in self.get_supported_file_types()
     
+    def handle_upload_status_changes(self, uploaded_data: List[Dict[str, Any]], filename: str) -> Dict[str, Any]:
+        """
+        Handle status changes based on upload data:
+        - Records in upload: remain/become active
+        - Records not in upload: become non-active
+        """
+        try:
+            logger.info(f"🔄 Processing status changes based on upload: {filename}")
+            
+            # Create set of identifiers from uploaded data for comparison
+            uploaded_identifiers = set()
+            for row_data in uploaded_data:
+                # Create identifier based on available data
+                if row_data.get('no_ktp'):
+                    uploaded_identifiers.add(('ktp', row_data['no_ktp']))
+                elif row_data.get('passport_id'):
+                    uploaded_identifiers.add(('passport', row_data['passport_id']))
+                
+                # Also add name-based identifier as fallback
+                if row_data.get('name'):
+                    uploaded_identifiers.add(('name', row_data['name']))
+            
+            # Get all records from global_id_non_database that were from excel source
+            existing_excel_records = self.db.query(GlobalIDNonDatabase).filter(
+                GlobalIDNonDatabase.source == 'excel'
+            ).all()
+            
+            deactivated_count = 0
+            reactivated_count = 0
+            status_changes = []
+            
+            for record in existing_excel_records:
+                record_identifiers = set()
+                
+                # Build identifiers for this record
+                if record.no_ktp:
+                    record_identifiers.add(('ktp', record.no_ktp))
+                if record.passport_id:
+                    record_identifiers.add(('passport', record.passport_id))
+                if record.name:
+                    record_identifiers.add(('name', record.name))
+                
+                # Check if any identifier matches uploaded data
+                has_match = bool(uploaded_identifiers & record_identifiers)
+                
+                if has_match and record.status != 'Active':
+                    # Record found in upload - reactivate
+                    record.status = 'Active'
+                    record.updated_at = datetime.now()
+                    
+                    # Also reactivate in global_id table
+                    global_record = self.db.query(GlobalID).filter(
+                        GlobalID.g_id == record.g_id
+                    ).first()
+                    if global_record and global_record.status != 'Active':
+                        global_record.status = 'Active'
+                        global_record.updated_at = datetime.now()
+                    
+                    reactivated_count += 1
+                    status_changes.append({
+                        'g_id': record.g_id,
+                        'name': record.name,
+                        'action': 'reactivated',
+                        'reason': 'Found in current upload'
+                    })
+                    logger.info(f"✅ Reactivated G_ID {record.g_id} for {record.name}")
+                
+                elif not has_match and record.status == 'Active':
+                    # Record not found in upload - deactivate
+                    record.status = 'Non Active'
+                    record.updated_at = datetime.now()
+                    
+                    # Also deactivate in global_id table if it's from excel source
+                    global_record = self.db.query(GlobalID).filter(
+                        and_(
+                            GlobalID.g_id == record.g_id,
+                            GlobalID.source == 'excel'
+                        )
+                    ).first()
+                    if global_record and global_record.status == 'Active':
+                        global_record.status = 'Non Active'
+                        global_record.updated_at = datetime.now()
+                    
+                    deactivated_count += 1
+                    status_changes.append({
+                        'g_id': record.g_id,
+                        'name': record.name,
+                        'action': 'deactivated',
+                        'reason': 'Not found in current upload'
+                    })
+                    logger.info(f"⛔ Deactivated G_ID {record.g_id} for {record.name}")
+            
+            # Commit status changes
+            if status_changes:
+                self.db.commit()
+                logger.info(f"✅ Status changes committed: {reactivated_count} reactivated, {deactivated_count} deactivated")
+            
+            return {
+                'success': True,
+                'reactivated_count': reactivated_count,
+                'deactivated_count': deactivated_count,
+                'status_changes': status_changes,
+                'total_processed': len(existing_excel_records)
+            }
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error handling status changes: {str(e)}")
+            return {
+                'success': False,
+                'error': f"Status change processing failed: {str(e)}",
+                'reactivated_count': 0,
+                'deactivated_count': 0,
+                'status_changes': []
+            }
+    
+    def reactivate_by_explore_data(self, explore_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Reactivate records when data is added via explore page with exact matching content
+        """
+        try:
+            logger.info(f"🔍 Checking for reactivation via explore data: {explore_data.get('name', 'Unknown')}")
+            
+            # Find matching records in both tables that are Non Active
+            matching_records = []
+            
+            # Search in global_id table
+            global_filters = []
+            if explore_data.get('name'):
+                global_filters.append(GlobalID.name == explore_data['name'])
+            if explore_data.get('no_ktp'):
+                global_filters.append(GlobalID.no_ktp == explore_data['no_ktp'])
+            if explore_data.get('passport_id'):
+                global_filters.append(GlobalID.passport_id == explore_data['passport_id'])
+            if explore_data.get('bod'):
+                global_filters.append(GlobalID.bod == explore_data['bod'])
+            
+            if global_filters:
+                global_records = self.db.query(GlobalID).filter(
+                    and_(
+                        *global_filters,
+                        GlobalID.status == 'Non Active'
+                    )
+                ).all()
+                
+                matching_records.extend(global_records)
+            
+            reactivated_count = 0
+            reactivated_gids = []
+            
+            for record in matching_records:
+                # Reactivate the record
+                record.status = 'Active'
+                record.updated_at = datetime.now()
+                
+                # Also reactivate corresponding record in global_id_non_database if exists
+                non_db_record = self.db.query(GlobalIDNonDatabase).filter(
+                    GlobalIDNonDatabase.g_id == record.g_id
+                ).first()
+                if non_db_record and non_db_record.status == 'Non Active':
+                    non_db_record.status = 'Active'
+                    non_db_record.updated_at = datetime.now()
+                
+                reactivated_count += 1
+                reactivated_gids.append({
+                    'g_id': record.g_id,
+                    'name': record.name,
+                    'reason': 'Reactivated via explore page data match'
+                })
+                logger.info(f"✅ Reactivated G_ID {record.g_id} via explore page for {record.name}")
+            
+            # Commit changes
+            if reactivated_count > 0:
+                self.db.commit()
+                logger.info(f"✅ Reactivated {reactivated_count} records via explore page")
+            
+            return {
+                'success': True,
+                'reactivated_count': reactivated_count,
+                'reactivated_gids': reactivated_gids
+            }
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error reactivating via explore data: {str(e)}")
+            return {
+                'success': False,
+                'error': f"Explore reactivation failed: {str(e)}",
+                'reactivated_count': 0
+            }
+    
     def get_excel_template(self) -> Dict[str, Any]:
         """Return Excel template structure for users"""
         return {
@@ -710,6 +1136,8 @@ class ExcelIngestionService:
                 'personal_number and passport_id are optional',
                 'CSV files support both comma (,) and semicolon (;) separators',
                 'Multiple text encodings are automatically detected',
-                'Remove any "process" column if copying from dummy data'
+                'Remove any "process" column if copying from dummy data',
+                '🔄 System automatically reuses existing G_IDs for matching data',
+                '⚡ Status management: Active for data in uploads, Non-Active for missing data'
             ]
         }

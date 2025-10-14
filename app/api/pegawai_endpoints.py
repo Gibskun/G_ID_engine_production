@@ -152,8 +152,9 @@ async def create_employee(
     **Request Body:**
     - **name**: Employee full name (required)
     - **personal_number**: Employee personal/staff number (optional)
-    - **no_ktp**: 16-digit KTP number (required, must be unique)
-    - **bod**: Birth date in YYYY-MM-DD format (optional)
+    - **no_ktp**: KTP number (optional, but either this or passport_id must be provided)
+    - **passport_id**: Passport ID (optional, but either this or no_ktp must be provided)
+    - **bod**: Birth date in YYYY-MM-DD format (required)
     
     **Returns:**
     - Created employee details with success message
@@ -344,4 +345,42 @@ async def get_employee_statistics(db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"success": False, "error": "Internal server error", "detail": "Failed to get statistics"}
+        )
+
+
+@pegawai_router.get(
+    "/check-passport-duplicate/{passport_id}",
+    summary="Check if passport ID is already in use",
+    description="Check if the given passport ID is already being used by another record"
+)
+async def check_passport_duplicate(
+    passport_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Check if passport ID is already in use
+    
+    **Parameters:**
+    - **passport_id**: The passport ID to check for duplicates
+    
+    **Returns:**
+    - Information about whether the passport ID is already in use
+    """
+    try:
+        result = PegawaiService.check_passport_duplicate(db=db, passport_id=passport_id)
+        
+        logger.info(f"Checked passport duplicate for: {passport_id}")
+        return result
+        
+    except ValueError as e:
+        logger.error(f"Validation error checking passport duplicate: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"success": False, "error": "Validation error", "detail": str(e)}
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error checking passport duplicate: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"success": False, "error": "Internal server error", "detail": "Failed to check passport duplicate"}
         )

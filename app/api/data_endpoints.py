@@ -17,6 +17,7 @@ from app.models.database import get_db, get_source_db
 from app.models.models import GlobalID, GlobalIDNonDatabase, Pegawai, AuditLog
 from app.services.advanced_workflow_service import AdvancedWorkflowService
 from app.services.gid_generator import GIDGenerator
+from app.services.excel_service import ExcelIngestionService
 
 logger = logging.getLogger(__name__)
 
@@ -514,15 +515,81 @@ async def create_pegawai_record(
             raise HTTPException(status_code=500, detail="Database connection error")
         
         automation_service = AutomationService(db, source_db)
+        excel_service = ExcelIngestionService(db)
         
-        # Check for reactivation possibility (optimized with indexed queries)
-        reactivation_result = automation_service.automated_reactivation_logic({
+        # NEW: Check for reactivation using improved excel service logic
+        explore_data = {
             "name": request.name,
             "personal_number": request.personal_number,
             "no_ktp": request.no_ktp,
             "passport_id": request.passport_id,
             "bod": request.bod
-        })
+        }
+        
+        # First try reactivation via explore data
+        reactivation_result = excel_service.reactivate_by_explore_data(explore_data)
+        
+        if reactivation_result["success"] and reactivation_result["reactivated_count"] > 0:
+            # Record was reactivated in global_id and global_id_non_database tables
+            # Now also reactivate the corresponding pegawai record if it exists
+            execution_time = round(time.time() - start_time, 3)
+            reactivated_gid = reactivation_result["reactivated_gids"][0]["g_id"]
+            
+            try:
+                # Find and reactivate the pegawai record with the same G_ID
+                pegawai_record = source_db.query(Pegawai).filter(
+                    Pegawai.g_id == reactivated_gid
+                ).first()
+                
+                if pegawai_record:
+                    # Reactivate pegawai record (clear deleted_at timestamp)
+                    pegawai_record.deleted_at = None
+                    pegawai_record.updated_at = datetime.now()
+                    
+                    # Update personal number if provided and different
+                    if request.personal_number and request.personal_number.strip():
+                        if pegawai_record.personal_number != request.personal_number.strip():
+                            pegawai_record.personal_number = request.personal_number.strip()
+                    
+                    source_db.commit()
+                    logger.info(f"✅ Also reactivated pegawai record for G_ID: {reactivated_gid}")
+                else:
+                    # No pegawai record found - create one from the reactivated data
+                    new_pegawai = Pegawai(
+                        name=request.name,
+                        personal_number=request.personal_number,
+                        no_ktp=request.no_ktp,
+                        passport_id=request.passport_id,
+                        bod=request.bod,
+                        g_id=reactivated_gid,
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    )
+                    source_db.add(new_pegawai)
+                    source_db.commit()
+                    logger.info(f"✅ Created new pegawai record for reactivated G_ID: {reactivated_gid}")
+                    
+            except Exception as pegawai_error:
+                logger.warning(f"Failed to reactivate pegawai record for G_ID {reactivated_gid}: {str(pegawai_error)}")
+                # Don't fail the entire operation - global_id tables were already reactivated successfully
+            
+            logger.info(f"✅ COMPREHENSIVE REACTIVATION completed in {execution_time}s for G_ID: {reactivated_gid}")
+            
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "success": True,
+                    "message": f"Record reactivated successfully in {execution_time}s via explore page (all tables updated)",
+                    "reactivated": True,
+                    "g_id": reactivated_gid,
+                    "execution_time": execution_time,
+                    "performance_status": "OPTIMAL" if execution_time <= 5.0 else "SLOW",
+                    "reactivation_details": reactivation_result["reactivated_gids"]
+                }
+            )
+        
+        # Fallback: Check for reactivation using original logic (for compatibility)
+        reactivation_result = automation_service.automated_reactivation_logic(explore_data)
         
         if reactivation_result["success"] and reactivation_result.get("reactivated"):
             # SCENARIO A: Record was reactivated
@@ -542,7 +609,63 @@ async def create_pegawai_record(
                 }
             )
         
-        # SCENARIO B: No reactivation - create new record
+        # SCENARIO C: Check for existing ACTIVE G_ID but missing pegawai record
+        # This handles cases like Gibral Anugrah where G_ID exists in global tables but pegawai is missing
+        existing_global_record = db.query(GlobalID).filter(
+            and_(
+                GlobalID.name == request.name,
+                GlobalID.no_ktp == request.no_ktp,
+                GlobalID.bod == request.bod,
+                GlobalID.status == 'Active'
+            )
+        ).first()
+        
+        if existing_global_record:
+            # Check if pegawai record exists for this G_ID
+            existing_pegawai = source_db.query(Pegawai).filter(
+                and_(
+                    Pegawai.g_id == existing_global_record.g_id,
+                    Pegawai.deleted_at.is_(None)  # Not deleted
+                )
+            ).first()
+            
+            if not existing_pegawai:
+                # G_ID exists but pegawai record is missing - create the missing pegawai record
+                logger.info(f"Found existing active G_ID {existing_global_record.g_id} but missing pegawai record - creating missing record")
+                
+                new_pegawai = Pegawai(
+                    name=request.name,
+                    personal_number=request.personal_number,
+                    no_ktp=request.no_ktp,
+                    passport_id=request.passport_id,
+                    bod=request.bod,
+                    g_id=existing_global_record.g_id,  # Use existing G_ID
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                
+                source_db.add(new_pegawai)
+                source_db.commit()
+                source_db.refresh(new_pegawai)
+                
+                execution_time = round(time.time() - start_time, 3)
+                logger.info(f"✅ Created missing pegawai record for existing G_ID: {existing_global_record.g_id} in {execution_time}s")
+                
+                return JSONResponse(
+                    status_code=201,
+                    content={
+                        "success": True,
+                        "message": f"Employee record created successfully using existing G_ID: {existing_global_record.g_id} in {execution_time}s",
+                        "reactivated": False,
+                        "existing_gid_used": True,
+                        "g_id": existing_global_record.g_id,
+                        "pegawai_id": getattr(new_pegawai, 'id', None),
+                        "execution_time": execution_time,
+                        "performance_status": "OPTIMAL" if execution_time <= 5.0 else "SLOW"
+                    }
+                )
+        
+        # SCENARIO D: No reactivation - create new record with new G_ID
         gid_generator = GIDGenerator(db)
         new_gid = gid_generator.generate_next_gid()
         
@@ -672,6 +795,28 @@ async def update_pegawai_record(
                     logger.info(f"  Setting Global status to: Non Active")
                 
                 setattr(global_record, 'updated_at', datetime.now())
+                
+                # FIXED: Also sync to global_id_non_database table for complete consistency
+                non_db_record = db.query(GlobalIDNonDatabase).filter(GlobalIDNonDatabase.g_id == pegawai_g_id).first()
+                if non_db_record:
+                    if request.name is not None:
+                        setattr(non_db_record, 'name', request.name)
+                    if request.personal_number is not None:
+                        setattr(non_db_record, 'personal_number', request.personal_number)
+                    if request.no_ktp is not None:
+                        setattr(non_db_record, 'no_ktp', request.no_ktp)
+                    if request.bod is not None:
+                        setattr(non_db_record, 'bod', request.bod)
+                    
+                    # Sync the same status from pegawai to global_id_non_database
+                    if pegawai_deleted_at is None and pegawai_status == 'Active':
+                        setattr(non_db_record, 'status', 'Active')
+                    elif pegawai_deleted_at is not None or pegawai_status != 'Active':
+                        setattr(non_db_record, 'status', 'Non Active')
+                    
+                    setattr(non_db_record, 'updated_at', datetime.now())
+                    logger.info(f"  Also synced status to global_id_non_database")
+                
                 db.commit()
         
         # Automatic synchronization disabled - per user request to not use advanced workflow service

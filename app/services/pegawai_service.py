@@ -6,7 +6,7 @@ Handles business logic and database interactions for employee management
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import and_, func, or_
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 from datetime import datetime
 import logging
 
@@ -422,3 +422,81 @@ class PegawaiService:
         except Exception as e:
             logger.error(f"Error getting employee statistics: {str(e)}")
             raise ValueError(f"Failed to get employee statistics: {str(e)}")
+    
+    @staticmethod
+    def check_passport_duplicate(db: Session, passport_id: str) -> Dict[str, Any]:
+        """
+        Check if passport ID is already in use
+        
+        Args:
+            db: Database session
+            passport_id: The passport ID to check
+            
+        Returns:
+            Dictionary with duplicate check results
+        """
+        try:
+            if not passport_id or not passport_id.strip():
+                return {
+                    "success": True,
+                    "is_duplicate": False,
+                    "message": "No passport ID provided"
+                }
+            
+            passport_id = passport_id.strip()
+            
+            # Check in global_id table first (primary table)
+            existing_global = db.query(GlobalID).filter(
+                and_(
+                    GlobalID.passport_id == passport_id,
+                    GlobalID.status == "Active"
+                )
+            ).first()
+            
+            if existing_global:
+                return {
+                    "success": True,
+                    "is_duplicate": True,
+                    "message": f"Passport ID '{passport_id}' is already in use by G_ID {existing_global.g_id}",
+                    "existing_data": {
+                        "g_id": existing_global.g_id,
+                        "name": existing_global.name,
+                        "no_ktp": existing_global.no_ktp,
+                        "bod": existing_global.bod.isoformat() if existing_global.bod else None,
+                        "status": existing_global.status,
+                        "source": existing_global.source
+                    }
+                }
+            
+            # Also check in global_id_non_database table
+            existing_non_db = db.query(GlobalIDNonDatabase).filter(
+                and_(
+                    GlobalIDNonDatabase.passport_id == passport_id,
+                    GlobalIDNonDatabase.status == "Active"
+                )
+            ).first()
+            
+            if existing_non_db:
+                return {
+                    "success": True,
+                    "is_duplicate": True,
+                    "message": f"Passport ID '{passport_id}' is already in use by G_ID {existing_non_db.g_id}",
+                    "existing_data": {
+                        "g_id": existing_non_db.g_id,
+                        "name": existing_non_db.name,
+                        "no_ktp": existing_non_db.no_ktp,
+                        "bod": existing_non_db.bod.isoformat() if existing_non_db.bod else None,
+                        "status": existing_non_db.status,
+                        "source": existing_non_db.source
+                    }
+                }
+            
+            return {
+                "success": True,
+                "is_duplicate": False,
+                "message": f"Passport ID '{passport_id}' is available"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error checking passport duplicate for {passport_id}: {str(e)}")
+            raise ValueError(f"Failed to check passport duplicate: {str(e)}")

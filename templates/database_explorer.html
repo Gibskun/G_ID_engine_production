@@ -1354,7 +1354,7 @@
                 </div>
             </div>
             <div class="database-info">
-                <p><strong>Connection:</strong> <code>mssql+pyodbc://sqlvendor1:***@localhost:1435/g_id</code></p>
+                <p><strong>Connection:</strong> <code>mssql+pyodbc://sqlvendor1:***@localhost:1435/gid_dev</code></p>
                 <p><strong>Table:</strong> pegawai | <strong>Total Records:</strong> <span id="sap-record-count">0</span></p>
                 <p><strong>Description:</strong> Employee records from SAP system with G_ID assignments</p>
             </div>
@@ -2167,15 +2167,18 @@ function showAddGlobalIDModal() {
                         <div class="field-error" id="name-error" style="display: none;"></div>
                     </div>
                     <div class="form-group">
-                        <label>NIK (No KTP) <span class="required-asterisk">*</span></label>
-                        <input type="text" name="no_ktp" id="add-no-ktp" class="form-control" placeholder="Enter 16-digit NIK" maxlength="16" required />
+                        <label>NIK (No KTP) <small class="text-info">(Required if no Passport ID)</small></label>
+                        <input type="text" name="no_ktp" id="add-no-ktp" class="form-control" placeholder="Enter 16-digit NIK (leave empty if providing passport ID)" maxlength="16" />
+                        <small class="form-text text-muted">
+                            <i class="fas fa-info-circle"></i> 16 digits required. Can be left empty if passport ID is provided.
+                        </small>
                         <div class="field-error" id="no-ktp-error" style="display: none;"></div>
                     </div>
                     <div class="form-group">
-                        <label>Passport ID <span class="required-asterisk">*</span></label>
-                        <input type="text" name="passport_id" id="add-passport-id" class="form-control" placeholder="Enter passport ID (e.g., A12345678)" maxlength="9" required />
+                        <label>Passport ID <small class="text-info">(Required if no NIK)</small></label>
+                        <input type="text" name="passport_id" id="add-passport-id" class="form-control" placeholder="Enter passport ID (leave empty if providing NIK)" maxlength="9" />
                         <small class="form-text text-muted">
-                            <i class="fas fa-info-circle"></i> 8-9 characters: First letter, then letters/numbers (numbers must dominate)
+                            <i class="fas fa-info-circle"></i> 8-9 characters: First letter, then letters/numbers (numbers must dominate). Can be left empty if NIK is provided.
                         </small>
                         <div class="field-error" id="passport-id-error" style="display: none;"></div>
                     </div>
@@ -2190,7 +2193,8 @@ function showAddGlobalIDModal() {
                     </div>
                     <div class="form-note">
                         <small class="text-muted">
-                            <span class="required-asterisk">*</span> Required fields
+                            <span class="required-asterisk">*</span> Required fields<br>
+                            <i class="fas fa-lightbulb"></i> <strong>Note:</strong> You must provide either NIK (No KTP) OR Passport ID (not both required, but at least one)
                         </small>
                     </div>
                 </form>
@@ -2259,12 +2263,15 @@ async function submitAddGlobalID() {
     submitBtn.disabled = true;
     
     try {
-        // First, check if data already exists - pass personal number for reactivation logic
-        const existingData = await checkExistingData(name, no_ktp, bod, personal_number);
+        // First, check if data already exists - pass personal number and passport_id for comprehensive checking
+        const existingData = await checkExistingData(name, no_ktp, bod, personal_number, passport_id);
         
         if (existingData.exists) {
             // Handle different types of existing data
-            if (existingData.type === 'nik_conflict') {
+            if (existingData.type === 'passport_conflict') {
+                showPassportConflictModal(existingData.data, existingData.message);
+                return; // Don't proceed with submission
+            } else if (existingData.type === 'nik_conflict') {
                 showNikConflictModal(existingData.data);
                 return; // Don't proceed with submission
             } else if (existingData.type === 'active_duplicate') {
@@ -2275,6 +2282,10 @@ async function submitAddGlobalID() {
                 // Non-Active record - show reactivation modal
                 showReactivationModal(existingData.data, personal_number);
                 return; // Don't proceed with submission - let reactivation modal handle it
+            } else if (existingData.type === 'missing_pegawai_candidate') {
+                // G_ID exists but pegawai record is missing - show confirmation modal and proceed with creation
+                showMissingPegawaiModal(existingData.data, personal_number);
+                return; // Don't proceed with submission - let missing pegawai modal handle it
             }
         }
         
@@ -2317,51 +2328,92 @@ async function submitAddGlobalID() {
 }
 
 // Function to check if data already exists and determine action needed
-async function checkExistingData(name, no_ktp, bod, newPersonalNumber = '') {
+async function checkExistingData(name, no_ktp, bod, newPersonalNumber = '', passport_id = '') {
     try {
-        // Search for records with the same NIK in database explorer
-        const nikResponse = await fetch(`${getApiBaseUrl()}/database/explorer?search=${encodeURIComponent(no_ktp)}&size=100`);
-        const nikData = await nikResponse.json();
-        
-        if (nikData.g_id?.tables?.global_id?.data) {
-            const records = nikData.g_id.tables.global_id.data;
+        // Check passport ID duplicate first (if provided)
+        if (passport_id && passport_id.trim()) {
+            const passportResponse = await fetch(`${getApiBaseUrl()}/pegawai/check-passport-duplicate/${encodeURIComponent(passport_id.trim())}`);
+            const passportData = await passportResponse.json();
             
-            // Check for exact match of all key fields (name, NIK, BOD)
-            for (const record of records) {
-                const isExactMatch = record.name.toLowerCase() === name.toLowerCase() && 
-                                   record.no_ktp === no_ktp && 
-                                   record.bod === bod;
+            if (passportData.success && passportData.is_duplicate) {
+                return {
+                    exists: true,
+                    type: 'passport_conflict',
+                    data: passportData.existing_data,
+                    message: passportData.message
+                };
+            }
+        }
+        
+        // Check NIK duplicate (if provided)
+        if (no_ktp && no_ktp.trim()) {
+            // Search for records with the same NIK in database explorer
+            const nikResponse = await fetch(`${getApiBaseUrl()}/database/explorer?search=${encodeURIComponent(no_ktp)}&size=100`);
+            const nikData = await nikResponse.json();
+            
+            if (nikData.g_id?.tables?.global_id?.data) {
+                const records = nikData.g_id.tables.global_id.data;
                 
-                if (isExactMatch) {
-                    // Exact match found - check status
-                    if (record.status && record.status.toLowerCase() === 'active') {
-                        // Active record - cannot be added or changed at all
+                // Check for exact match of all key fields (name, NIK, BOD)
+                for (const record of records) {
+                    const isExactMatch = record.name.toLowerCase() === name.toLowerCase() && 
+                                       record.no_ktp === no_ktp && 
+                                       record.bod === bod;
+                    
+                    if (isExactMatch) {
+                        // Exact match found - check status AND pegawai table
+                        if (record.status && record.status.toLowerCase() === 'active') {
+                            // Check if corresponding pegawai record exists
+                            const pegawaiResponse = await fetch(`${getApiBaseUrl()}/data/pegawai?search=${encodeURIComponent(record.g_id)}&size=10`);
+                            const pegawaiData = await pegawaiResponse.json();
+                            
+                            // Check if pegawai record exists for this G_ID
+                            const pegawaiExists = pegawaiData.data && pegawaiData.data.some(p => 
+                                p.g_id === record.g_id && 
+                                p.name.toLowerCase() === name.toLowerCase() && 
+                                p.no_ktp === no_ktp &&
+                                p.status !== 'Deleted' // Active pegawai record
+                            );
+                            
+                            if (pegawaiExists) {
+                                // Both global_id AND pegawai records exist and are active - true duplicate
+                                return {
+                                    exists: true,
+                                    type: 'active_duplicate',
+                                    data: record,
+                                    message: 'This data already exists with Active status in all tables and cannot be added or modified.'
+                                };
+                            } else {
+                                // Global_id exists but pegawai record is missing or deleted - should create pegawai record
+                                return {
+                                    exists: true,
+                                    type: 'missing_pegawai_candidate',
+                                    data: record,
+                                    newPersonalNumber: newPersonalNumber,
+                                    message: 'G_ID exists but employee record is missing. Will create employee record with existing G_ID.'
+                                };
+                            }
+                        } else {
+                            // Non-Active record - should be reactivated with personal number logic
+                            return {
+                                exists: true,
+                                type: 'reactivation_candidate',
+                                data: record,
+                                newPersonalNumber: newPersonalNumber,
+                                message: 'This data exists with Non-Active status. It will be reactivated.'
+                            };
+                        }
+                    }
+                    
+                    // Check for NIK conflict with different data
+                    if (record.no_ktp === no_ktp && !isExactMatch) {
                         return {
                             exists: true,
-                            type: 'active_duplicate',
+                            type: 'nik_conflict',
                             data: record,
-                            message: 'This data already exists with Active status and cannot be added or modified.'
-                        };
-                    } else {
-                        // Non-Active record - should be reactivated with personal number logic
-                        return {
-                            exists: true,
-                            type: 'reactivation_candidate',
-                            data: record,
-                            newPersonalNumber: newPersonalNumber,
-                            message: 'This data exists with Non-Active status. It will be reactivated.'
+                            message: 'This NIK is already used by a different person.'
                         };
                     }
-                }
-                
-                // Check for NIK conflict with different data
-                if (record.no_ktp === no_ktp && !isExactMatch) {
-                    return {
-                        exists: true,
-                        type: 'nik_conflict',
-                        data: record,
-                        message: 'This NIK is already used by a different person.'
-                    };
                 }
             }
         }
@@ -2644,7 +2696,205 @@ function showReactivationModal(existingRecord, newPersonalNumber) {
     }, { once: true });
 }
 
+// Function to show missing pegawai confirmation modal
+function showMissingPegawaiModal(existingRecord, newPersonalNumber) {
+    const modalHtml = `
+        <div class="modal fade" id="missingPegawaiModal" tabindex="-1" aria-labelledby="missingPegawaiModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title" id="missingPegawaiModalLabel">
+                            <i class="fas fa-user-plus"></i> Create Missing Employee Record
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info" role="alert">
+                            <h6><i class="fas fa-info-circle"></i> G_ID Found - Employee Record Missing</h6>
+                            <p>The data you entered matches an existing <strong>G_ID</strong> in the system, but the corresponding employee record is missing or has been deleted. 
+                            The system will create the missing employee record using the existing G_ID.</p>
+                        </div>
+                        
+                        <div class="existing-data-info">
+                            <h6><i class="fas fa-id-badge"></i> Existing G_ID Details:</h6>
+                            <div class="card border-info">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong><i class="fas fa-id-badge"></i> G_ID:</strong><br>
+                                               <span class="text-primary fw-bold">${existingRecord.g_id || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-user"></i> Name:</strong><br>
+                                               <span class="text-dark">${existingRecord.name || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-id-card"></i> NIK (No KTP):</strong><br>
+                                               <span class="text-dark">${existingRecord.no_ktp || 'N/A'}</span></p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong><i class="fas fa-calendar-alt"></i> Birth Date:</strong><br>
+                                               <span class="text-dark">${existingRecord.bod || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-hashtag"></i> Personal Number:</strong><br>
+                                               <span class="text-dark">${newPersonalNumber || existingRecord.personal_number || 'N/A'}</span></p>
+                                            <p><strong><i class="fas fa-check-circle"></i> G_ID Status:</strong><br>
+                                               <span class="badge bg-success">${existingRecord.status || 'Active'}</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-success mt-3">
+                            <h6><i class="fas fa-plus-circle"></i> What Will Happen</h6>
+                            <ul class="mb-0">
+                                <li><strong>No new G_ID</strong> will be generated</li>
+                                <li>The existing G_ID <strong>${existingRecord.g_id}</strong> will be reused</li>
+                                <li>A new employee record will be created with this G_ID</li>
+                                <li>All data will remain consistent across all tables</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-lightbulb"></i> 
+                                <strong>Note:</strong> This preserves data integrity by reusing the existing G_ID rather than creating duplicates.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="button" class="btn btn-info" onclick="confirmCreateMissingPegawai('${existingRecord.g_id}', '${newPersonalNumber || ''}')" data-g-id="${existingRecord.g_id}" data-personal-number="${newPersonalNumber || ''}">
+                            <i class="fas fa-user-plus"></i> Yes, Create Employee Record
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('missingPegawaiModal');
+    if (existingModal) {
+        const existingModalInstance = bootstrap.Modal.getInstance(existingModal);
+        if (existingModalInstance) {
+            existingModalInstance.dispose();
+        }
+        existingModal.remove();
+    }
+    
+    // Add modal to DOM
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show the modal with proper Bootstrap handling
+    const modalElement = document.getElementById('missingPegawaiModal');
+    const modal = new bootstrap.Modal(modalElement, {
+        backdrop: 'static',
+        keyboard: true
+    });
+    
+    modal.show();
+    
+    // Clean up modal after it's hidden
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        const modalInstance = bootstrap.Modal.getInstance(this);
+        if (modalInstance) {
+            modalInstance.dispose();
+        }
+        this.remove();
+    }, { once: true });
+}
+
 // Function to close reactivation modal
+
+// Function to show passport conflict modal
+function showPassportConflictModal(existingRecord, message) {
+    const modalHtml = `
+        <div class="modal fade" id="passportConflictModal" tabindex="-1" aria-labelledby="passportConflictModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning text-dark">
+                        <h4 class="modal-title" id="passportConflictModalLabel">
+                            <i class="fas fa-exclamation-triangle"></i> Passport ID Already in Use
+                        </h4>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-warning mb-3">
+                            <h5><i class="fas fa-passport"></i> Passport ID Conflict Detected</h5>
+                            <p class="mb-0">${message}</p>
+                        </div>
+                        
+                        <div class="existing-data-info">
+                            <h6><i class="fas fa-info-circle"></i> Current Passport ID Usage:</h6>
+                            <div class="card border-warning">
+                                <div class="card-body">
+                                    <p><strong><i class="fas fa-id-card"></i> G_ID:</strong> 
+                                        <span class="text-primary font-weight-bold">${existingRecord.g_id}</span>
+                                        <span class="badge bg-success ms-2">${existingRecord.status}</span>
+                                    </p>
+                                    <p><strong><i class="fas fa-user"></i> Name:</strong> 
+                                        <span>${existingRecord.name}</span>
+                                    </p>
+                                    <p><strong><i class="fas fa-id-badge"></i> NIK (No KTP):</strong> 
+                                        <span>${existingRecord.no_ktp || 'Not provided'}</span>
+                                    </p>
+                                    <p><strong><i class="fas fa-passport"></i> Passport ID:</strong> 
+                                        <span class="text-danger font-weight-bold">${existingRecord.passport_id || 'N/A'}</span>
+                                    </p>
+                                    <p><strong><i class="fas fa-birthday-cake"></i> Birth Date:</strong> 
+                                        <span>${existingRecord.bod || 'Not provided'}</span>
+                                    </p>
+                                    <p><strong><i class="fas fa-database"></i> Source:</strong> 
+                                        <span class="text-muted">${existingRecord.source || 'Unknown'}</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info mt-3">
+                            <h6><i class="fas fa-lightbulb"></i> What should you do?</h6>
+                            <ul class="mb-0">
+                                <li>Verify that this is not a duplicate entry for the same person</li>
+                                <li>If this is a different person, please use a different passport ID</li>
+                                <li>If this is the same person, consider updating the existing record instead</li>
+                                <li>Contact your administrator if you believe this is an error</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('passportConflictModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to DOM
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show the modal using Bootstrap
+    const modalElement = document.getElementById('passportConflictModal');
+    const modal = new bootstrap.Modal(modalElement, {
+        backdrop: 'static',
+        keyboard: true
+    });
+    modal.show();
+    
+    // Clean up modal after it's hidden
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        this.remove();
+    }, { once: true });
+    
+    // Also close the add modal
+    closeModal('addGlobalIDModal');
+}
 
 // Function to show active duplicate modal (cannot be modified)
 function showActiveDuplicateModal(existingRecord) {
@@ -2771,7 +3021,7 @@ function closeActiveDuplicateModal() {
     }
 }
 
-// Function to confirm reactivation - SIMPLE METHOD
+// Function to confirm reactivation - COMPREHENSIVE METHOD
 async function confirmReactivation(g_id, newPersonalNumber) {
     const submitBtn = document.querySelector('#reactivationModal .btn-success');
     const originalText = submitBtn.innerHTML;
@@ -2779,48 +3029,45 @@ async function confirmReactivation(g_id, newPersonalNumber) {
     submitBtn.disabled = true;
     
     try {
-        // Simple approach: Get all pegawai records (including deleted) in one call
-        const pegawaiResponse = await fetch(`${getApiBaseUrl()}/data/pegawai?page=1&size=1000&include_deleted=true`);
-        const pegawaiData = await pegawaiResponse.json();
+        // First, get the existing record data to build the reactivation payload
+        const explorerResponse = await fetch(`${getApiBaseUrl()}/database/explorer?search=${g_id}&size=10`);
+        const explorerData = await explorerResponse.json();
         
-        if (!pegawaiData.data) {
-            throw new Error('Failed to fetch pegawai data');
+        let globalRecord = null;
+        if (explorerData.g_id?.tables?.global_id?.data) {
+            globalRecord = explorerData.g_id.tables.global_id.data.find(record => record.g_id === g_id);
         }
         
-        // Find the pegawai record by G_ID
-        const pegawai = pegawaiData.data.find(p => p.g_id === g_id);
+        if (!globalRecord) {
+            throw new Error('Record not found in database');
+        }
         
-        if (pegawai) {
-            // Handle personal number logic: use new if provided, otherwise keep existing
-            let finalPersonalNumber;
-            if (newPersonalNumber && newPersonalNumber.trim() !== '') {
-                finalPersonalNumber = newPersonalNumber.trim();
-            } else {
-                finalPersonalNumber = pegawai.personal_number || null;
-            }
-            
-            // Simple update: change status to Active and clear deleted_at
-            const updateData = {
-                name: pegawai.name,
-                no_ktp: pegawai.no_ktp,
-                bod: pegawai.bod,
-                status: 'Active',
-                personal_number: finalPersonalNumber,
-                deleted_at: null
-            };
-            
-            const updateResponse = await fetch(`${getApiBaseUrl()}/data/pegawai/${pegawai.id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(updateData)
-            });
-            
-            if (!updateResponse.ok) {
-                throw new Error(`Update failed: ${updateResponse.status}`);
-            }
-            
+        // Use the existing POST /data/pegawai endpoint which handles comprehensive reactivation
+        // This endpoint will call reactivate_by_explore_data which updates all three tables:
+        // 1. pegawai table
+        // 2. global_id table  
+        // 3. global_id_non_database table
+        const reactivationPayload = {
+            name: globalRecord.name,
+            no_ktp: globalRecord.no_ktp,
+            passport_id: globalRecord.passport_id,
+            bod: globalRecord.bod,
+            personal_number: newPersonalNumber && newPersonalNumber.trim() !== '' ? newPersonalNumber.trim() : globalRecord.personal_number
+        };
+        
+        console.log('Sending comprehensive reactivation request:', reactivationPayload);
+        
+        const reactivationResponse = await fetch(`${getApiBaseUrl()}/data/pegawai`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reactivationPayload)
+        });
+        
+        const reactivationResult = await reactivationResponse.json();
+        
+        if (reactivationResult.success) {
             // Close modals
             const reactivationModal = bootstrap.Modal.getInstance(document.getElementById('reactivationModal'));
             if (reactivationModal) reactivationModal.hide();
@@ -2828,103 +3075,104 @@ async function confirmReactivation(g_id, newPersonalNumber) {
             const addModal = bootstrap.Modal.getInstance(document.getElementById('addGlobalIDModal'));
             if (addModal) addModal.hide();
             
-            showNotification(`Record reactivated successfully! G_ID: ${g_id} is now Active.`, 'success');
+            if (reactivationResult.reactivated) {
+                showNotification(`Record reactivated successfully! G_ID: ${reactivationResult.g_id} is now Active in all tables.`, 'success');
+            } else {
+                showNotification(`Record processed successfully! G_ID: ${reactivationResult.g_id}`, 'success');
+            }
             
-            // Reload data
+            // Reload data to show updated status
             setTimeout(() => {
                 loadAllDatabaseData();
             }, 500);
             
         } else {
-            // Pegawai record not found - get data from database explorer and create new pegawai record
-            console.log(`No pegawai record found for G_ID: ${g_id}, attempting to create from global_id data`);
-            
-            // Get the global_id record data from database explorer
-            const explorerResponse = await fetch(`${getApiBaseUrl()}/database/explorer?search=${g_id}&size=10`);
-            const explorerData = await explorerResponse.json();
-            
-            let globalRecord = null;
-            if (explorerData.g_id?.tables?.global_id?.data) {
-                globalRecord = explorerData.g_id.tables.global_id.data.find(record => record.g_id === g_id);
-            }
-            
-            if (globalRecord) {
-                // Create new pegawai record using global_id data
-                const createData = {
-                    name: globalRecord.name,
-                    no_ktp: globalRecord.no_ktp,
-                    bod: globalRecord.bod,
-                    status: 'Active',
-                    personal_number: newPersonalNumber || globalRecord.personal_number || null,
-                    g_id: g_id
-                };
-                
-                console.log('Creating new pegawai record with data:', createData);
-                
-                const createResponse = await fetch(`${getApiBaseUrl()}/data/pegawai`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(createData)
-                });
-                
-                if (!createResponse.ok) {
-                    // Log the detailed error but don't fail the reactivation
-                    const errorText = await createResponse.text();
-                    console.warn(`Pegawai creation failed (${createResponse.status}): ${errorText}`);
-                    console.log('Continuing with reactivation anyway as global_id status may have been updated...');
-                    
-                    // Check if the reactivation actually worked by verifying the global_id status
-                    const verifyResponse = await fetch(`${getApiBaseUrl()}/database/explorer?search=${g_id}&size=10`);
-                    if (verifyResponse.ok) {
-                        const verifyData = await verifyResponse.json();
-                        const updatedRecord = verifyData.g_id?.tables?.global_id?.data?.find(r => r.g_id === g_id);
-                        
-                        if (updatedRecord && updatedRecord.status === 'Active') {
-                            // Reactivation worked despite pegawai creation failure
-                            console.log('Reactivation successful - global_id status is now Active');
-                        } else {
-                            // Reactivation truly failed
-                            throw new Error(`Failed to create pegawai record: ${createResponse.status} - ${errorText}`);
-                        }
-                    } else {
-                        // Can't verify, but don't fail
-                        console.warn('Could not verify reactivation status');
-                    }
-                }
-                
-                // Close modals
-                const reactivationModal = bootstrap.Modal.getInstance(document.getElementById('reactivationModal'));
-                if (reactivationModal) reactivationModal.hide();
-                
-                const addModal = bootstrap.Modal.getInstance(document.getElementById('addGlobalIDModal'));
-                if (addModal) addModal.hide();
-                
-                // Show appropriate success message
-                if (createResponse.ok) {
-                    showNotification(`Record reactivated successfully! New pegawai record created for G_ID: ${g_id}`, 'success');
-                } else {
-                    showNotification(`Record reactivated successfully! G_ID: ${g_id} is now Active.`, 'success');
-                }
-                
-                // Reload data
-                setTimeout(() => {
-                    loadAllDatabaseData();
-                }, 500);
-                
-            } else {
-                throw new Error(`No global_id record found for G_ID: ${g_id}. Cannot create pegawai record.`);
-            }
+            throw new Error(reactivationResult.message || 'Reactivation failed');
         }
         
     } catch (error) {
-        console.error('Reactivation error:', error);
-        showNotification('Failed to reactivate record: ' + error.message, 'error');
-    } finally {
-        // Restore button state
+        console.error('Error during reactivation:', error);
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
+        
+        // Show error to user
+        showNotification(`Reactivation failed: ${error.message}`, 'error');
+    }
+}
+
+// Function to confirm creation of missing pegawai record
+async function confirmCreateMissingPegawai(g_id, newPersonalNumber) {
+    const submitBtn = document.querySelector('#missingPegawaiModal .btn-info');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+    submitBtn.disabled = true;
+    
+    try {
+        // Get the existing G_ID record data to build the creation payload
+        const explorerResponse = await fetch(`${getApiBaseUrl()}/database/explorer?search=${g_id}&size=10`);
+        const explorerData = await explorerResponse.json();
+        
+        let globalRecord = null;
+        if (explorerData.g_id?.tables?.global_id?.data) {
+            globalRecord = explorerData.g_id.tables.global_id.data.find(record => record.g_id === g_id);
+        }
+        
+        if (!globalRecord) {
+            throw new Error('G_ID record not found in database');
+        }
+        
+        // Create payload for missing pegawai record using existing G_ID data
+        const creationPayload = {
+            name: globalRecord.name,
+            no_ktp: globalRecord.no_ktp,
+            passport_id: globalRecord.passport_id || '',
+            bod: globalRecord.bod,
+            personal_number: newPersonalNumber && newPersonalNumber.trim() !== '' ? newPersonalNumber.trim() : globalRecord.personal_number
+        };
+        
+        console.log('Creating missing pegawai record with existing G_ID:', creationPayload);
+        
+        // Use the POST /data/pegawai endpoint which will handle this case
+        const creationResponse = await fetch(`${getApiBaseUrl()}/data/pegawai`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(creationPayload)
+        });
+        
+        const creationResult = await creationResponse.json();
+        
+        if (creationResult.success) {
+            // Close modals
+            const missingPegawaiModal = bootstrap.Modal.getInstance(document.getElementById('missingPegawaiModal'));
+            if (missingPegawaiModal) missingPegawaiModal.hide();
+            
+            const addModal = bootstrap.Modal.getInstance(document.getElementById('addGlobalIDModal'));
+            if (addModal) addModal.hide();
+            
+            if (creationResult.reactivated) {
+                showNotification(`Employee record created successfully using existing G_ID: ${creationResult.g_id}. Record reactivated in all tables.`, 'success');
+            } else {
+                showNotification(`Employee record created successfully using existing G_ID: ${creationResult.g_id}`, 'success');
+            }
+            
+            // Reload data to show updated status
+            setTimeout(() => {
+                loadAllDatabaseData();
+            }, 500);
+            
+        } else {
+            throw new Error(creationResult.message || 'Failed to create employee record');
+        }
+        
+    } catch (error) {
+        console.error('Error creating missing pegawai record:', error);
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+        
+        // Show error to user
+        showNotification(`Failed to create employee record: ${error.message}`, 'error');
     }
 }
 
@@ -3073,7 +3321,7 @@ function goBackToAddForm() {
 function validateAddGlobalIDForm(name, no_ktp, passport_id, bod) {
     const errors = [];
     
-    // Validate Name
+    // Validate Name (Required)
     if (!name) {
         errors.push({ field: 'name', message: 'Name is required' });
         showFieldError('name-error', 'Name is required');
@@ -3082,34 +3330,7 @@ function validateAddGlobalIDForm(name, no_ktp, passport_id, bod) {
         showFieldError('name-error', 'Name must be at least 2 characters long');
     }
     
-    // Validate NIK (No KTP)
-    if (!no_ktp) {
-        errors.push({ field: 'no_ktp', message: 'NIK (No KTP) is required' });
-        showFieldError('no-ktp-error', 'NIK (No KTP) is required');
-    } else if (!/^\d{16}$/.test(no_ktp)) {
-        errors.push({ field: 'no_ktp', message: 'NIK must be exactly 16 digits' });
-        showFieldError('no-ktp-error', 'NIK must be exactly 16 digits');
-    }
-    
-    // Validate Passport ID
-    if (!passport_id) {
-        errors.push({ field: 'passport_id', message: 'Passport ID is required' });
-        showFieldError('passport-id-error', 'Passport ID is required');
-    } else if (!/^[A-Z][A-Z0-9]{7,8}$/.test(passport_id)) {
-        errors.push({ field: 'passport_id', message: 'Passport ID must be 8-9 characters: First letter, then letters/numbers' });
-        showFieldError('passport-id-error', 'Passport ID must be 8-9 characters: First letter, then letters/numbers');
-    } else {
-        // Check if numbers dominate
-        const letterCount = (passport_id.match(/[A-Z]/g) || []).length;
-        const numberCount = (passport_id.match(/[0-9]/g) || []).length;
-        
-        if (numberCount <= letterCount) {
-            errors.push({ field: 'passport_id', message: 'Passport ID must have more numbers than letters' });
-            showFieldError('passport-id-error', 'Passport ID must have more numbers than letters');
-        }
-    }
-    
-    // Validate Birth Date
+    // Validate Birth Date (Required)
     if (!bod) {
         errors.push({ field: 'bod', message: 'Birth Date is required' });
         showFieldError('bod-error', 'Birth Date is required');
@@ -3125,6 +3346,40 @@ function validateAddGlobalIDForm(name, no_ktp, passport_id, bod) {
         } else if (birthDate < minDate) {
             errors.push({ field: 'bod', message: 'Birth Date seems unrealistic (over 100 years ago)' });
             showFieldError('bod-error', 'Birth Date seems unrealistic (over 100 years ago)');
+        }
+    }
+    
+    // Either/Or Validation: NIK OR Passport ID is required (but not both mandatory)
+    const hasNik = no_ktp && no_ktp.trim() !== '';
+    const hasPassport = passport_id && passport_id.trim() !== '';
+    
+    if (!hasNik && !hasPassport) {
+        errors.push({ field: 'no_ktp', message: 'Either NIK (No KTP) or Passport ID must be provided' });
+        errors.push({ field: 'passport_id', message: 'Either NIK (No KTP) or Passport ID must be provided' });
+        showFieldError('no-ktp-error', 'Either NIK (No KTP) or Passport ID must be provided');
+        showFieldError('passport-id-error', 'Either NIK (No KTP) or Passport ID must be provided');
+    } else {
+        // Validate NIK if provided
+        if (hasNik && !/^\d{16}$/.test(no_ktp)) {
+            errors.push({ field: 'no_ktp', message: 'NIK must be exactly 16 digits' });
+            showFieldError('no-ktp-error', 'NIK must be exactly 16 digits');
+        }
+        
+        // Validate Passport ID if provided
+        if (hasPassport) {
+            if (!/^[A-Z][A-Z0-9]{7,8}$/.test(passport_id)) {
+                errors.push({ field: 'passport_id', message: 'Passport ID must be 8-9 characters: First letter, then letters/numbers' });
+                showFieldError('passport-id-error', 'Passport ID must be 8-9 characters: First letter, then letters/numbers');
+            } else {
+                // Check if numbers dominate
+                const letterCount = (passport_id.match(/[A-Z]/g) || []).length;
+                const numberCount = (passport_id.match(/[0-9]/g) || []).length;
+                
+                if (numberCount <= letterCount) {
+                    errors.push({ field: 'passport_id', message: 'Passport ID must have more numbers than letters' });
+                    showFieldError('passport-id-error', 'Passport ID must have more numbers than letters');
+                }
+            }
         }
     }
     

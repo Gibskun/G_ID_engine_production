@@ -26,7 +26,7 @@ fake = Faker('id_ID')  # Indonesian locale
 fake_en = Faker('en_US')  # English for fallback
 
 # Database connection - now using consolidated SQL Server database
-SOURCE_DATABASE_URL = os.getenv("SOURCE_DATABASE_URL", "mssql+pyodbc://sqlvendor1:password@localhost:1435/g_id?driver=ODBC+Driver+17+for+SQL+Server")
+SOURCE_DATABASE_URL = os.getenv("SOURCE_DATABASE_URL", "mssql+pyodbc://sqlvendor1:password@localhost:1435/gid_dev?driver=ODBC+Driver+17+for+SQL+Server")
 
 def generate_indonesian_name():
     """Generate realistic Indonesian names"""

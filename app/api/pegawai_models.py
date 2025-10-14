@@ -2,7 +2,7 @@
 Pydantic models for Pegawai REST API endpoints
 """
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional
 from datetime import date, datetime
 import re
@@ -14,53 +14,34 @@ class PegawaiCreateRequest(BaseModel):
     personal_number: Optional[str] = Field(None, max_length=15, description="Employee personal number")
     no_ktp: Optional[str] = Field(None, max_length=50, description="Employee KTP number (any format, up to 50 characters)")
     passport_id: Optional[str] = Field(None, max_length=50, description="Employee passport ID (any format, up to 50 characters)")
-    bod: Optional[date] = Field(None, description="Birth date (YYYY-MM-DD)")
+    bod: date = Field(..., description="Birth date (YYYY-MM-DD) - required")
     
-    @validator('no_ktp')
+    @field_validator('no_ktp')
+    @classmethod
     def validate_no_ktp(cls, v):
         """Clean KTP number - accept any format"""
         if v and str(v).strip() in ['nan', 'NaN', 'NULL', 'null', '']:
             return None
         return v.strip() if v else None
     
-    @validator('passport_id')
+    @field_validator('passport_id')
+    @classmethod
     def validate_passport_id(cls, v):
         """Clean passport ID - accept any format"""
         if v and str(v).strip() in ['nan', 'NaN', 'NULL', 'null', '']:
             return None
         return v.strip() if v else None
-        
-        v = v.strip().upper()
-        
-        if len(v) < 8 or len(v) > 9:
-            raise ValueError('Passport ID must be 8-9 characters long')
-        
-        # Check if first character is a letter
-        if not v[0].isalpha():
-            raise ValueError('Passport ID must start with a letter')
-        
-        # Check if all characters are alphanumeric
-        if not v.isalnum():
-            raise ValueError('Passport ID can only contain letters and numbers')
-        
-        # Count letters and numbers
-        letter_count = sum(1 for c in v if c.isalpha())
-        number_count = sum(1 for c in v if c.isdigit())
-        
-        # Numbers must dominate (be more than letters)
-        if number_count <= letter_count:
-            raise ValueError('Passport ID must have more numbers than letters')
-        
-        return v
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         """Validate and clean name"""
         if not v or not v.strip():
             raise ValueError('Name cannot be empty')
         return v.strip()
     
-    @validator('personal_number')
+    @field_validator('personal_number')
+    @classmethod
     def validate_personal_number(cls, v):
         """Validate personal number if provided"""
         if v is not None:
@@ -70,6 +51,23 @@ class PegawaiCreateRequest(BaseModel):
             if len(v) > 15:
                 raise ValueError('Personal number cannot exceed 15 characters')
         return v
+
+    @model_validator(mode='after')
+    def validate_identifier_requirement(self):
+        """Ensure either NIK or Passport ID is provided"""
+        no_ktp = self.no_ktp
+        passport_id = self.passport_id
+        
+        # Check if NIK is provided and not empty
+        has_nik = no_ktp and no_ktp.strip() and no_ktp.strip() not in ['nan', 'NaN', 'NULL', 'null']
+        
+        # Check if Passport ID is provided and not empty
+        has_passport = passport_id and passport_id.strip() and passport_id.strip() not in ['nan', 'NaN', 'NULL', 'null']
+        
+        if not has_nik and not has_passport:
+            raise ValueError('Either NIK (No KTP) or Passport ID must be provided')
+        
+        return self
 
     class Config:
         json_schema_extra = {
@@ -90,21 +88,24 @@ class PegawaiUpdateRequest(BaseModel):
     passport_id: Optional[str] = Field(None, max_length=50, description="Employee passport ID (any format, up to 50 characters)")
     bod: Optional[date] = Field(None, description="Birth date (YYYY-MM-DD)")
     
-    @validator('no_ktp')
+    @field_validator('no_ktp')
+    @classmethod
     def validate_no_ktp(cls, v):
         """Clean KTP number - accept any format"""
         if v and str(v).strip() in ['nan', 'NaN', 'NULL', 'null', '']:
             return None
         return v.strip() if v else None
     
-    @validator('passport_id')
+    @field_validator('passport_id')
+    @classmethod
     def validate_passport_id(cls, v):
         """Clean passport ID - accept any format"""
         if v and str(v).strip() in ['nan', 'NaN', 'NULL', 'null', '']:
             return None
         return v.strip() if v else None
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         """Validate and clean name"""
         if v is not None:
@@ -113,7 +114,8 @@ class PegawaiUpdateRequest(BaseModel):
                 raise ValueError('Name cannot be empty')
         return v
     
-    @validator('personal_number')
+    @field_validator('personal_number')
+    @classmethod
     def validate_personal_number(cls, v):
         """Validate personal number if provided"""
         if v is not None:

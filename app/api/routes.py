@@ -477,57 +477,94 @@ async def upload_excel_file(
                 warnings = result.get('warnings', [])
                 skipped_records = result.get('skipped_records', [])
                 
-                # Create comprehensive success message with better formatting
+                # Create comprehensive success message with validation details
                 message_parts = []
                 
                 # Header with success status and filename
                 header = f"✅ **Synchronization Successful!**\n📁 **File:** {filename}\n"
                 message_parts.append(header)
                 
-                # Processing summary section
+                # Validation summary section
+                total_in_file = stats.get('total_processed', 0) + stats.get('validation_failed', 0) + stats.get('skipped', 0)
+                validation_passed = stats.get('validation_passed', 0)
+                validation_failed = stats.get('validation_failed', 0)
+                
+                if total_in_file > 0:
+                    success_rate = (validation_passed / total_in_file * 100) if total_in_file > 0 else 0
+                    
+                    validation_summary = [
+                        f"**{total_in_file} total records** in uploaded file",
+                        f"**{validation_passed} records passed validation** and were processed",
+                    ]
+                    
+                    if validation_failed > 0:
+                        validation_summary.append(f"**{validation_failed} records failed validation** and were skipped")
+                    
+                    validation_summary.append(f"**📊 Success rate: {success_rate:.1f}%**")
+                    
+                    message_parts.append("🔍 **Validation Summary:**\n• " + "\n• ".join(validation_summary) + "\n")
+                
+                # Processing summary section - Enhanced to show G_ID reuse vs new creation
                 summary_parts = []
-                if stats['total_processed'] > 0:
-                    summary_parts.append(f"**{stats['total_processed']} records** processed from file")
                 
+                # Show G_ID reuse information first (higher priority)
+                if stats.get('gid_reused', 0) > 0:
+                    summary_parts.append(f"**{stats['gid_reused']} G_IDs reused from employee data** (found existing data in database)")
+                
+                # Show new G_ID creation
                 if stats['new_created'] > 0:
-                    summary_parts.append(f"**{stats['new_created']} new records** created")
+                    summary_parts.append(f"**{stats['new_created']} new G_IDs generated** (completely new data)")
                 
+                # Show existing record updates
                 if stats['existing_updated'] > 0:
-                    summary_parts.append(f"**{stats['existing_updated']} existing records** updated/reactivated")
+                    summary_parts.append(f"**{stats['existing_updated']} existing records updated/reactivated**")
                 
+                # Show deactivations
                 if stats['obsolete_deactivated'] > 0:
-                    summary_parts.append(f"**{stats['obsolete_deactivated']} records** deactivated (not found in uploaded file)")
+                    summary_parts.append(f"**{stats['obsolete_deactivated']} records deactivated** (not found in uploaded file)")
                 
                 if summary_parts:
-                    message_parts.append("📊 **Processing Summary:**\n• " + "\n• ".join(summary_parts) + "\n")
+                    message_parts.append("📋 **Processing Summary:**\n• " + "\n• ".join(summary_parts) + "\n")
                 
-                # Skipped records section (if any)
-                if stats.get('skipped', 0) > 0:
-                    skipped_count = stats['skipped']
-                    records_text = "record" if skipped_count == 1 else "records"
-                    message_parts.append(f"⚠️ **{skipped_count} {records_text} were skipped** due to validation errors:\n")
+                # Validation errors section (if any)
+                if validation_failed > 0 and warnings:
+                    message_parts.append(f"❌ **Validation Errors** ({validation_failed} records failed):\n")
+                    
+                    # Show first 10 validation errors
+                    for i, warning in enumerate(warnings[:10], 1):
+                        message_parts.append(f"   {i}. {warning}")
+                    
+                    if len(warnings) > 10:
+                        message_parts.append(f"\n   ... and {len(warnings) - 10} more validation errors.")
+                    
+                    message_parts.append("\n💡 **Tip:** Records with validation errors were not processed. Fix these issues and upload again.")
                 
-                # Processing notices section
-                if warnings:
-                    message_parts.append("📋 **Processing Notices:**\n• " + "\n• ".join(warnings) + "\n")
+                # Processing notices section (non-validation warnings)
+                non_validation_warnings = [w for w in warnings if not any(keyword in w.lower() for keyword in ['validation', 'ktp', 'passport', 'identifier'])] if warnings else []
+                if non_validation_warnings:
+                    message_parts.append("📋 **Processing Notices:**\n• " + "\n• ".join(non_validation_warnings) + "\n")
                 
                 # Detailed skipped records section
                 if skipped_records:
-                    message_parts.append(f"❌ **Skipped Records Details** ({len(skipped_records)} records):\n")
-                    for i, skipped in enumerate(skipped_records[:10], 1):  # Show first 10 skipped records
+                    message_parts.append(f"📊 **Skipped Records Details** ({len(skipped_records)} records):\n")
+                    for i, skipped in enumerate(skipped_records[:5], 1):  # Show first 5 skipped records
                         message_parts.append(f"   {i}. **Row {skipped['row']}:** {skipped['name']} (KTP: {skipped['ktp']})\n      ↳ *{skipped['errors']}*")
                     
-                    if len(skipped_records) > 10:
-                        message_parts.append(f"\n   ... and {len(skipped_records) - 10} more skipped records.")
-                    
-                    message_parts.append("\n💡 **Next Steps:** Please fix these issues in your file and upload again to process the skipped records.")
+                    if len(skipped_records) > 5:
+                        message_parts.append(f"\n   ... and {len(skipped_records) - 5} more skipped records.")
                 
                 # Error warning (if any)
                 if stats['errors'] > 0:
                     message_parts.append(f"\n⚠️ **Warning:** {stats['errors']} processing errors occurred during synchronization.")
                 
-                # Footer note
-                message_parts.append("\n---\n💡 *Full data synchronization includes automatic activation/deactivation based on uploaded file content.*")
+                # Footer note with validation info
+                message_parts.append("\n---")
+                message_parts.append("�️ **Validation Rules Applied:**")
+                message_parts.append("• Name: Required (2-255 characters)")
+                message_parts.append("• KTP: 16 digits always valid, others need process='1'")
+                message_parts.append("• Passport: 9 chars, starts with letter, fewer letters than numbers")
+                message_parts.append("• At least one valid identifier (KTP or Passport) required")
+                message_parts.append("\n💡 *Use /validation/test-file endpoint to preview validation before upload.*")
                 
                 success_message = "\n".join(message_parts)
                 
@@ -726,7 +763,7 @@ async def reinitialize_database_tables(
     """
     Reinitialize database tables by running the SQL schema creation script
     
-    This will execute the create_schema_sqlserver.sql file to create/recreate the g_id database
+    This will execute the create_schema_sqlserver.sql file to create/recreate the gid_dev database
     and all its tables with the proper structure including passport_id fields.
     """
     if not confirm:
@@ -767,7 +804,7 @@ async def reinitialize_database_tables(
         
         # Create a new engine connection for executing raw SQL
         # We need to connect to master first to create the database
-        master_url = DATABASE_URL.replace('/g_id?', '/master?')
+        master_url = DATABASE_URL.replace('/gid_dev?', '/master?')
         master_engine = create_engine(master_url)
         
         executed_batches = 0
@@ -805,7 +842,7 @@ async def reinitialize_database_tables(
         
         master_engine.dispose()
         
-        # Verify that tables were created by connecting to the g_id database
+        # Verify that tables were created by connecting to the gid_dev database
         g_id_engine = create_engine(DATABASE_URL)
         
         verification_results = {}
@@ -1394,7 +1431,7 @@ async def get_all_database_info(
         result = {
             "g_id": {
                 "database_name": "Global ID Management System - Primary Database",
-                "connection_url": "mssql+pyodbc://sqlvendor1:***@localhost:1435/g_id",
+                "connection_url": "mssql+pyodbc://sqlvendor1:***@localhost:1435/gid_dev",
                 "tables": {}
             }
         }
@@ -2021,6 +2058,154 @@ async def set_validation_config(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating validation config: {str(e)}")
+
+
+@router.post("/validation/test-file")
+async def test_file_validation(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Test file validation without processing - shows which records would pass/fail
+    """
+    try:
+        from app.services.data_validation_service import DataValidationService
+        from app.services.excel_service import ExcelIngestionService
+        
+        validation_service = DataValidationService(db)
+        excel_service = ExcelIngestionService(db)
+        
+        # Read file content
+        content = await file.read()
+        
+        # Process file structure validation
+        file_ext = excel_service._get_file_extension(file.filename)
+        
+        if file_ext in ['.xlsx', '.xls']:
+            import pandas as pd
+            from io import BytesIO
+            df = pd.read_excel(BytesIO(content))
+        elif file_ext == '.csv':
+            df = excel_service._read_csv_with_encoding(content, file.filename)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported file type: {file_ext}")
+        
+        # Validate file structure
+        structure_validation = excel_service._validate_file_structure(df, file.filename)
+        if not structure_validation['valid']:
+            return {
+                "success": False,
+                "error": structure_validation['error'],
+                "structure_validation": structure_validation
+            }
+        
+        df = structure_validation['dataframe']
+        
+        # Convert to records for validation
+        records_for_validation = []
+        data_cleaning_errors = []
+        
+        for row_idx in range(len(df)):
+            row = df.iloc[row_idx]
+            raw_data = {
+                'name': row.get('name'),
+                'personal_number': row.get('personal_number'),
+                'no_ktp': row.get('no_ktp'),
+                'passport_id': row.get('passport_id'),
+                'bod': row.get('bod'),
+                'process': row.get('process')
+            }
+            
+            # Clean the data
+            cleaned_data = excel_service._clean_row_data(raw_data, row_idx + 2)
+            if cleaned_data['valid']:
+                records_for_validation.append(cleaned_data)
+            else:
+                data_cleaning_errors.append(cleaned_data['error'])
+        
+        # Perform batch validation
+        validation_results = validation_service.validate_batch(records_for_validation)
+        
+        # Create detailed report
+        validation_report = validation_service.create_validation_report(validation_results, file.filename)
+        
+        # Get validation configuration status
+        validation_status = validation_service.get_validation_status()
+        
+        return {
+            "success": True,
+            "filename": file.filename,
+            "total_rows": len(df),
+            "validation_status": validation_status,
+            "validation_summary": validation_results['validation_summary'],
+            "valid_records_count": len(validation_results['valid_records']),
+            "invalid_records_count": len(validation_results['invalid_records']),
+            "data_cleaning_errors_count": len(data_cleaning_errors),
+            "validation_report": validation_report,
+            "sample_valid_records": validation_results['valid_records'][:5],  # Show first 5 valid
+            "sample_invalid_records": validation_results['invalid_records'][:5],  # Show first 5 invalid
+            "data_cleaning_errors": data_cleaning_errors[:10],  # Show first 10 cleaning errors
+            "success_rate_percentage": round((len(validation_results['valid_records']) / len(df) * 100), 2) if len(df) > 0 else 0
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error testing file validation: {str(e)}")
+
+
+@router.post("/validation/test-record")
+async def test_record_validation(
+    name: str = Query(..., description="Person's name"),
+    no_ktp: Optional[str] = Query(None, description="KTP/ID number"),
+    passport_id: Optional[str] = Query(None, description="Passport ID"),
+    process: Optional[str] = Query(None, description="Process column value"),
+    bod: Optional[str] = Query(None, description="Birth date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Test validation for a single record
+    """
+    try:
+        from app.services.data_validation_service import DataValidationService
+        
+        validation_service = DataValidationService(db)
+        
+        # Prepare record data
+        record_data = {
+            'name': name,
+            'no_ktp': no_ktp,
+            'passport_id': passport_id,
+            'process': process,
+            'personal_number': None
+        }
+        
+        # Handle birth date
+        if bod:
+            try:
+                import pandas as pd
+                record_data['bod'] = pd.to_datetime(bod).date()
+            except:
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        else:
+            record_data['bod'] = None
+        
+        # Validate record
+        validation_result = validation_service.validate_record(record_data, 1)
+        
+        # Get validation configuration status
+        validation_status = validation_service.get_validation_status()
+        
+        return {
+            "success": True,
+            "record_data": record_data,
+            "validation_status": validation_status,
+            "validation_result": validation_result,
+            "is_valid": validation_result['valid'],
+            "errors": validation_result.get('errors', []),
+            "warnings": validation_result.get('warnings', [])
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error testing record validation: {str(e)}")
 
 
 @router.get("/global-id/debug")

@@ -26,7 +26,23 @@ class ConfigService:
         },
         'passport_validation_enabled': {
             'value': 'true',
-            'description': 'Enable passport ID validation (8-9 chars, starts with letter, numbers dominate)'
+            'description': 'Enable passport ID validation (9 chars, starts with letter, numbers dominate)'
+        },
+        'duplicate_checking': {
+            'value': 'true',
+            'description': 'Enable duplicate record checking'
+        },
+        'allow_duplicates': {
+            'value': 'false',
+            'description': 'Allow duplicate records to be processed'
+        },
+        'validation_enabled': {
+            'value': 'true',
+            'description': 'Master validation toggle'
+        },
+        'skip_validation': {
+            'value': 'false',
+            'description': 'Skip all validation checks'
         }
     }
     

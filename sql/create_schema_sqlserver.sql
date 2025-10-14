@@ -16,11 +16,11 @@ END
 GO
 
 -- Create new database
-CREATE DATABASE g_id;
+CREATE DATABASE gid_dev;
 GO
 
 -- Use the new database
-USE g_id;
+USE gid_dev;
 GO
 
 -- =========================================
@@ -156,16 +156,19 @@ VALUES (25, 0, 'A', 'A', 0);
 GO
 
 -- =========================================
--- Initialize System Configuration (Disable All Validation)
+-- Initialize System Configuration (Enable Strict Validation)
 -- =========================================
 INSERT INTO dbo.system_config (config_key, config_value, description) VALUES
-('strict_validation', 'false', 'Enable strict validation mode'),
-('ktp_validation', 'false', 'Enable KTP number validation'),
-('passport_validation', 'false', 'Enable passport ID validation'),
-('duplicate_checking', 'false', 'Enable duplicate checking'),
-('allow_duplicates', 'true', 'Allow duplicate records'),
-('validation_enabled', 'false', 'Master validation toggle'),
-('skip_validation', 'true', 'Skip all validation checks');
+('strict_validation', 'true', 'Enable strict validation mode'),
+('ktp_validation', 'true', 'Enable KTP number validation'),
+('passport_validation', 'true', 'Enable passport ID validation'),
+('duplicate_checking', 'true', 'Enable duplicate checking'),
+('allow_duplicates', 'false', 'Allow duplicate records'),
+('validation_enabled', 'true', 'Master validation toggle'),
+('skip_validation', 'false', 'Skip all validation checks'),
+('strict_validation_enabled', 'true', 'Strict validation master toggle'),
+('ktp_validation_enabled', 'true', 'Enable KTP validation rules'),
+('passport_validation_enabled', 'true', 'Enable passport validation rules');
 GO
 
 -- =========================================
