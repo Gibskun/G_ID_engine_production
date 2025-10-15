@@ -16,11 +16,11 @@ END
 GO
 
 -- Create new database
-CREATE DATABASE gid_dev;
+CREATE DATABASE g_id;
 GO
 
 -- Use the new database
-USE gid_dev;
+USE g_id;
 GO
 
 -- =========================================

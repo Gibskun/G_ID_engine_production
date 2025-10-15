@@ -26,7 +26,7 @@ The Global ID Management System is an enterprise-grade centralized platform that
 The system follows a **modern layered architecture** designed for performance, scalability, and maintainability:
 
 #### **Data Layer**
-- **Primary Database**: SQL Server 2017 (`gid_dev` database)
+- **Primary Database**: SQL Server 2017 (`g_id` database)
 - **Core Tables**: 
   - `global_id` - Main G_ID records from database sources
   - `global_id_non_database` - G_ID records from Excel/CSV imports
@@ -155,7 +155,7 @@ The system automatically detects and configures itself for both environments:
 - **Authentication**: Custom middleware with session-based auth and role management
 
 ### 🗄️ Database & Storage
-- **Primary Database**: SQL Server 2017 (`gid_dev` database)
+- **Primary Database**: SQL Server 2017 (`g_id` database)
 - **Connection Management**: Advanced connection pooling with configurable pool sizes
 - **Local Development**: SSH tunnel (localhost:1435 → 10.182.128.3:1433)
 - **Production**: Direct connection to 10.182.128.3:1433
@@ -791,7 +791,7 @@ docker run -p 8000:8000 gid-system
 # Database Configuration
 DATABASE_HOST=10.182.128.3      # Auto-detected
 DATABASE_PORT=1433              # Auto-detected  
-DATABASE_NAME=gid_dev
+DATABASE_NAME=g_id
 DATABASE_URL=mssql+pyodbc://... # Auto-generated
 
 # Application Configuration

@@ -79,9 +79,9 @@ class EnvironmentConfig:
         """Apply server-specific configuration"""
         # Override with server settings
         os.environ.setdefault('DATABASE_URL', 
-            'mssql+pyodbc://sqlvendor1:1U~xO%602Un-gGqmPj@10.182.128.3:1433/gid_dev?driver=ODBC+Driver+17+for+SQL+Server')
+            'mssql+pyodbc://sqlvendor1:1U~xO%602Un-gGqmPj@10.182.128.3:1433/g_id?driver=ODBC+Driver+17+for+SQL+Server')
         os.environ.setdefault('SOURCE_DATABASE_URL', 
-            'mssql+pyodbc://sqlvendor1:1U~xO%602Un-gGqmPj@10.182.128.3:1433/gid_dev?driver=ODBC+Driver+17+for+SQL+Server')
+            'mssql+pyodbc://sqlvendor1:1U~xO%602Un-gGqmPj@10.182.128.3:1433/g_id?driver=ODBC+Driver+17+for+SQL+Server')
         
         os.environ.setdefault('DATABASE_HOST', '10.182.128.3')
         os.environ.setdefault('DATABASE_PORT', '1433')
@@ -102,9 +102,9 @@ class EnvironmentConfig:
         """Apply local development configuration"""
         # Use tunnel configuration for local development
         os.environ.setdefault('DATABASE_URL', 
-            'mssql+pyodbc://sqlvendor1:1U~xO%602Un-gGqmPj@127.0.0.1:1435/gid_dev?driver=ODBC+Driver+17+for+SQL+Server')
+            'mssql+pyodbc://sqlvendor1:1U~xO%602Un-gGqmPj@127.0.0.1:1435/g_id?driver=ODBC+Driver+17+for+SQL+Server')
         os.environ.setdefault('SOURCE_DATABASE_URL', 
-            'mssql+pyodbc://sqlvendor1:1U~xO%602Un-gGqmPj@127.0.0.1:1435/gid_dev?driver=ODBC+Driver+17+for+SQL+Server')
+            'mssql+pyodbc://sqlvendor1:1U~xO%602Un-gGqmPj@127.0.0.1:1435/g_id?driver=ODBC+Driver+17+for+SQL+Server')
         
         os.environ.setdefault('DATABASE_HOST', '127.0.0.1')
         os.environ.setdefault('DATABASE_PORT', '1435')

@@ -763,7 +763,7 @@ async def reinitialize_database_tables(
     """
     Reinitialize database tables by running the SQL schema creation script
     
-    This will execute the create_schema_sqlserver.sql file to create/recreate the gid_dev database
+    This will execute the create_schema_sqlserver.sql file to create/recreate the g_id database
     and all its tables with the proper structure including passport_id fields.
     """
     if not confirm:
@@ -804,7 +804,7 @@ async def reinitialize_database_tables(
         
         # Create a new engine connection for executing raw SQL
         # We need to connect to master first to create the database
-        master_url = DATABASE_URL.replace('/gid_dev?', '/master?')
+        master_url = DATABASE_URL.replace('/g_id?', '/master?')
         master_engine = create_engine(master_url)
         
         executed_batches = 0
@@ -842,7 +842,7 @@ async def reinitialize_database_tables(
         
         master_engine.dispose()
         
-        # Verify that tables were created by connecting to the gid_dev database
+        # Verify that tables were created by connecting to the g_id database
         g_id_engine = create_engine(DATABASE_URL)
         
         verification_results = {}
@@ -1431,7 +1431,7 @@ async def get_all_database_info(
         result = {
             "g_id": {
                 "database_name": "Global ID Management System - Primary Database",
-                "connection_url": "mssql+pyodbc://sqlvendor1:***@localhost:1435/gid_dev",
+                "connection_url": "mssql+pyodbc://sqlvendor1:***@localhost:1435/g_id",
                 "tables": {}
             }
         }

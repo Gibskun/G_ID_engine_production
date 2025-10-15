@@ -33,7 +33,7 @@ if env_config:
 else:
     # Fallback configuration
     load_dotenv()
-    DATABASE_URL = os.getenv("DATABASE_URL", "mssql+pyodbc://sqlvendor1:1U~xO%602Un-gGqmPj@127.0.0.1:1435/gid_dev?driver=ODBC+Driver+17+for+SQL+Server")
+    DATABASE_URL = os.getenv("DATABASE_URL", "mssql+pyodbc://sqlvendor1:1U~xO%602Un-gGqmPj@127.0.0.1:1435/g_id?driver=ODBC+Driver+17+for+SQL+Server")
     SOURCE_DATABASE_URL = os.getenv("SOURCE_DATABASE_URL", DATABASE_URL)
     POOL_SIZE = int(os.getenv("DATABASE_POOL_SIZE", "5"))
     MAX_OVERFLOW = int(os.getenv("DATABASE_MAX_OVERFLOW", "10"))
